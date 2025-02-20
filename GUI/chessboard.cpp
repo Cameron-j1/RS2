@@ -5,11 +5,22 @@
 #include <SFML/Graphics.hpp>
 
 const int BOARD_SIZE = 8;
-const int SQUARE_SIZE = 80;  
+const int SQUARE_SIZE = 80;  // Adjust as needed
 
 // Colors for the chessboard
 sf::Color cream(240, 217, 181);
 sf::Color brown(181, 136, 99);
+
+unsigned char board[8][8] = {
+    {'-', '-', '-', '-', '-', '-', '-', '-'},
+    {'-', '-', '-', '-', '-', '-', '-', '-'},
+    {'-', '-', '-', '-', '-', '-', '-', '-'},
+    {'-', '-', '-', '-', '-', '-', '-', '-'},
+    {'-', '-', '-', '-', '-', '-', '-', '-'},
+    {'-', '-', '-', '-', '-', '-', '-', '-'},
+    {'-', '-', '-', '-', '-', '-', '-', '-'},
+    {'-', '-', '-', '-', '-', '-', '-', '-'}
+};
 
 void drawBoard(sf::RenderWindow &window) {
     for (int row = 0; row < BOARD_SIZE; row++) {
@@ -29,7 +40,7 @@ void drawBoard(sf::RenderWindow &window) {
 
 std::vector<sf::Sprite> makePieces(const sf::Texture& texture, std::string fen) {
     std::vector<sf::Sprite> result;
-    // Sprite size is 64 by 64
+    // Sprite size is 60 by 60
     int row = 0, col = 0;
     sf::Sprite piece(texture);
     for (int i = 0; i < fen.length(); i++) {
@@ -111,6 +122,7 @@ std::vector<sf::Sprite> makePieces(const sf::Texture& texture, std::string fen) 
         if (fen[i] != '/' && fen[i] != '8') {
             piece.setPosition(col * SQUARE_SIZE + 8, row * SQUARE_SIZE + 8);
             result.push_back(piece);
+            board[row][col] = fen[i];
             col++;
         }
         
@@ -124,7 +136,7 @@ std::vector<sf::Sprite> makePieces(const sf::Texture& texture, std::string fen) 
 }
 
 int main() {
-    sf::RenderWindow window(sf::VideoMode(BOARD_SIZE * SQUARE_SIZE, BOARD_SIZE * SQUARE_SIZE), "Chess GUI");
+    sf::RenderWindow window(sf::VideoMode(BOARD_SIZE * SQUARE_SIZE, BOARD_SIZE * SQUARE_SIZE), "Chess GUI", sf::Style::Titlebar | sf::Style::Close);
     sf::Texture texture;
     texture.loadFromFile("pieces.png");
     std::string fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR";
@@ -138,6 +150,21 @@ int main() {
         while (window.pollEvent(event)) {
             if (event.type == sf::Event::Closed)
                 window.close();
+
+            if (event.type == sf::Event::MouseButtonPressed) {
+                if (event.mouseButton.button == sf::Mouse::Left) {
+                    sf::Vector2i mousePos = sf::Mouse::getPosition(window);
+                    // Convert to float for bounds checking
+                    sf::Vector2f mousePosF(static_cast<float>(mousePos.x), static_cast<float>(mousePos.y));
+                    for (int i = 0; i < pieces.size(); i++) {
+                        if (pieces[i].getGlobalBounds().contains(mousePosF)) {
+                            unsigned char clickedPiece = board[(int(pieces[i].getPosition().y)-8)/SQUARE_SIZE][(int(pieces[i].getPosition().x)-8)/SQUARE_SIZE];
+                            std::cout << clickedPiece << '\n';
+                            break;
+                        }
+                    }
+                }
+            }
         }
 
         window.clear();
