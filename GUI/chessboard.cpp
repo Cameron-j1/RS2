@@ -3,10 +3,18 @@
 #include <vector>
 #include <cstring>
 #include <algorithm>
+#include <string>
 #include <cctype>
 #include <unordered_map>
 #include <sstream>
+#include <boost/process.hpp>
 #include <SFML/Graphics.hpp>
+
+namespace bp = boost::process;
+
+bp::ipstream stockfish_out; // Capture Stockfish output
+bp::opstream stockfish_in;  // Send commands to Stockfish
+bp::child stockfish("stockfish", bp::std_out > stockfish_out, bp::std_in < stockfish_in);
 
 const int BOARD_SIZE = 8;
 const int SQUARE_SIZE = 80;  // Adjust as needed
@@ -29,6 +37,8 @@ unsigned char board[8][8] = {
 std::vector<sf::RectangleShape> potentialMove;
 std::vector<bool> isPotentialMove;
 std::unordered_map<int, bool> isCastling;
+
+int halfmoveClock = 0, fullmoveNumer = 1;
 
 std::string castlingAvail = "KQkq";
 
@@ -195,6 +205,29 @@ std::vector<std::vector<int>> getPossibleMoves(int row, int col) {
     return moves;
 }
 
+std::vector<std::vector<int>> chessMoveToCoordinates(const std::string& move) {
+
+    // Chessboard columns are 'a' to 'h' -> 0 to 7
+    // Chessboard rows are '1' to '8' -> 0 to 7 (8 is at the top of the board)
+
+    // Extract the column and row from the move
+    char start_col = move[0]; // 'e'
+    char start_row = move[1]; // '2'
+    char end_col = move[2];   // 'e'
+    char end_row = move[3];   // '4'
+
+    // Convert the columns ('a' to 'h') to index (0 to 7)
+    int start_col_index = start_col - 'a'; // 'e' -> 4
+    int end_col_index = end_col - 'a';     // 'e' -> 4
+
+    // Convert rows ('1' to '8') to index (0 to 7)
+    int start_row_index = 8 - (start_row - '0'); // '2' -> 6 (8 - 2)
+    int end_row_index = 8 - (end_row - '0');     // '4' -> 4 (8 - 4)
+
+    // Output the coordinates
+    return {{start_row_index, start_col_index}, {end_row_index, end_col_index}};
+}
+
 void drawBoard(sf::RenderWindow &window) {
     for (int row = 0; row < BOARD_SIZE; row++) {
         for (int col = 0; col < BOARD_SIZE; col++) {
@@ -356,13 +389,14 @@ void logBoard() {
 
 int main() {
 
-    FILE* stockfish = popen("stockfish", "w");
-    if (!stockfish) {
-        std::cerr << "Failed to start Stockfish\n";
-        return 1;
+    stockfish_in << "uci\n" << std::flush;
+    std::string line;
+    while (std::getline(stockfish_out, line)) {
+        if (line == "uciok") {
+            std::cout << "Stockfish gud af \n";
+            break; // UCI initialization completed
+        }
     }
-    fputs("uci\n", stockfish);
-    fputs("isready\n", stockfish);
 
     sf::RenderWindow window(sf::VideoMode(BOARD_SIZE * SQUARE_SIZE, BOARD_SIZE * SQUARE_SIZE), "Chess GUI", sf::Style::Titlebar | sf::Style::Close);
     sf::Texture texture;
@@ -374,6 +408,7 @@ int main() {
     std::vector<sf::Sprite> pieces = makePieces(texture, fen);
     int lastClickedPiece = -1;
     int curRow = 0, curCol = 0;
+    bool whiteCaptured = false, blackTurn = false;
     std::vector<std::vector<int>> moves;
 
     while (window.isOpen()) {
@@ -384,7 +419,7 @@ int main() {
                 window.close();
 
             if (event.type == sf::Event::MouseButtonPressed) {
-                if (event.mouseButton.button == sf::Mouse::Left) {
+                if (event.mouseButton.button == sf::Mouse::Left && !blackTurn) {
                     sf::Vector2i mousePos = sf::Mouse::getPosition(window);
                     // Convert to float for bounds checking
                     sf::Vector2f mousePosF(static_cast<float>(mousePos.x), static_cast<float>(mousePos.y));
@@ -412,6 +447,7 @@ int main() {
                                 
                                 if (isPotentialMove[row*8+col] == true) {
                                     pieces[i].setScale(0.0f, 0.0f);
+                                    whiteCaptured = true;
                                 }
                                 else {
                                     lastClickedPiece = -1;
@@ -427,11 +463,16 @@ int main() {
                             if (potentialMove[i].getGlobalBounds().contains(mousePosF) && isPotentialMove[i] == true) {
                                 int nextRow = (i/8) * SQUARE_SIZE + 8, nextCol = (i%8) * SQUARE_SIZE + 8;
                                 pieces[lastClickedPiece].setPosition(nextCol, nextRow);
+
+                                if (board[curRow][curCol] == 'P' || whiteCaptured) {
+                                    halfmoveClock = 0; whiteCaptured = false;
+                                }
+                                else halfmoveClock++;
+
                                 board[i/8][i%8] = board[curRow][curCol];
                                 board[curRow][curCol] = '-';
 
                                 if (isCastling[i] == true) {
-                                    std::cout << "Castle \n";
                                     int rookNextCol = i % 8 == 2 ? 3 : 5, rookCurCol = i % 8 == 2 ? 0 : 7;
                                     for (int y = 0; y < pieces.size(); y++) {
                                         if ((int(pieces[y].getPosition().y)-8)/SQUARE_SIZE == curRow && (int(pieces[y].getPosition().x)-8)/SQUARE_SIZE == rookCurCol) {
@@ -450,7 +491,7 @@ int main() {
                                         }
                                     }
                                 }
-
+                                blackTurn = true;
                                 lastClickedPiece = -1;
                                 break;
                             }
@@ -464,8 +505,6 @@ int main() {
                         }
                         isPotentialMove.assign(isPotentialMove.size() - 1, false);
                     }
-
-                    // logBoard();
                 }
             }
         }
@@ -483,6 +522,52 @@ int main() {
         }
         window.display();
 
+        // // Send commands to Stockfish
+        if (blackTurn) {
+            fen = "position fen " + generateFullFEN('b', castlingAvail, halfmoveClock, fullmoveNumer) + '\n'; 
+            blackTurn = false;
+            stockfish_in << fen << std::flush;
+            stockfish_in << "go depth 10\n" << std::flush;
+
+            while (std::getline(stockfish_out, line)) {
+                if (line.rfind("bestmove", 0) == 0) {
+                    bool capture = false, pawn = false;
+                    // Extract only the move part
+                    std::istringstream iss(line);
+                    std::string bestmove;
+                    std::string move;
+                    iss >> bestmove >> move; // Skip "bestmove", get the move
+                    // std::cout << move << '\n';
+                    std::vector<std::vector<int>> fishMoves = chessMoveToCoordinates(move);
+                    // std::cout << fishMoves[0][0] << ' ' << fishMoves[0][1] << '\n';
+                    // std::cout << fishMoves[1][0] << ' ' << fishMoves[1][1] << '\n';
+                    for (int i = 0; i < pieces.size(); i++) {
+                        int row = (int(pieces[i].getPosition().y)-8)/SQUARE_SIZE;
+                        int col = (int(pieces[i].getPosition().x)-8)/SQUARE_SIZE;
+                        bool stop1 = false, stop2 = false;
+
+                        if (row == fishMoves[0][0] && col == fishMoves[0][1]) {
+                            pieces[i].setPosition(fishMoves[1][1] * SQUARE_SIZE + 8, fishMoves[1][0] * SQUARE_SIZE + 8);
+                            board[fishMoves[1][0]][fishMoves[1][1]] = board[row][col];
+                            if (board[row][col] == 'p') pawn = true;
+                            board[row][col] = '-';
+                            stop1 = true;
+                        }
+
+                        if (row == fishMoves[1][0] && col == fishMoves[1][1]) {
+                            pieces[i].setScale(0.0f, 0.0f);
+                            capture = true;
+                            stop2 = true;
+                        }
+                        if (stop1 && stop2) break;
+                    }
+                    if (capture || pawn) halfmoveClock = 0; else halfmoveClock++; 
+                    fullmoveNumer++;
+                    break; 
+                }
+            }
+            logBoard();
+        }
     }
     return 0;
 }
