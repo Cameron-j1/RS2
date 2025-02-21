@@ -2,6 +2,9 @@
 #include <cstdio>
 #include <vector>
 #include <cstring>
+#include <algorithm>
+#include <cctype>
+#include <unordered_map>
 #include <SFML/Graphics.hpp>
 
 const int BOARD_SIZE = 8;
@@ -22,11 +25,184 @@ unsigned char board[8][8] = {
     {'-', '-', '-', '-', '-', '-', '-', '-'}
 };
 
+std::vector<sf::RectangleShape> potentialMove;
+std::vector<bool> isPotentialMove;
+std::unordered_map<int, bool> isCastling;
+
+bool isValid(int row, int col) {
+    return row >= 0 && row < 8 && col >= 0 && col < 8;
+}
+
+// Helper function to check if two pieces are enemies (one uppercase, one lowercase)
+bool isEnemy(char piece1, char piece2) {
+    return (std::isupper(piece1) && std::islower(piece2)) || 
+           (std::islower(piece1) && std::isupper(piece2));
+}
+
+std::vector<std::vector<int>> getPossibleMoves(int row, int col) {
+    std::vector<std::vector<int>> moves;
+    char currentPiece = board[row][col];
+    bool isWhite = std::isupper(currentPiece);
+
+    if (!isValid(row, col) || currentPiece == '-') {
+        return moves; // Invalid position or empty cell
+    }
+
+    if (currentPiece == 'p' || currentPiece == 'P') {
+        int direction = isWhite ? -1 : 1; // White moves up, Black moves down
+        int startRow = isWhite ? 6 : 1;   // Starting row for two-step move
+
+        // Forward move
+        int newRow = row + direction;
+        if (isValid(newRow, col) && board[newRow][col] == '-') {
+            moves.push_back({newRow, col});
+            // Two-step move from starting row
+            if (row == startRow && board[newRow + direction][col] == '-') {
+                moves.push_back({newRow + direction, col});
+            }
+        }
+
+        // Capture moves (diagonal)
+        for (int dc : {-1, 1}) {
+            newRow = row + direction;
+            int newCol = col + dc;
+            if (isValid(newRow, newCol) && board[newRow][newCol] != '-' && 
+                isEnemy(currentPiece, board[newRow][newCol])) {
+                moves.push_back({newRow, newCol});
+            }
+        }
+    }
+    else if (currentPiece == 'r' || currentPiece == 'R') {
+        // Directions: up, down, left, right
+        std::vector<std::vector<int>> directions = {{-1, 0}, {1, 0}, {0, -1}, {0, 1}};
+        for (const auto& dir : directions) {
+            int newRow = row, newCol = col;
+            while (true) {
+                newRow += dir[0];
+                newCol += dir[1];
+                if (!isValid(newRow, newCol)) break;
+                if (board[newRow][newCol] == '-') {
+                    moves.push_back({newRow, newCol});
+                }
+                else if (isEnemy(currentPiece, board[newRow][newCol])) {
+                    moves.push_back({newRow, newCol});
+                    break; // Stop after capturing
+                }
+                else {
+                    break; // Blocked by friendly piece
+                }
+            }
+        }
+    }
+    else if (currentPiece == 'n' || currentPiece == 'N') {
+        std::vector<std::vector<int>> offsets = {
+            {-2, -1}, {-2, 1}, {-1, -2}, {-1, 2},
+            {1, -2}, {1, 2}, {2, -1}, {2, 1}
+        };
+        for (const auto& offset : offsets) {
+            int newRow = row + offset[0];
+            int newCol = col + offset[1];
+            if (isValid(newRow, newCol) && 
+                (board[newRow][newCol] == '-' || isEnemy(currentPiece, board[newRow][newCol]))) {
+                moves.push_back({newRow, newCol});
+            }
+        }
+    }
+    else if (currentPiece == 'b' || currentPiece == 'B') {
+        std::vector<std::vector<int>> directions = {{-1, -1}, {-1, 1}, {1, -1}, {1, 1}};
+        for (const auto& dir : directions) {
+            int newRow = row, newCol = col;
+            while (true) {
+                newRow += dir[0];
+                newCol += dir[1];
+                if (!isValid(newRow, newCol)) break;
+                if (board[newRow][newCol] == '-') {
+                    moves.push_back({newRow, newCol});
+                }
+                else if (isEnemy(currentPiece, board[newRow][newCol])) {
+                    moves.push_back({newRow, newCol});
+                    break;
+                }
+                else {
+                    break;
+                }
+            }
+        }
+    }
+    else if (currentPiece == 'q' || currentPiece == 'Q') {
+        std::vector<std::vector<int>> directions = {
+            {-1, 0}, {1, 0}, {0, -1}, {0, 1}, // Rook-like
+            {-1, -1}, {-1, 1}, {1, -1}, {1, 1} // Bishop-like
+        };
+        for (const auto& dir : directions) {
+            int newRow = row, newCol = col;
+            while (true) {
+                newRow += dir[0];
+                newCol += dir[1];
+                if (!isValid(newRow, newCol)) break;
+                if (board[newRow][newCol] == '-') {
+                    moves.push_back({newRow, newCol});
+                }
+                else if (isEnemy(currentPiece, board[newRow][newCol])) {
+                    moves.push_back({newRow, newCol});
+                    break;
+                }
+                else {
+                    break;
+                }
+            }
+        }
+    }
+    else if (currentPiece == 'k' || currentPiece == 'K') {
+        // Standard king moves
+        std::vector<std::vector<int>> offsets = {
+            {-1, -1}, {-1, 0}, {-1, 1},
+            {0, -1},           {0, 1},
+            {1, -1},  {1, 0},  {1, 1}
+        };
+        for (const auto& offset : offsets) {
+            int newRow = row + offset[0];
+            int newCol = col + offset[1];
+            if (isValid(newRow, newCol) && 
+                (board[newRow][newCol] == '-' || isEnemy(currentPiece, board[newRow][newCol]))) {
+                moves.push_back({newRow, newCol});
+            }
+        }
+
+        // Castling moves
+        bool isWhite = (currentPiece == 'K');
+        int startRow = isWhite ? 7 : 0; // White king at row 7, Black at row 0
+        
+        if (row == startRow && col == 4) { // King must be at e1 (7,4) or e8 (0,4)
+            // Kingside castling (right, toward h-file)
+            if (board[startRow][7] == (isWhite ? 'R' : 'r') && // Rook at h1/h8
+                board[startRow][5] == '-' && board[startRow][6] == '-') { // f and g empty
+                moves.push_back({startRow, 6}); // King moves to g1/g8
+                isCastling[startRow * 8 + 6] = true;
+            }
+            // Queenside castling (left, toward a-file)
+            if (board[startRow][0] == (isWhite ? 'R' : 'r') && // Rook at a1/a8
+                board[startRow][1] == '-' && board[startRow][2] == '-' && board[startRow][3] == '-') { // b, c, d empty
+                moves.push_back({startRow, 2}); // King moves to c1/c8
+                isCastling[startRow * 8 + 2] = true;
+            }
+        }
+    }
+
+    return moves;
+}
+
 void drawBoard(sf::RenderWindow &window) {
     for (int row = 0; row < BOARD_SIZE; row++) {
         for (int col = 0; col < BOARD_SIZE; col++) {
             sf::RectangleShape square(sf::Vector2f(SQUARE_SIZE, SQUARE_SIZE));
+            sf::RectangleShape potentialMoveSquare(sf::Vector2f(SQUARE_SIZE, SQUARE_SIZE));
+
             square.setPosition(col * SQUARE_SIZE, row * SQUARE_SIZE);
+            potentialMoveSquare.setPosition(col * SQUARE_SIZE, row * SQUARE_SIZE);
+            potentialMoveSquare.setFillColor(sf::Color(255, 0, 0, 0));
+            potentialMove.push_back(potentialMoveSquare);
+            isPotentialMove.push_back(false);
 
             if ((row + col) % 2 == 0)
                 square.setFillColor(cream);
@@ -37,6 +213,8 @@ void drawBoard(sf::RenderWindow &window) {
         }
     }
 }
+
+
 
 std::vector<sf::Sprite> makePieces(const sf::Texture& texture, std::string fen) {
     std::vector<sf::Sprite> result;
@@ -144,6 +322,8 @@ int main() {
     window.setVerticalSyncEnabled(false);
     std::vector<std::string> pieceName;
     std::vector<sf::Sprite> pieces = makePieces(texture, fen);
+    int lastClickedPiece = -1;
+    int curRow = 0, curCol = 0;
 
     while (window.isOpen()) {
         sf::Event event;
@@ -156,13 +336,71 @@ int main() {
                     sf::Vector2i mousePos = sf::Mouse::getPosition(window);
                     // Convert to float for bounds checking
                     sf::Vector2f mousePosF(static_cast<float>(mousePos.x), static_cast<float>(mousePos.y));
+                    bool foundPiece = false;
+
+                    // First mouse click, to select the pieces and display possible moves for that piece
                     for (int i = 0; i < pieces.size(); i++) {
                         if (pieces[i].getGlobalBounds().contains(mousePosF)) {
-                            unsigned char clickedPiece = board[(int(pieces[i].getPosition().y)-8)/SQUARE_SIZE][(int(pieces[i].getPosition().x)-8)/SQUARE_SIZE];
-                            std::cout << clickedPiece << '\n';
+                            if (lastClickedPiece == -1) {
+                                curRow = (int(pieces[i].getPosition().y)-8)/SQUARE_SIZE;
+                                curCol = (int(pieces[i].getPosition().x)-8)/SQUARE_SIZE;
+                                foundPiece = true;
+                                lastClickedPiece = i;
+                                auto moves = getPossibleMoves(curRow, curCol);
+                                isPotentialMove.assign(isPotentialMove.size() - 1, false);
+
+                                for (const auto& move : moves) {
+                                    isPotentialMove[move[0]*8 + move[1]] = true;
+                                }
+                            }
+
+                            else if (lastClickedPiece != -1) {
+                                pieces[i].setScale(0.0f, 0.0f);
+                            }
                             break;
                         }
                     }
+                    
+                    // Second click to confirm next move
+                    if (!foundPiece && lastClickedPiece != -1) {
+                        for (int i = 0; i < potentialMove.size(); i++) {
+                            if (potentialMove[i].getGlobalBounds().contains(mousePosF) && isPotentialMove[i] == true) {
+                                int nextRow = (i/8) * SQUARE_SIZE + 8, nextCol = (i%8) * SQUARE_SIZE + 8;
+                                pieces[lastClickedPiece].setPosition(nextCol, nextRow);
+                                board[i/8][i%8] = board[curRow][curCol];
+                                board[curRow][curCol] = '-';
+                                // Move the corresponding rook if a castling move is detected
+                                if (isCastling[i] == true) {
+                                    // std::cout << "Castle \n";
+                                    int rookNextCol = i % 8 == 2 ? 3 : 5, rookCurCol = i % 8 == 2 ? 0 : 7;
+                                    for (int y = 0; y < pieces.size(); y++) {
+                                        if ((int(pieces[y].getPosition().y)-8)/SQUARE_SIZE == curRow && (int(pieces[y].getPosition().x)-8)/SQUARE_SIZE == rookCurCol) {
+                                            pieces[y].setPosition(rookNextCol * SQUARE_SIZE + 8, curRow * SQUARE_SIZE + 8);
+                                            board[curRow][rookNextCol] = board[curRow][rookCurCol];
+                                            board[curRow][rookCurCol] = '-';
+                                            break;
+                                        }
+                                    }
+                                }
+
+                                lastClickedPiece = -1;
+                                break;
+                            }
+                        }
+                        for (auto& pair : isCastling) {
+                            pair.second = false;
+                        }
+                        isPotentialMove.assign(isPotentialMove.size() - 1, false);
+                    }
+
+                    // Print the current state of the chess board
+                    // for (int i = 0; i < 8; i++) {
+                    //     for (int y = 0; y < 8; y++) {
+                    //         std::cout << board[i][y] << ' ';
+                    //     }
+                    //     std::cout << '\n';
+                    // }
+                    // std::cout << '\n';
                 }
             }
         }
@@ -171,6 +409,12 @@ int main() {
         drawBoard(window);
         for (int i = 0; i < pieces.size(); i++) {
             window.draw(pieces[i]);
+        }
+        for (int i = 0; i < isPotentialMove.size(); i++) {
+            if (isPotentialMove[i] == true) {
+                potentialMove[i].setFillColor(sf::Color(255, 0, 0, 100));
+                window.draw(potentialMove[i]);
+            }
         }
         window.display();
     }
