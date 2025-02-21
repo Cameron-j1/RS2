@@ -6,7 +6,7 @@ SFML graphic library: sudo apt install libsfml-dev
 
 If you havent got boost, install by sudo apt install libboost-all-dev
 
-To build, run: g++ chessAPI.cpp -o chess -lsfml-graphics -lsfml-window -lsfml-system -lboost_system -lboost_program_options -lpthread
+To build, run: g++ chessboard.cpp -o chess -lsfml-graphics -lsfml-window -lsfml-system -lboost_system -lboost_program_options -lpthread
 
 To run: ./chess
 
