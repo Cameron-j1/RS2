@@ -7,6 +7,8 @@
 #include <cctype>
 #include <unordered_map>
 #include <sstream>
+#include <thread>
+#include <chrono>
 #include <boost/process.hpp>
 #include <SFML/Graphics.hpp>
 
@@ -398,7 +400,7 @@ int main() {
         }
     }
 
-    sf::RenderWindow window(sf::VideoMode(BOARD_SIZE * SQUARE_SIZE, BOARD_SIZE * SQUARE_SIZE), "Chess GUI", sf::Style::Titlebar | sf::Style::Close);
+    sf::RenderWindow window(sf::VideoMode(BOARD_SIZE * SQUARE_SIZE, BOARD_SIZE * SQUARE_SIZE), "Chessy", sf::Style::Titlebar | sf::Style::Close);
     sf::Texture texture;
     texture.loadFromFile("pieces.png");
     std::string fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR";
@@ -477,14 +479,9 @@ int main() {
                                     for (int y = 0; y < pieces.size(); y++) {
                                         if ((int(pieces[y].getPosition().y)-8)/SQUARE_SIZE == curRow && (int(pieces[y].getPosition().x)-8)/SQUARE_SIZE == rookCurCol) {
                                             pieces[y].setPosition(rookNextCol * SQUARE_SIZE + 8, curRow * SQUARE_SIZE + 8);
-                                            if(std::isupper(board[curRow][rookCurCol])) {
-                                                castlingAvail.erase(std::remove(castlingAvail.begin(), castlingAvail.end(), 'K'), castlingAvail.end());
-                                                castlingAvail.erase(std::remove(castlingAvail.begin(), castlingAvail.end(), 'Q'), castlingAvail.end());
-                                            }
-                                            else {
-                                                castlingAvail.erase(std::remove(castlingAvail.begin(), castlingAvail.end(), 'k'), castlingAvail.end());
-                                                castlingAvail.erase(std::remove(castlingAvail.begin(), castlingAvail.end(), 'q'), castlingAvail.end());
-                                            }
+                                            castlingAvail.erase(std::remove(castlingAvail.begin(), castlingAvail.end(), 'K'), castlingAvail.end());
+                                            castlingAvail.erase(std::remove(castlingAvail.begin(), castlingAvail.end(), 'Q'), castlingAvail.end());
+                                            if (castlingAvail.length() == 0) castlingAvail = "-";
                                             board[curRow][rookNextCol] = board[curRow][rookCurCol];
                                             board[curRow][rookCurCol] = '-';
                                             break;
@@ -505,6 +502,8 @@ int main() {
                         }
                         isPotentialMove.assign(isPotentialMove.size() - 1, false);
                     }
+                    // std::cout << halfmoveClock << '\n';
+                    // logBoard();
                 }
             }
         }
@@ -521,9 +520,9 @@ int main() {
             }
         }
         window.display();
-
         // // Send commands to Stockfish
         if (blackTurn) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(500)); // Sleep for 2 seconds
             fen = "position fen " + generateFullFEN('b', castlingAvail, halfmoveClock, fullmoveNumer) + '\n'; 
             blackTurn = false;
             stockfish_in << fen << std::flush;
@@ -539,8 +538,6 @@ int main() {
                     iss >> bestmove >> move; // Skip "bestmove", get the move
                     // std::cout << move << '\n';
                     std::vector<std::vector<int>> fishMoves = chessMoveToCoordinates(move);
-                    // std::cout << fishMoves[0][0] << ' ' << fishMoves[0][1] << '\n';
-                    // std::cout << fishMoves[1][0] << ' ' << fishMoves[1][1] << '\n';
                     for (int i = 0; i < pieces.size(); i++) {
                         int row = (int(pieces[i].getPosition().y)-8)/SQUARE_SIZE;
                         int col = (int(pieces[i].getPosition().x)-8)/SQUARE_SIZE;
@@ -550,6 +547,23 @@ int main() {
                             pieces[i].setPosition(fishMoves[1][1] * SQUARE_SIZE + 8, fishMoves[1][0] * SQUARE_SIZE + 8);
                             board[fishMoves[1][0]][fishMoves[1][1]] = board[row][col];
                             if (board[row][col] == 'p') pawn = true;
+                            // Castling check and move the correct rooks
+                            if (board[row][col] == 'k' && abs(fishMoves[0][1] - fishMoves[1][1]) > 1) {
+                                int rookNextCol = fishMoves[1][1] == 2 ? 3 : 5, rookCurCol = fishMoves[1][1] == 2 ? 0 : 7;
+                                // Move rooks and update the board
+                                for (int y = 0; y < pieces.size(); y++) {
+                                    if ((int(pieces[y].getPosition().y)-8)/SQUARE_SIZE == row && (int(pieces[y].getPosition().x)-8)/SQUARE_SIZE == rookCurCol) {
+                                        pieces[y].setPosition(rookNextCol * SQUARE_SIZE + 8, row * SQUARE_SIZE + 8);
+                                        castlingAvail.erase(std::remove(castlingAvail.begin(), castlingAvail.end(), 'k'), castlingAvail.end());
+                                        castlingAvail.erase(std::remove(castlingAvail.begin(), castlingAvail.end(), 'q'), castlingAvail.end());
+                                        if (castlingAvail.length() == 0) castlingAvail = "-";
+                                        board[row][rookNextCol] = board[row][rookCurCol];
+                                        board[row][rookCurCol] = '-';
+                                        break;
+                                    }
+                                }
+                            }
+
                             board[row][col] = '-';
                             stop1 = true;
                         }
@@ -563,11 +577,14 @@ int main() {
                     }
                     if (capture || pawn) halfmoveClock = 0; else halfmoveClock++; 
                     fullmoveNumer++;
-                    break; 
+                    break; // Stop after printing the move
                 }
             }
             logBoard();
         }
     }
+    
+    stockfish_in << "quit\n" << std::flush;
+    stockfish.wait(); // Wait for the process to finish
     return 0;
 }
