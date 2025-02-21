@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <cctype>
 #include <unordered_map>
+#include <sstream>
 #include <SFML/Graphics.hpp>
 
 const int BOARD_SIZE = 8;
@@ -28,6 +29,8 @@ unsigned char board[8][8] = {
 std::vector<sf::RectangleShape> potentialMove;
 std::vector<bool> isPotentialMove;
 std::unordered_map<int, bool> isCastling;
+
+std::string castlingAvail = "KQkq";
 
 bool isValid(int row, int col) {
     return row >= 0 && row < 8 && col >= 0 && col < 8;
@@ -214,7 +217,35 @@ void drawBoard(sf::RenderWindow &window) {
     }
 }
 
-
+std::string generateFullFEN(char activeColor, 
+                            std::string castling, int halfmoveClock, 
+                            int fullmoveNumber) {
+    std::stringstream fen;
+    for (int row = 0; row < 8; ++row) {
+        int emptyCount = 0;
+        for (int col = 0; col < 8; ++col) {
+            char square = board[row][col];
+            if (square == '-') {
+                ++emptyCount;
+            } else {
+                if (emptyCount > 0) {
+                    fen << emptyCount;
+                    emptyCount = 0;
+                }
+                fen << square;
+            }
+        }
+        if (emptyCount > 0) {
+            fen << emptyCount;
+        }
+        if (row < 7) {
+            fen << '/';
+        }
+    }
+    fen << " " << activeColor << " " << (castling.empty() ? "-" : castling) 
+        << " - " << halfmoveClock << " " << fullmoveNumber; // En passant always "-"
+    return fen.str();
+}
 
 std::vector<sf::Sprite> makePieces(const sf::Texture& texture, std::string fen) {
     std::vector<sf::Sprite> result;
@@ -313,7 +344,26 @@ std::vector<sf::Sprite> makePieces(const sf::Texture& texture, std::string fen) 
     return result;
 }
 
+void logBoard() {
+    for (int i = 0; i < 8; i++) {
+        for (int y = 0; y < 8; y++) {
+            std::cout << board[i][y] << ' ';
+        }
+        std::cout << '\n';
+    }
+    std::cout << '\n';
+}
+
 int main() {
+
+    FILE* stockfish = popen("stockfish", "w");
+    if (!stockfish) {
+        std::cerr << "Failed to start Stockfish\n";
+        return 1;
+    }
+    fputs("uci\n", stockfish);
+    fputs("isready\n", stockfish);
+
     sf::RenderWindow window(sf::VideoMode(BOARD_SIZE * SQUARE_SIZE, BOARD_SIZE * SQUARE_SIZE), "Chess GUI", sf::Style::Titlebar | sf::Style::Close);
     sf::Texture texture;
     texture.loadFromFile("pieces.png");
@@ -324,15 +374,11 @@ int main() {
     std::vector<sf::Sprite> pieces = makePieces(texture, fen);
     int lastClickedPiece = -1;
     int curRow = 0, curCol = 0;
-    // for (int i = 0; i < 8; i++) {
-    //     for (int y = 0; y < 8; y++) {
-    //         std::cout << board[i][y] << ' ';
-    //     }
-    //     std::cout << '\n';
-    // }
+    std::vector<std::vector<int>> moves;
 
     while (window.isOpen()) {
         sf::Event event;
+        // Human to move
         while (window.pollEvent(event)) {
             if (event.type == sf::Event::Closed)
                 window.close();
@@ -352,7 +398,7 @@ int main() {
                                 curCol = (int(pieces[i].getPosition().x)-8)/SQUARE_SIZE;
                                 foundPiece = true;
                                 lastClickedPiece = i;
-                                auto moves = getPossibleMoves(curRow, curCol);
+                                moves = getPossibleMoves(curRow, curCol);
                                 isPotentialMove.assign(isPotentialMove.size() - 1, false);
 
                                 for (const auto& move : moves) {
@@ -361,7 +407,15 @@ int main() {
                             }
 
                             else if (lastClickedPiece != -1) {
-                                pieces[i].setScale(0.0f, 0.0f);
+                                int row = (int(pieces[i].getPosition().y)-8)/SQUARE_SIZE;
+                                int col = (int(pieces[i].getPosition().x)-8)/SQUARE_SIZE;
+                                
+                                if (isPotentialMove[row*8+col] == true) {
+                                    pieces[i].setScale(0.0f, 0.0f);
+                                }
+                                else {
+                                    lastClickedPiece = -1;
+                                }
                             }
                             break;
                         }
@@ -377,11 +431,19 @@ int main() {
                                 board[curRow][curCol] = '-';
 
                                 if (isCastling[i] == true) {
-                                    // std::cout << "Castle \n";
+                                    std::cout << "Castle \n";
                                     int rookNextCol = i % 8 == 2 ? 3 : 5, rookCurCol = i % 8 == 2 ? 0 : 7;
                                     for (int y = 0; y < pieces.size(); y++) {
                                         if ((int(pieces[y].getPosition().y)-8)/SQUARE_SIZE == curRow && (int(pieces[y].getPosition().x)-8)/SQUARE_SIZE == rookCurCol) {
                                             pieces[y].setPosition(rookNextCol * SQUARE_SIZE + 8, curRow * SQUARE_SIZE + 8);
+                                            if(std::isupper(board[curRow][rookCurCol])) {
+                                                castlingAvail.erase(std::remove(castlingAvail.begin(), castlingAvail.end(), 'K'), castlingAvail.end());
+                                                castlingAvail.erase(std::remove(castlingAvail.begin(), castlingAvail.end(), 'Q'), castlingAvail.end());
+                                            }
+                                            else {
+                                                castlingAvail.erase(std::remove(castlingAvail.begin(), castlingAvail.end(), 'k'), castlingAvail.end());
+                                                castlingAvail.erase(std::remove(castlingAvail.begin(), castlingAvail.end(), 'q'), castlingAvail.end());
+                                            }
                                             board[curRow][rookNextCol] = board[curRow][rookCurCol];
                                             board[curRow][rookCurCol] = '-';
                                             break;
@@ -403,13 +465,7 @@ int main() {
                         isPotentialMove.assign(isPotentialMove.size() - 1, false);
                     }
 
-                    // for (int i = 0; i < 8; i++) {
-                    //     for (int y = 0; y < 8; y++) {
-                    //         std::cout << board[i][y] << ' ';
-                    //     }
-                    //     std::cout << '\n';
-                    // }
-                    // std::cout << '\n';
+                    // logBoard();
                 }
             }
         }
@@ -426,7 +482,7 @@ int main() {
             }
         }
         window.display();
-  
+
     }
     return 0;
 }
