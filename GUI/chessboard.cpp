@@ -324,6 +324,12 @@ int main() {
     std::vector<sf::Sprite> pieces = makePieces(texture, fen);
     int lastClickedPiece = -1;
     int curRow = 0, curCol = 0;
+    // for (int i = 0; i < 8; i++) {
+    //     for (int y = 0; y < 8; y++) {
+    //         std::cout << board[i][y] << ' ';
+    //     }
+    //     std::cout << '\n';
+    // }
 
     while (window.isOpen()) {
         sf::Event event;
@@ -369,7 +375,7 @@ int main() {
                                 pieces[lastClickedPiece].setPosition(nextCol, nextRow);
                                 board[i/8][i%8] = board[curRow][curCol];
                                 board[curRow][curCol] = '-';
-                                // Move the corresponding rook if a castling move is detected
+
                                 if (isCastling[i] == true) {
                                     // std::cout << "Castle \n";
                                     int rookNextCol = i % 8 == 2 ? 3 : 5, rookCurCol = i % 8 == 2 ? 0 : 7;
@@ -386,6 +392,10 @@ int main() {
                                 lastClickedPiece = -1;
                                 break;
                             }
+
+                            else if (potentialMove[i].getGlobalBounds().contains(mousePosF) && isPotentialMove[i] == false) {
+                                lastClickedPiece = -1;
+                            }
                         }
                         for (auto& pair : isCastling) {
                             pair.second = false;
@@ -393,7 +403,6 @@ int main() {
                         isPotentialMove.assign(isPotentialMove.size() - 1, false);
                     }
 
-                    // Print the current state of the chess board
                     // for (int i = 0; i < 8; i++) {
                     //     for (int y = 0; y < 8; y++) {
                     //         std::cout << board[i][y] << ' ';
@@ -417,6 +426,7 @@ int main() {
             }
         }
         window.display();
+  
     }
     return 0;
 }
