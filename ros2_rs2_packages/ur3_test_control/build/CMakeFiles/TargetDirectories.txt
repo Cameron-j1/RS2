@@ -1,0 +1,12 @@
+/home/charles/ros2_ws/src/ur3_test_control/build/CMakeFiles/uninstall.dir
+/home/charles/ros2_ws/src/ur3_test_control/build/CMakeFiles/ur3_test_control_uninstall.dir
+/home/charles/ros2_ws/src/ur3_test_control/build/CMakeFiles/joint_publisher.dir
+/home/charles/ros2_ws/src/ur3_test_control/build/CMakeFiles/keyboard_publisher.dir
+/home/charles/ros2_ws/src/ur3_test_control/build/CMakeFiles/trajectory_node.dir
+/home/charles/ros2_ws/src/ur3_test_control/build/CMakeFiles/test.dir
+/home/charles/ros2_ws/src/ur3_test_control/build/CMakeFiles/edit_cache.dir
+/home/charles/ros2_ws/src/ur3_test_control/build/CMakeFiles/rebuild_cache.dir
+/home/charles/ros2_ws/src/ur3_test_control/build/CMakeFiles/list_install_components.dir
+/home/charles/ros2_ws/src/ur3_test_control/build/CMakeFiles/install.dir
+/home/charles/ros2_ws/src/ur3_test_control/build/CMakeFiles/install/local.dir
+/home/charles/ros2_ws/src/ur3_test_control/build/CMakeFiles/install/strip.dir
