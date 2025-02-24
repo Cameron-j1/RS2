@@ -1,0 +1,97 @@
+{
+	"configurations" : 
+	[
+		{
+			"directories" : 
+			[
+				{
+					"build" : ".",
+					"hasInstallRule" : true,
+					"jsonFile" : "directory-.-Debug-2ed2dc58229a195c8452.json",
+					"minimumCMakeVersion" : 
+					{
+						"string" : "3.12"
+					},
+					"projectIndex" : 0,
+					"source" : ".",
+					"targetIndexes" : 
+					[
+						0,
+						1,
+						2,
+						3,
+						4
+					]
+				}
+			],
+			"name" : "Debug",
+			"projects" : 
+			[
+				{
+					"directoryIndexes" : 
+					[
+						0
+					],
+					"name" : "ur3_test_control",
+					"targetIndexes" : 
+					[
+						0,
+						1,
+						2,
+						3,
+						4
+					]
+				}
+			],
+			"targets" : 
+			[
+				{
+					"directoryIndex" : 0,
+					"id" : "joint_publisher::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-joint_publisher-Debug-c88a1ecd96e85278af34.json",
+					"name" : "joint_publisher",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "keyboard_publisher::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-keyboard_publisher-Debug-1d18427365d07b4a3247.json",
+					"name" : "keyboard_publisher",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "trajectory_node::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-trajectory_node-Debug-e99eedb3298d49d20cc2.json",
+					"name" : "trajectory_node",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "uninstall::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-uninstall-Debug-24a1abf3a169050c6a1c.json",
+					"name" : "uninstall",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "ur3_test_control_uninstall::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-ur3_test_control_uninstall-Debug-70f06ae55a09744f0ddf.json",
+					"name" : "ur3_test_control_uninstall",
+					"projectIndex" : 0
+				}
+			]
+		}
+	],
+	"kind" : "codemodel",
+	"paths" : 
+	{
+		"build" : "/home/charles/ros2_ws/src/ur3_test_control/build",
+		"source" : "/home/charles/ros2_ws/src/ur3_test_control"
+	},
+	"version" : 
+	{
+		"major" : 2,
+		"minor" : 3
+	}
+}
