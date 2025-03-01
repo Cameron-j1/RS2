@@ -1,7 +1,10 @@
 #include <memory>
 #include <rclcpp/rclcpp.hpp>
 #include <moveit/move_group_interface/move_group_interface.h>
+#include <moveit/planning_scene_interface/planning_scene_interface.h>
 #include <geometry_msgs/msg/pose.hpp>
+#include <moveit_msgs/msg/collision_object.hpp>
+#include <shape_msgs/msg/solid_primitive.hpp>
 
 int main(int argc, char * argv[])
 {
@@ -22,6 +25,9 @@ int main(int argc, char * argv[])
     // Create the MoveGroupInterface
     moveit::planning_interface::MoveGroupInterface move_group(node, PLANNING_GROUP);
     
+    // Create the PlanningSceneInterface
+    moveit::planning_interface::PlanningSceneInterface planning_scene_interface;
+    
     // Print info about the robot
     RCLCPP_INFO(node->get_logger(), "Reference frame: %s", move_group.getPlanningFrame().c_str());
     RCLCPP_INFO(node->get_logger(), "End effector link: %s", move_group.getEndEffectorLink().c_str());
@@ -31,6 +37,46 @@ int main(int argc, char * argv[])
     for (const auto& group_name : group_names) {
         RCLCPP_INFO(node->get_logger(), "  %s", group_name.c_str());
     }
+    
+    // Wait a bit for ROS to be fully initialized
+    rclcpp::sleep_for(std::chrono::seconds(1));
+    
+    // Add a large cube directly under the robot base
+    moveit_msgs::msg::CollisionObject collision_object;
+    collision_object.header.frame_id = move_group.getPlanningFrame(); // Use the planning frame
+    collision_object.id = "floor_cube";
+    
+    // Define the cube as 1.5m in all dimensions
+    shape_msgs::msg::SolidPrimitive primitive;
+    primitive.type = primitive.BOX;
+    primitive.dimensions.resize(3);
+    primitive.dimensions[primitive.BOX_X] = 1.5;  // 1.5m in x-direction
+    primitive.dimensions[primitive.BOX_Y] = 1.5;  // 1.5m in y-direction
+    primitive.dimensions[primitive.BOX_Z] = 1.5;  // 1.5m in z-direction
+    
+    // Define the pose of the cube
+    // For UR robots, the base is typically at 0,0,0 in the base_link frame
+    // So we'll position the top of the cube at z=0 (the robot base level)
+    // and center it at x=0, y=0
+    geometry_msgs::msg::Pose box_pose;
+    box_pose.orientation.w = 1.0;
+    box_pose.position.x = 0.0;  // Centered at x=0
+    box_pose.position.y = 0.0;  // Centered at y=0
+    box_pose.position.z = -0.75;  // Position is at the center of the box, so -0.75 puts the top at z=0
+    
+    // Add the primitive and pose to the collision object
+    collision_object.primitives.push_back(primitive);
+    collision_object.primitive_poses.push_back(box_pose);
+    collision_object.operation = collision_object.ADD;
+    
+    // Add the collision object to the planning scene
+    std::vector<moveit_msgs::msg::CollisionObject> collision_objects;
+    collision_objects.push_back(collision_object);
+    RCLCPP_INFO(node->get_logger(), "Adding large cube under robot base to planning scene");
+    planning_scene_interface.addCollisionObjects(collision_objects);
+    
+    // Give the planning scene some time to update
+    rclcpp::sleep_for(std::chrono::seconds(1));
     
     // Get current pose and joint values
     geometry_msgs::msg::PoseStamped current_pose = move_group.getCurrentPose();
@@ -45,10 +91,6 @@ int main(int argc, char * argv[])
     for (size_t i = 0; i < current_joints.size(); ++i) {
         RCLCPP_INFO(node->get_logger(), "  Joint %zu: %.3f", i, current_joints[i]);
     }
-    
-    // Wait for everything to be ready
-    RCLCPP_INFO(node->get_logger(), "Waiting for 2 seconds...");
-    rclcpp::sleep_for(std::chrono::seconds(2));
     
     // Define a target pose for your end effector
     geometry_msgs::msg::Pose target_pose;
@@ -87,6 +129,12 @@ int main(int argc, char * argv[])
     {
         RCLCPP_ERROR(node->get_logger(), "Planning failed with error code: %d", planning_result.val);
     }
+    
+    // Optional: Remove objects from the scene when done
+    RCLCPP_INFO(node->get_logger(), "Removing objects from the scene");
+    std::vector<std::string> object_ids;
+    object_ids.push_back("floor_cube");
+    planning_scene_interface.removeCollisionObjects(object_ids);
     
     RCLCPP_INFO(node->get_logger(), "Done. Shutting down...");
     rclcpp::shutdown();
