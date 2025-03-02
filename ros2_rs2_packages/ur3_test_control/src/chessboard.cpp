@@ -466,7 +466,7 @@ int main(int argc, char * argv[]) {
                                 int col = (int(pieces[i].getPosition().x)-8)/SQUARE_SIZE;
                                 
                                 if (isPotentialMove[row*8+col] == true) {
-                                    pieces[i].setScale(0.0f, 0.0f);
+                                    pieces[i].setPosition(5000.0f, 5000.0f);
                                     whiteCaptured = true;
                                 }
                                 else {
@@ -566,11 +566,20 @@ int main(int argc, char * argv[]) {
                     for (int i = 0; i < pieces.size(); i++) {
                         int row = (int(pieces[i].getPosition().y)-8)/SQUARE_SIZE;
                         int col = (int(pieces[i].getPosition().x)-8)/SQUARE_SIZE;
-                        bool stop1 = false, stop2 = false;
                         // Find the piece that stockfish want to play
                         if (row == fishMoves[0][0] && col == fishMoves[0][1]) {
+                            for (int y = 0; y < pieces.size(); y++) {
+                                int rowy = (int(pieces[y].getPosition().y)-8)/SQUARE_SIZE;
+                                int coly = (int(pieces[y].getPosition().x)-8)/SQUARE_SIZE; 
+                                if (rowy == fishMoves[1][0] && coly == fishMoves[1][1]) {
+                                    pieces[y].setPosition(5000.0f, 5000.0f);
+                                    capture = true;
+                                    break;
+                                }
+                            }
                             pieces[i].setPosition(fishMoves[1][1] * SQUARE_SIZE + 8, fishMoves[1][0] * SQUARE_SIZE + 8);
                             board[fishMoves[1][0]][fishMoves[1][1]] = board[row][col];
+
                             if (board[row][col] == 'p') pawn = true;
                             // Castling check and move the correct rooks
                             if (board[row][col] == 'k' && abs(fishMoves[0][1] - fishMoves[1][1]) > 1) {
@@ -591,17 +600,8 @@ int main(int argc, char * argv[]) {
                             }
 
                             board[row][col] = '-';
-                            stop1 = true;
+                            break;
                         }
-                        // Delete the piece that stockfish wants to capture
-                        if (row == fishMoves[1][0] && col == fishMoves[1][1]) {
-                            moveType = 'x';
-                            pieces[i].setScale(0.0f, 0.0f);
-                            capture = true;
-                            stop2 = true;
-                        }
-                        // Break out of the loop when all graphic processes are complete
-                        if (stop1 && stop2) break;
                     }
                     if (capture || pawn) halfmoveClock = 0; else halfmoveClock++; 
                     fullmoveNumer++;
@@ -611,6 +611,14 @@ int main(int argc, char * argv[]) {
             }
             publisher->publish(msg);
             // logBoard();
+            for (int i = 0; i < 8; i++) {
+                std::string row;
+                for (int y = 0; y < 8; y++) {
+                    row += std::string(1, board[i][y]) + " "; // Convert char to string and add space
+                }
+                RCLCPP_INFO(node->get_logger(), "%s", row.c_str()); // Log each row
+            }
+            RCLCPP_INFO(node->get_logger(), ""); // Empty line for newline
         }
     }
     
