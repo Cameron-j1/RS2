@@ -11,6 +11,9 @@
 #include <chrono>
 #include <boost/process.hpp>
 #include <SFML/Graphics.hpp>
+#include <rclcpp/rclcpp.hpp>
+#include <std_msgs/msg/string.hpp>
+#include <ament_index_cpp/get_package_share_directory.hpp>
 
 namespace bp = boost::process;
 
@@ -20,6 +23,7 @@ bp::child stockfish("stockfish", bp::std_out > stockfish_out, bp::std_in < stock
 
 const int BOARD_SIZE = 8;
 const int SQUARE_SIZE = 80;  // Adjust as needed
+std::string chessPiecesPath = ament_index_cpp::get_package_share_directory("ur3_test_control") + "/resources/pieces.png";
 
 // Colors for the chessboard
 sf::Color cream(240, 217, 181);
@@ -389,20 +393,31 @@ void logBoard() {
     std::cout << '\n';
 }
 
-int main() {
+int main(int argc, char * argv[]) {
 
+    rclcpp::init(argc, argv);
+    auto node = rclcpp::Node::make_shared("chessGUI",
+        rclcpp::NodeOptions().automatically_declare_parameters_from_overrides(true));
+
+    RCLCPP_INFO(node->get_logger(), "Starting chess GUI node...");
+    auto publisher = node->create_publisher<std_msgs::msg::String>("/chess_moves", 10);
+    auto msg = std_msgs::msg::String();
+
+    // Initialising stockfish communication via boost
     stockfish_in << "uci\n" << std::flush;
     std::string line;
     while (std::getline(stockfish_out, line)) {
         if (line == "uciok") {
-            std::cout << "Stockfish gud af \n";
+            RCLCPP_INFO(node->get_logger(), "Stockfish gud af!");
             break; // UCI initialization completed
         }
     }
 
     sf::RenderWindow window(sf::VideoMode(BOARD_SIZE * SQUARE_SIZE, BOARD_SIZE * SQUARE_SIZE), "Chessy", sf::Style::Titlebar | sf::Style::Close);
     sf::Texture texture;
-    texture.loadFromFile("pieces.png");
+    texture.loadFromFile(chessPiecesPath);
+
+    // Change the fen string to set a different piece placement
     std::string fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR";
 
     window.setVerticalSyncEnabled(false);
@@ -413,9 +428,10 @@ int main() {
     bool whiteCaptured = false, blackTurn = false;
     std::vector<std::vector<int>> moves;
 
-    while (window.isOpen()) {
+    // Game loop until window is closed
+    while (window.isOpen() && rclcpp::ok()) {
         sf::Event event;
-        // Human to move
+        // Human to move (check if any mouse click was detected)
         while (window.pollEvent(event)) {
             if (event.type == sf::Event::Closed)
                 window.close();
@@ -430,11 +446,13 @@ int main() {
                     // First mouse click, to select the pieces and display possible moves for that piece
                     for (int i = 0; i < pieces.size(); i++) {
                         if (pieces[i].getGlobalBounds().contains(mousePosF)) {
+                            // Find the clicked piece
                             if (lastClickedPiece == -1) {
                                 curRow = (int(pieces[i].getPosition().y)-8)/SQUARE_SIZE;
                                 curCol = (int(pieces[i].getPosition().x)-8)/SQUARE_SIZE;
                                 foundPiece = true;
                                 lastClickedPiece = i;
+                                // Find the possible moves for that piece and display them 
                                 moves = getPossibleMoves(curRow, curCol);
                                 isPotentialMove.assign(isPotentialMove.size() - 1, false);
 
@@ -442,13 +460,13 @@ int main() {
                                     isPotentialMove[move[0]*8 + move[1]] = true;
                                 }
                             }
-
+                            // This is the capture move, the piece will be remove if it's an enemy piece
                             else if (lastClickedPiece != -1) {
                                 int row = (int(pieces[i].getPosition().y)-8)/SQUARE_SIZE;
                                 int col = (int(pieces[i].getPosition().x)-8)/SQUARE_SIZE;
                                 
                                 if (isPotentialMove[row*8+col] == true) {
-                                    pieces[i].setScale(0.0f, 0.0f);
+                                    pieces[i].setPosition(5000.0f, 5000.0f);
                                     whiteCaptured = true;
                                 }
                                 else {
@@ -462,6 +480,7 @@ int main() {
                     // Second click to confirm next move
                     if (!foundPiece && lastClickedPiece != -1) {
                         for (int i = 0; i < potentialMove.size(); i++) {
+                            // Find the square within possible move that was clicked on and move the piece to that square
                             if (potentialMove[i].getGlobalBounds().contains(mousePosF) && isPotentialMove[i] == true) {
                                 int nextRow = (i/8) * SQUARE_SIZE + 8, nextCol = (i%8) * SQUARE_SIZE + 8;
                                 pieces[lastClickedPiece].setPosition(nextCol, nextRow);
@@ -470,10 +489,12 @@ int main() {
                                     halfmoveClock = 0; whiteCaptured = false;
                                 }
                                 else halfmoveClock++;
-
+                                // Update the virtue chess board
                                 board[i/8][i%8] = board[curRow][curCol];
                                 board[curRow][curCol] = '-';
-
+                                // Check if the detected move is the castling move
+                                // If it is then move the right rook to the right position.
+                                // That side will no longer be allow to castle (Maybe a boolean to check for this condition ?)
                                 if (isCastling[i] == true) {
                                     int rookNextCol = i % 8 == 2 ? 3 : 5, rookCurCol = i % 8 == 2 ? 0 : 7;
                                     for (int y = 0; y < pieces.size(); y++) {
@@ -492,18 +513,19 @@ int main() {
                                 lastClickedPiece = -1;
                                 break;
                             }
-
+                            // If the user clicks somewhere not within the possible moves, it will reset.
                             else if (potentialMove[i].getGlobalBounds().contains(mousePosF) && isPotentialMove[i] == false) {
                                 lastClickedPiece = -1;
                             }
                         }
+                        // Remove the temporary castling check
                         for (auto& pair : isCastling) {
                             pair.second = false;
                         }
+                        // The red square used to display potential move will be removed
                         isPotentialMove.assign(isPotentialMove.size() - 1, false);
                     }
-                    // std::cout << halfmoveClock << '\n';
-                    // logBoard();
+
                 }
             }
         }
@@ -520,10 +542,12 @@ int main() {
             }
         }
         window.display();
-        // // Send commands to Stockfish
+        char moveType = 'n';
+        // // This is the Stockfish turn to play
         if (blackTurn) {
-            std::this_thread::sleep_for(std::chrono::milliseconds(500)); // Sleep for 2 seconds
+            std::this_thread::sleep_for(std::chrono::milliseconds(500)); // Sleep for 0.5 seconds
             fen = "position fen " + generateFullFEN('b', castlingAvail, halfmoveClock, fullmoveNumer) + '\n'; 
+            std::cout << fen;
             blackTurn = false;
             stockfish_in << fen << std::flush;
             stockfish_in << "go depth 10\n" << std::flush;
@@ -538,17 +562,28 @@ int main() {
                     iss >> bestmove >> move; // Skip "bestmove", get the move
                     // std::cout << move << '\n';
                     std::vector<std::vector<int>> fishMoves = chessMoveToCoordinates(move);
+                    // Update the graphic to show stockfish's latest move
                     for (int i = 0; i < pieces.size(); i++) {
                         int row = (int(pieces[i].getPosition().y)-8)/SQUARE_SIZE;
                         int col = (int(pieces[i].getPosition().x)-8)/SQUARE_SIZE;
-                        bool stop1 = false, stop2 = false;
-
+                        // Find the piece that stockfish want to play
                         if (row == fishMoves[0][0] && col == fishMoves[0][1]) {
+                            for (int y = 0; y < pieces.size(); y++) {
+                                int rowy = (int(pieces[y].getPosition().y)-8)/SQUARE_SIZE;
+                                int coly = (int(pieces[y].getPosition().x)-8)/SQUARE_SIZE; 
+                                if (rowy == fishMoves[1][0] && coly == fishMoves[1][1]) {
+                                    pieces[y].setPosition(5000.0f, 5000.0f);
+                                    capture = true;
+                                    break;
+                                }
+                            }
                             pieces[i].setPosition(fishMoves[1][1] * SQUARE_SIZE + 8, fishMoves[1][0] * SQUARE_SIZE + 8);
                             board[fishMoves[1][0]][fishMoves[1][1]] = board[row][col];
+
                             if (board[row][col] == 'p') pawn = true;
                             // Castling check and move the correct rooks
                             if (board[row][col] == 'k' && abs(fishMoves[0][1] - fishMoves[1][1]) > 1) {
+                                moveType = 'c';
                                 int rookNextCol = fishMoves[1][1] == 2 ? 3 : 5, rookCurCol = fishMoves[1][1] == 2 ? 0 : 7;
                                 // Move rooks and update the board
                                 for (int y = 0; y < pieces.size(); y++) {
@@ -565,26 +600,30 @@ int main() {
                             }
 
                             board[row][col] = '-';
-                            stop1 = true;
+                            break;
                         }
-
-                        if (row == fishMoves[1][0] && col == fishMoves[1][1]) {
-                            pieces[i].setScale(0.0f, 0.0f);
-                            capture = true;
-                            stop2 = true;
-                        }
-                        if (stop1 && stop2) break;
                     }
                     if (capture || pawn) halfmoveClock = 0; else halfmoveClock++; 
                     fullmoveNumer++;
+                    msg.data = move + moveType;
                     break; // Stop after printing the move
                 }
             }
-            logBoard();
+            publisher->publish(msg);
+            // logBoard();
+            for (int i = 0; i < 8; i++) {
+                std::string row;
+                for (int y = 0; y < 8; y++) {
+                    row += std::string(1, board[i][y]) + " "; // Convert char to string and add space
+                }
+                RCLCPP_INFO(node->get_logger(), "%s", row.c_str()); // Log each row
+            }
+            RCLCPP_INFO(node->get_logger(), ""); // Empty line for newline
         }
     }
     
     stockfish_in << "quit\n" << std::flush;
     stockfish.wait(); // Wait for the process to finish
+    rclcpp::shutdown();
     return 0;
 }

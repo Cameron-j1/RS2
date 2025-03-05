@@ -1,140 +1,268 @@
 #include <memory>
 #include <rclcpp/rclcpp.hpp>
 #include <moveit/move_group_interface/move_group_interface.h>
-#include <moveit/planning_scene_interface/planning_scene_interface.h>
+#include <moveit_msgs/msg/robot_trajectory.hpp>
 #include <geometry_msgs/msg/pose.hpp>
-#include <moveit_msgs/msg/collision_object.hpp>
-#include <shape_msgs/msg/solid_primitive.hpp>
+#include <std_msgs/msg/string.hpp>
+#include <utility>
+#include <string>
+#include <stdexcept>
+#include <cmath>
+
+#define SQUARE_SIZE 32.0
+// Initial joint pose: 0, -90, 90, -90, -90, 0
+
+class RobotKinematics : public rclcpp::Node {
+    public:
+        RobotKinematics() : Node("robot_kinematics") {
+            chess_sub = this->create_subscription<std_msgs::msg::String>(
+                "/chess_moves", 10,
+                std::bind(&RobotKinematics::chess_topic_callback, this, std::placeholders::_1));
+            
+            marker_pub = this->create_publisher<visualization_msgs::msg::Marker>("/visualization_marker", 10);
+            RCLCPP_INFO(this->get_logger(), "Kinematic node started");
+        }
+
+        void setMoveGroup(moveit::planning_interface::MoveGroupInterface* mg) {
+            move_group_ptr = mg;
+        }
+    
+    private:
+        void chess_topic_callback(const std_msgs::msg::String::SharedPtr msg) {
+            std::string msgData = msg->data;
+            std::pair<double, double> currentPiece = chessToGridCenter(msgData[0], msgData[1]), goal = chessToGridCenter(msgData[2], msgData[3]);
+            RCLCPP_INFO(this->get_logger(), "Stockfish move: '%s'", msgData.c_str());
+            maneuver(currentPiece, goal, msgData[4]);
+        }
+
+        void maneuver(std::pair<double, double> cur, std::pair<double, double> goal, char moveType) {
+            std::vector<geometry_msgs::msg::Pose> points = {};
+            geometry_msgs::msg::Pose tempPosition;
+            tempPosition.position.z = operation_height;
+            tempPosition.orientation.x = 1.0;
+            tempPosition.orientation.y = 0.0;
+            tempPosition.orientation.z = 0.0;
+            tempPosition.orientation.w = 0.0;
+            if (moveType == 'n') {
+                tempPosition.position.x = cur.first;
+                tempPosition.position.y = cur.second;
+                RCLCPP_INFO(this->get_logger(), "xStart: %.3f%% and yStart: %.3f%%", cur.first, cur.second);
+                publish_point(cur.first, cur.second, pickupHeight, 1.0, 0.0, 0.0);
+                publish_point(goal.first, goal.second, pickupHeight, 0.0, 1.0, 0.0);
+                points.push_back(tempPosition);
+                tempPosition.position.z = pickupHeight;
+                points.push_back(tempPosition);
+                tempPosition.position.z = operation_height;
+                points.push_back(tempPosition);
+                tempPosition.position.x = goal.first;
+                tempPosition.position.y = goal.second;
+                RCLCPP_INFO(this->get_logger(), "xEnd: %.3f%% and yEnd: %.3f%%", goal.first, goal.second);
+                points.push_back(tempPosition);
+                tempPosition.position.z = pickupHeight;
+                points.push_back(tempPosition);
+                tempPosition.position.z = operation_height;
+                points.push_back(tempPosition);
+            }
+            
+            moveit_msgs::msg::RobotTrajectory trajectory;
+            double fraction = move_group_ptr->computeCartesianPath(points, 0.01, 0.0, trajectory);
+            if (fraction >= 0.95) {
+                moveit::planning_interface::MoveGroupInterface::Plan plan;
+                plan.trajectory_ = trajectory;
+                move_group_ptr->execute(plan);
+                RCLCPP_INFO(this->get_logger(), "chess move successful");
+            } else {
+                RCLCPP_WARN(this->get_logger(), "Path only %.2f%% complete", fraction * 100.0);
+            }
+        }
+
+        std::pair<double, double> chessToGridCenter(char file, char rank) {
+            // Convert file to column index (0-based: 'a' = 0, 'h' = 7)
+            double col = file - 'a';
+            if (col < 0 || col > 7) {
+                throw std::invalid_argument("File must be between 'a' and 'h'");
+            }
+        
+            // Convert rank to row index (0-based: '1' = 0, '8' = 7)
+            double row = rank - '1';
+            if (row < 0 || row > 7) {
+                throw std::invalid_argument("Rank must be between '1' and '8'");
+            }
+        
+            // Calculate bottom-left corner of the square
+            double x = col * SQUARE_SIZE;
+            double y = row * SQUARE_SIZE;
+        
+            // Calculate center of the square (before rotation)
+            double x_center = x + SQUARE_SIZE / 2;
+            double y_center = y + SQUARE_SIZE / 2;
+        
+            // Step 1: Translate so the board's center is at (0, 0)
+            double board_center_x = 4 * SQUARE_SIZE; // Center of 8x8 board
+            double board_center_y = 4 * SQUARE_SIZE;
+            double x_translated = x_center - board_center_x;
+            double y_translated = y_center - board_center_y;
+        
+            // Step 2: Apply 90-degree counterclockwise rotation (x', y') = (-y, x)
+            double x_rotated = -y_translated;
+            double y_rotated = x_translated;
+        
+            // Step 3: Translate back to original position
+            double x_final = x_rotated + board_center_x;
+            double y_final = y_rotated + board_center_y;
+        
+            // Scale to meters (as in your original function)
+            return {(x_final / 1000) + 0.2, (y_final / 1000) - 0.256/2};
+        }
+
+        void publish_point(double x, double y, double z, double r, double g, double b) {
+            auto marker = visualization_msgs::msg::Marker();
+            marker.header.frame_id = "world"; // Reference frame (change as needed)
+            marker.header.stamp = this->get_clock()->now();
+            marker.ns = "point";
+            marker.id = markerNum++;
+            marker.type = visualization_msgs::msg::Marker::SPHERE; // Display as a sphere
+            marker.action = visualization_msgs::msg::Marker::ADD;
+
+            marker.pose.position.x = x; // Example x-coordinate
+            marker.pose.position.y = y; // Example y-coordinate
+            marker.pose.position.z = z; // Example z-coordinate
+            marker.pose.orientation.w = 1.0; // No rotation (identity quaternion)
+
+            marker.scale.x = 0.02; // Size in meters
+            marker.scale.y = 0.02;
+            marker.scale.z = 0.02;
+            marker.color.r = r; // Red
+            marker.color.g = g;
+            marker.color.b = b;
+            marker.color.a = 1.0; // Alpha (opacity)
+            marker_pub->publish(marker);
+        }
+
+        // Private variables and objects
+        rclcpp::Subscription<std_msgs::msg::String>::SharedPtr chess_sub;
+        rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr marker_pub;
+        moveit::planning_interface::MoveGroupInterface* move_group_ptr;
+        double operation_height = 0.15 + 0.1, pickupHeight = 0.05 + 0.1;
+        int markerNum = 0;
+};
 
 int main(int argc, char * argv[])
 {
     // Initialize ROS 2
     rclcpp::init(argc, argv);
-    
-    // Create a node with automatic parameter declaration
-    auto node = rclcpp::Node::make_shared("moveIt_test",
-        rclcpp::NodeOptions().automatically_declare_parameters_from_overrides(true));
-    
-    RCLCPP_INFO(node->get_logger(), "Starting MoveIt test node...");
-    
-    // Define your planning group
-    static const std::string PLANNING_GROUP = "ur_manipulator";
-    
-    RCLCPP_INFO(node->get_logger(), "Creating MoveGroupInterface for group: %s", PLANNING_GROUP.c_str());
-    
-    // Create the MoveGroupInterface
-    moveit::planning_interface::MoveGroupInterface move_group(node, PLANNING_GROUP);
-    
-    // Create the PlanningSceneInterface
-    moveit::planning_interface::PlanningSceneInterface planning_scene_interface;
-    
-    // Print info about the robot
+    auto node = std::make_shared<RobotKinematics>();
+
+    moveit::planning_interface::MoveGroupInterface move_group(node, "ur_manipulator");
+    node->setMoveGroup(&move_group);
     RCLCPP_INFO(node->get_logger(), "Reference frame: %s", move_group.getPlanningFrame().c_str());
     RCLCPP_INFO(node->get_logger(), "End effector link: %s", move_group.getEndEffectorLink().c_str());
     RCLCPP_INFO(node->get_logger(), "Available planning groups:");
-    
-    const std::vector<std::string>& group_names = move_group.getJointModelGroupNames();
-    for (const auto& group_name : group_names) {
-        RCLCPP_INFO(node->get_logger(), "  %s", group_name.c_str());
-    }
+    RCLCPP_INFO(node->get_logger(), "Waiting for 2 seconds...");
     
     // Wait a bit for ROS to be fully initialized
-    rclcpp::sleep_for(std::chrono::seconds(1));
-    
-    // Add a large cube directly under the robot base
-    moveit_msgs::msg::CollisionObject collision_object;
-    collision_object.header.frame_id = move_group.getPlanningFrame(); // Use the planning frame
-    collision_object.id = "floor_cube";
-    
-    // Define the cube as 1.5m in all dimensions
-    shape_msgs::msg::SolidPrimitive primitive;
-    primitive.type = primitive.BOX;
-    primitive.dimensions.resize(3);
-    primitive.dimensions[primitive.BOX_X] = 1.5;  // 1.5m in x-direction
-    primitive.dimensions[primitive.BOX_Y] = 1.5;  // 1.5m in y-direction
-    primitive.dimensions[primitive.BOX_Z] = 1.5;  // 1.5m in z-direction
-    
-    // Define the pose of the cube
-    // For UR robots, the base is typically at 0,0,0 in the base_link frame
-    // So we'll position the top of the cube at z=0 (the robot base level)
-    // and center it at x=0, y=0
-    geometry_msgs::msg::Pose box_pose;
-    box_pose.orientation.w = 1.0;
-    box_pose.position.x = 0.0;  // Centered at x=0
-    box_pose.position.y = 0.0;  // Centered at y=0
-    box_pose.position.z = -0.75;  // Position is at the center of the box, so -0.75 puts the top at z=0
-    
-    // Add the primitive and pose to the collision object
-    collision_object.primitives.push_back(primitive);
-    collision_object.primitive_poses.push_back(box_pose);
-    collision_object.operation = collision_object.ADD;
-    
-    // Add the collision object to the planning scene
-    std::vector<moveit_msgs::msg::CollisionObject> collision_objects;
-    collision_objects.push_back(collision_object);
-    RCLCPP_INFO(node->get_logger(), "Adding large cube under robot base to planning scene");
-    planning_scene_interface.addCollisionObjects(collision_objects);
-    
-    // Give the planning scene some time to update
-    rclcpp::sleep_for(std::chrono::seconds(1));
-    
-    // Get current pose and joint values
-    geometry_msgs::msg::PoseStamped current_pose = move_group.getCurrentPose();
-    std::vector<double> current_joints = move_group.getCurrentJointValues();
-    
-    RCLCPP_INFO(node->get_logger(), "Current pose: x=%.3f, y=%.3f, z=%.3f", 
-                current_pose.pose.position.x, 
-                current_pose.pose.position.y, 
-                current_pose.pose.position.z);
-    
-    RCLCPP_INFO(node->get_logger(), "Current joint values:");
-    for (size_t i = 0; i < current_joints.size(); ++i) {
-        RCLCPP_INFO(node->get_logger(), "  Joint %zu: %.3f", i, current_joints[i]);
-    }
-    
-    // Define a target pose for your end effector
-    geometry_msgs::msg::Pose target_pose;
-    target_pose.orientation.w = 1.0;
-    target_pose.position.x = 0.4;
-    target_pose.position.y = 0.2;
-    target_pose.position.z = 0.4;
-    
-    RCLCPP_INFO(node->get_logger(), "Setting target pose: x=%.3f, y=%.3f, z=%.3f", 
-                target_pose.position.x, target_pose.position.y, target_pose.position.z);
-    
-    move_group.setPoseTarget(target_pose);
-    
-    // Set planning parameters
+    rclcpp::sleep_for(std::chrono::seconds(2));
+
     move_group.setMaxVelocityScalingFactor(0.2);  // 20% of maximum velocity
     move_group.setMaxAccelerationScalingFactor(0.2);  // 20% of maximum acceleration
     move_group.setPlanningTime(10.0);  // Give the planner 10 seconds
-    
-    // Plan the trajectory
-    RCLCPP_INFO(node->get_logger(), "Planning trajectory...");
+    // Initial pose of the robot
+    move_group.setJointValueTarget({0, -M_PI/2, M_PI/2, -M_PI/2, -M_PI/2, 0});
     moveit::planning_interface::MoveGroupInterface::Plan plan;
     auto planning_result = move_group.plan(plan);
-    
-    if (planning_result == moveit::core::MoveItErrorCode::SUCCESS)
-    {
-        RCLCPP_INFO(node->get_logger(), "Plan found! Now executing...");
-        auto execution_result = move_group.execute(plan);
-        
-        if (execution_result == moveit::core::MoveItErrorCode::SUCCESS) {
-            RCLCPP_INFO(node->get_logger(), "Motion executed successfully!");
+    if (planning_result == moveit::core::MoveItErrorCode::SUCCESS) {
+        if (move_group.execute(plan) == moveit::core::MoveItErrorCode::SUCCESS) {
+            RCLCPP_INFO(node->get_logger(), "Moved to joint angles successfully");
         } else {
-            RCLCPP_ERROR(node->get_logger(), "Motion execution failed with error code: %d", execution_result.val);
+            RCLCPP_ERROR(node->get_logger(), "Failed to execute joint space plan");
         }
     }
-    else
-    {
-        RCLCPP_ERROR(node->get_logger(), "Planning failed with error code: %d", planning_result.val);
+            
+    rclcpp::Rate rate(100); // 100 Hz loop
+
+    while (rclcpp::ok()) {
+        rclcpp::spin_some(node); // Process any pending callbacks
+        rate.sleep();            // Control the loop rate
     }
+    // // Create a node with automatic parameter declaration
+    // auto node = rclcpp::Node::make_shared("moveIt_test",
+    //     rclcpp::NodeOptions().automatically_declare_parameters_from_overrides(true));
     
-    // Optional: Remove objects from the scene when done
-    RCLCPP_INFO(node->get_logger(), "Removing objects from the scene");
-    std::vector<std::string> object_ids;
-    object_ids.push_back("floor_cube");
-    planning_scene_interface.removeCollisionObjects(object_ids);
+    // RCLCPP_INFO(node->get_logger(), "Starting MoveIt test node...");
+    
+    // // Define your planning group
+    // static const std::string PLANNING_GROUP = "ur_manipulator";
+    
+    // RCLCPP_INFO(node->get_logger(), "Creating MoveGroupInterface for group: %s", PLANNING_GROUP.c_str());
+    
+    // // Create the MoveGroupInterface
+    // moveit::planning_interface::MoveGroupInterface (node, PLANNING_GROUP);
+    
+    // // Print info about the robot
+    // RCLCPP_INFO(node->get_logger(), "Reference frame: %s", move_group.getPlanningFrame().c_str());
+    // RCLCPP_INFO(node->get_logger(), "End effector link: %s", move_group.getEndEffectorLink().c_str());
+    // RCLCPP_INFO(node->get_logger(), "Available planning groups:");
+    
+    // const std::vector<std::string>& group_names = move_group.getJointModelGroupNames();
+    // for (const auto& group_name : group_names) {
+    //     RCLCPP_INFO(node->get_logger(), "  %s", group_name.c_str());
+    // }
+    
+    // // Get current pose and joint values
+    // geometry_msgs::msg::PoseStamped current_pose = move_group.getCurrentPose();
+    // std::vector<double> current_joints = move_group.getCurrentJointValues();
+    
+    // RCLCPP_INFO(node->get_logger(), "Current pose: x=%.3f, y=%.3f, z=%.3f", 
+    //             current_pose.pose.position.x, 
+    //             current_pose.pose.position.y, 
+    //             current_pose.pose.position.z);
+    
+    // RCLCPP_INFO(node->get_logger(), "Current joint values:");
+    // for (size_t i = 0; i < current_joints.size(); ++i) {
+    //     RCLCPP_INFO(node->get_logger(), "  Joint %zu: %.3f", i, current_joints[i]);
+    // }
+    
+    // // Wait for everything to be ready
+    // RCLCPP_INFO(node->get_logger(), "Waiting for 2 seconds...");
+    // rclcpp::sleep_for(std::chrono::seconds(2));
+    
+    // // Define a target pose for your end effector
+    // geometry_msgs::msg::Pose target_pose;
+    // target_pose.orientation.w = 1.0;
+    // target_pose.position.x = 0.4;
+    // target_pose.position.y = 0.2;
+    // target_pose.position.z = 0.4;
+    
+    // RCLCPP_INFO(node->get_logger(), "Setting target pose: x=%.3f, y=%.3f, z=%.3f", 
+    //             target_pose.position.x, target_pose.position.y, target_pose.position.z);
+    
+    // move_group.setPoseTarget(target_pose);
+    
+    // // Set planning parameters
+    // move_group.setMaxVelocityScalingFactor(0.2);  // 20% of maximum velocity
+    // move_group.setMaxAccelerationScalingFactor(0.2);  // 20% of maximum acceleration
+    // move_group.setPlanningTime(10.0);  // Give the planner 10 seconds
+    
+    // // Plan the trajectory
+    // RCLCPP_INFO(node->get_logger(), "Planning trajectory...");
+    // moveit::planning_interface::MoveGroupInterface::Plan plan;
+    // auto planning_result = move_group.plan(plan);
+    
+    // if (planning_result == moveit::core::MoveItErrorCode::SUCCESS)
+    // {
+    //     RCLCPP_INFO(node->get_logger(), "Plan found! Now executing...");
+    //     auto execution_result = move_group.execute(plan);
+        
+    //     if (execution_result == moveit::core::MoveItErrorCode::SUCCESS) {
+    //         RCLCPP_INFO(node->get_logger(), "Motion executed successfully!");
+    //     } else {
+    //         RCLCPP_ERROR(node->get_logger(), "Motion execution failed with error code: %d", execution_result.val);
+    //     }
+    // }
+    // else
+    // {
+    //     RCLCPP_ERROR(node->get_logger(), "Planning failed with error code: %d", planning_result.val);
+    // }
     
     RCLCPP_INFO(node->get_logger(), "Done. Shutting down...");
     rclcpp::shutdown();

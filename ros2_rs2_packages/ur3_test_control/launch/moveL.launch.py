@@ -128,6 +128,13 @@ def generate_launch_description():
         ],
     )
 
+    chess_node = Node(
+        package="ur3_test_control",
+        executable="chess_node",
+        name="Chess_Board",
+        output="screen",
+    )
+
     ur_moveit_launch = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
             os.path.join(get_package_share_directory('ur_moveit_config'), 'launch', 'ur_moveit.launch.py')
@@ -138,4 +145,4 @@ def generate_launch_description():
         }.items()
     )
     
-    return launch.LaunchDescription([ur_moveit_launch, demo_node])
+    return launch.LaunchDescription([ur_moveit_launch, demo_node, chess_node])
