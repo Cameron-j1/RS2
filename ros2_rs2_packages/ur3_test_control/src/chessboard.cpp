@@ -23,7 +23,7 @@ bp::child stockfish("stockfish", bp::std_out > stockfish_out, bp::std_in < stock
 
 const int BOARD_SIZE = 8;
 const int SQUARE_SIZE = 80;  // Adjust as needed
-std::string chessPiecesPath = ament_index_cpp::get_package_share_directory("ur3_test_control") + "/resources/pieces.png";
+std::string chessPiecesPath = ament_index_cpp::get_package_share_directory("ur3_test_control") + "/images/pieces.png";
 
 // Colors for the chessboard
 sf::Color cream(240, 217, 181);
