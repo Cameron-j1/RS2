@@ -3,7 +3,9 @@ project(ur3_test_control)
 
 find_package(ament_cmake REQUIRED)
 find_package(ament_index_cpp REQUIRED)
+find_package(ament_cmake_python REQUIRED)
 find_package(rclcpp REQUIRED)
+find_package(rclpy REQUIRED)
 find_package(sensor_msgs REQUIRED)
 find_package(trajectory_msgs REQUIRED)
 find_package(geometry_msgs REQUIRED)
@@ -12,6 +14,9 @@ find_package(moveit_ros_planning_interface REQUIRED)
 find_package(SFML 2.5 COMPONENTS graphics window system REQUIRED)
 find_package(Boost REQUIRED)
 find_package(Threads REQUIRED)
+find_package(gazebo_ros REQUIRED)
+find_package(cv_bridge REQUIRED)
+find_package(OpenCV REQUIRED)
 
 include_directories(${Boost_INCLUDE_DIRS})
 
@@ -37,7 +42,7 @@ target_link_libraries(chess_node
   Threads::Threads
 )
 
-install(TARGETS joint_publisher keyboard_publisher trajectory_node moveIt_test_node chess_node
+install(TARGETS joint_publisher keyboard_publisher trajectory_node moveIt_test_node chess_node 
   DESTINATION lib/${PROJECT_NAME}
 )
 
@@ -49,13 +54,15 @@ install(DIRECTORY config
   DESTINATION share/${PROJECT_NAME}
 )
 
-install(DIRECTORY resources
+install(DIRECTORY images world urdf
   DESTINATION share/${PROJECT_NAME}
 )
 
-#install(DIRECTORY urdf
- # DESTINATION share/${PROJECT_NAME}
-#)
+ament_python_install_package(${PROJECT_NAME})
 
+install(PROGRAMS
+  scripts/camera_node.py
+  DESTINATION lib/${PROJECT_NAME}
+)
 
 ament_package()
