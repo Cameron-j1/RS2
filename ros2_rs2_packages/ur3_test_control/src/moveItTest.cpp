@@ -112,7 +112,7 @@ class RobotKinematics : public rclcpp::Node {
             double y_final = y_rotated + board_center_y;
         
             // Scale to meters (as in your original function)
-            return {(x_final / 1000) + 0.2, (y_final / 1000) - 0.256/2};
+            return {-((y_final / 1000) - 0.256/2), (x_final / 1000) + 0.2};
         }
 
         void publish_point(double x, double y, double z, double r, double g, double b) {
@@ -162,12 +162,12 @@ int main(int argc, char * argv[])
     
     // Wait a bit for ROS to be fully initialized
     rclcpp::sleep_for(std::chrono::seconds(2));
-
+    
     move_group.setMaxVelocityScalingFactor(0.2);  // 20% of maximum velocity
-    move_group.setMaxAccelerationScalingFactor(0.2);  // 20% of maximum acceleration
+    move_group.setMaxAccelerationScalingFactor(0.05);  // 20% of maximum acceleration
     move_group.setPlanningTime(10.0);  // Give the planner 10 seconds
     // Initial pose of the robot
-    move_group.setJointValueTarget({0, -M_PI/2, M_PI/2, -M_PI/2, -M_PI/2, 0});
+    move_group.setJointValueTarget({M_PI/2, -M_PI/2, M_PI/2, -M_PI/2, -M_PI/2, 0});
     moveit::planning_interface::MoveGroupInterface::Plan plan;
     auto planning_result = move_group.plan(plan);
     if (planning_result == moveit::core::MoveItErrorCode::SUCCESS) {
