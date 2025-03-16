@@ -5,16 +5,17 @@ from sensor_msgs.msg import Image
 from cv_bridge import CvBridge
 import cv2
 import os
+from ament_index_python.packages import get_package_share_directory
 
 class ImagePublisherNode(Node):
     def __init__(self):
         super().__init__('image_publisher_node')
         self.publisher = self.create_publisher(Image, '/camera/camera/color/image_raw', 10)
-        self.timer = self.create_timer(2.0, self.timer_callback)  # Publish every 2 seconds
+        self.timer = self.create_timer(4.0, self.timer_callback)  # Publish every 2 seconds
         self.bridge = CvBridge()
         
         # Specify the path to your image file
-        self.image_path = '/home/joe/Downloads/chessPiece.jpg'  # Replace with actual path
+        self.image_path = os.path.join(get_package_share_directory('ur3_test_control'), 'images', 'chesstest2.jpg')  # Replace with actual path
         self.image = self.load_image()
         self.get_logger().info('Image Publisher Node started. Publishing image every 2 seconds.')
 
