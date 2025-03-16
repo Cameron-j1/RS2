@@ -62,6 +62,7 @@ ament_python_install_package(${PROJECT_NAME})
 
 install(PROGRAMS
   scripts/camera_node.py
+  scripts/img_pub.py
   DESTINATION lib/${PROJECT_NAME}
 )
 

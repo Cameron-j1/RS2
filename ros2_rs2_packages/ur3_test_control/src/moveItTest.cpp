@@ -30,13 +30,14 @@ class RobotKinematics : public rclcpp::Node {
     private:
         void chess_topic_callback(const std_msgs::msg::String::SharedPtr msg) {
             std::string msgData = msg->data;
-            std::pair<double, double> currentPiece = chessToGridCenter(msgData[0], msgData[1]), goal = chessToGridCenter(msgData[2], msgData[3]);
-            RCLCPP_INFO(this->get_logger(), "Stockfish move: '%s'", msgData.c_str());
-            maneuver(currentPiece, goal, msgData[4]);
+            if (msgData.length() < 6) { // if greater than 6 means it's the fen string for the camera node
+                std::pair<double, double> currentPiece = chessToGridCenter(msgData[0], msgData[1]), goal = chessToGridCenter(msgData[2], msgData[3]);
+                RCLCPP_INFO(this->get_logger(), "Stockfish move: '%s'", msgData.c_str());
+                maneuver(currentPiece, goal, msgData[4]);
+            }
         }
 
         void maneuver(std::pair<double, double> cur, std::pair<double, double> goal, char moveType) {
-            std::vector<geometry_msgs::msg::Pose> points = {};
             geometry_msgs::msg::Pose tempPosition;
             tempPosition.position.z = operation_height;
             tempPosition.orientation.x = 1.0;
@@ -49,30 +50,36 @@ class RobotKinematics : public rclcpp::Node {
                 RCLCPP_INFO(this->get_logger(), "xStart: %.3f%% and yStart: %.3f%%", cur.first, cur.second);
                 publish_point(cur.first, cur.second, pickupHeight, 1.0, 0.0, 0.0);
                 publish_point(goal.first, goal.second, pickupHeight, 0.0, 1.0, 0.0);
-                points.push_back(tempPosition);
+                moveStraightToPoint({tempPosition}, 0.05, 0.05);
                 tempPosition.position.z = pickupHeight;
-                points.push_back(tempPosition);
+                moveStraightToPoint({tempPosition}, 0.05, 0.05);
                 tempPosition.position.z = operation_height;
-                points.push_back(tempPosition);
+                moveStraightToPoint({tempPosition}, 0.05, 0.05);
                 tempPosition.position.x = goal.first;
                 tempPosition.position.y = goal.second;
                 RCLCPP_INFO(this->get_logger(), "xEnd: %.3f%% and yEnd: %.3f%%", goal.first, goal.second);
-                points.push_back(tempPosition);
+                moveStraightToPoint({tempPosition}, 0.05, 0.05);
                 tempPosition.position.z = pickupHeight;
-                points.push_back(tempPosition);
+                moveStraightToPoint({tempPosition}, 0.05, 0.05);
                 tempPosition.position.z = operation_height;
-                points.push_back(tempPosition);
+                moveStraightToPoint({tempPosition}, 0.05, 0.05);
             }
-            
+        }
+
+        bool moveStraightToPoint(std::vector<geometry_msgs::msg::Pose> tempPosition, double vel, double acc) {
+            move_group_ptr->setMaxVelocityScalingFactor(vel);  // 20% of maximum velocity
+            move_group_ptr->setMaxAccelerationScalingFactor(acc);  // 20% of maximum acceleration
             moveit_msgs::msg::RobotTrajectory trajectory;
-            double fraction = move_group_ptr->computeCartesianPath(points, 0.01, 0.0, trajectory);
+            double fraction = move_group_ptr->computeCartesianPath(tempPosition, 0.01, 0.0, trajectory);
             if (fraction >= 0.95) {
                 moveit::planning_interface::MoveGroupInterface::Plan plan;
                 plan.trajectory_ = trajectory;
                 move_group_ptr->execute(plan);
                 RCLCPP_INFO(this->get_logger(), "chess move successful");
+                return true;
             } else {
                 RCLCPP_WARN(this->get_logger(), "Path only %.2f%% complete", fraction * 100.0);
+                return false;
             }
         }
 

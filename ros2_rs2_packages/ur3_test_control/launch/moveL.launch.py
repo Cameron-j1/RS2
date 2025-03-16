@@ -1,6 +1,7 @@
 import launch
 import os
 from launch_ros.actions import Node
+from launch.actions import TimerAction
 from launch.substitutions import PathJoinSubstitution, Command, FindExecutable
 from launch_ros.substitutions import FindPackageShare
 
@@ -97,25 +98,6 @@ def generate_launch_description():
     robot_description = get_robot_description()
     robot_description_semantic = get_robot_description_semantic()
     
-    # Move group node with proper configuration
-    # move_group_node = Node(
-    #     package="moveit_ros_move_group",
-    #     executable="move_group",
-    #     name="move_group",
-    #     output="screen",
-    #     parameters=[
-    #         robot_description,
-    #         robot_description_semantic,
-    #         kinematics_yaml,
-    #         {"planning_plugin": "ompl_interface/OMPLPlanner"},
-    #         {"use_controller_manager": True},
-    #         {"controller_manager_name": "controller_manager"},
-    #         {"controllers_names": ["joint_trajectory_controller"]},
-    #         {"allowed_execution_duration_scaling": 2.0},
-    #         {"allowed_goal_duration_margin": 5.0}
-    #     ]
-    # )
-    
     # Your test node
     demo_node = Node(
         package="ur3_test_control",
@@ -128,10 +110,22 @@ def generate_launch_description():
         ],
     )
 
-    chess_node = Node(
+    chess_node = TimerAction(
+        period=6.0,
+        actions=[
+            Node(
+                package="ur3_test_control",
+                executable="chess_node",
+                name="Chess_Board",
+                output="screen",
+            )
+        ]
+    )
+
+    cam_node = Node(
         package="ur3_test_control",
-        executable="chess_node",
-        name="Chess_Board",
+        executable="camera_node.py",
+        name="Camera",
         output="screen",
     )
 
@@ -145,4 +139,4 @@ def generate_launch_description():
         }.items()
     )
     
-    return launch.LaunchDescription([ur_moveit_launch, demo_node, chess_node])
+    return launch.LaunchDescription([ur_moveit_launch, demo_node, cam_node, chess_node])
