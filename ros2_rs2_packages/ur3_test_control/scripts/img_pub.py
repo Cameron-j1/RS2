@@ -15,7 +15,7 @@ class ImagePublisherNode(Node):
         self.bridge = CvBridge()
         
         # Specify the path to your image file
-        self.image_path = os.path.join(get_package_share_directory('ur3_test_control'), 'images', 'chesstest2.jpg')  # Replace with actual path
+        self.image_path = os.path.join(get_package_share_directory('ur3_test_control'), 'images', 'chesstest3.jpg')  # Replace with actual path
         self.image = self.load_image()
         self.get_logger().info('Image Publisher Node started. Publishing image every 2 seconds.')
 
