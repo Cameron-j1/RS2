@@ -432,7 +432,9 @@ int main(int argc, char * argv[]) {
 
     // Change the fen string to set a different piece placement
     std::string fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR";
-
+    // Setting a random board position for testing, have to uncomment if not in debug
+    //fen = "rn1qkb1r/pp2pppp/2p1bn2/3p4/4P3/3P1N2/PPP1BPPP/RNBQK2R";
+    // fen = "r2qkb1r/pppb1ppp/4pn2/3p4/1n2P3/2NPBN2/PPPQ1PPP/R3KB1R";
     window.setVerticalSyncEnabled(false);
     std::vector<std::string> pieceName;
     std::vector<sf::Sprite> pieces = makePieces(texture, fen);
@@ -556,18 +558,22 @@ int main(int argc, char * argv[]) {
         if (newMove && !blackTurn) {
             newMove = false;
             //RowStart, ColStart, RowEnd, ColEnd
-            int physicalMove[4];
-            for (int i = 0; i < 4; i++) {
-                physicalMove[i] = msgFromCamera[i] - '0';
-            } 
-            for (int i = 0; i < pieces.size(); i++) {
-                // Find the piece played
-                if ((int(pieces[i].getPosition().y)-8)/SQUARE_SIZE == physicalMove[0] &&
-                    (int(pieces[i].getPosition().x)-8)/SQUARE_SIZE == physicalMove[1]) {
-                        pieces[i].setPosition(physicalMove[3] * SQUARE_SIZE + 8, physicalMove[2] * SQUARE_SIZE + 8);
-                        board[physicalMove[2]][physicalMove[3]] = board[physicalMove[0]][physicalMove[1]];
-                        board[physicalMove[0]][physicalMove[1]] = '-';
-                    }
+            // Put in a while loop to update all pending moves easier (in this case only castling moves lol)
+            while (msgFromCamera.length() > 0) {
+                int physicalMove[4];
+                for (int i = 0; i < 4; i++) {
+                    physicalMove[i] = msgFromCamera[i] - '0';
+                } 
+                for (int i = 0; i < pieces.size(); i++) {
+                    // Find the piece played
+                    if ((int(pieces[i].getPosition().y)-8)/SQUARE_SIZE == physicalMove[0] &&
+                        (int(pieces[i].getPosition().x)-8)/SQUARE_SIZE == physicalMove[1]) {
+                            pieces[i].setPosition(physicalMove[3] * SQUARE_SIZE + 8, physicalMove[2] * SQUARE_SIZE + 8);
+                            board[physicalMove[2]][physicalMove[3]] = board[physicalMove[0]][physicalMove[1]];
+                            board[physicalMove[0]][physicalMove[1]] = '-';
+                        }
+                }
+                msgFromCamera.erase(0, 4);
             }
             blackTurn = true;
         }

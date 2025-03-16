@@ -81,6 +81,15 @@ class CameraNode(Node):
             self.get_logger().error(f'Error processing image: {str(e)}')
 
     def find_move(self, newOccupancy):
+        # Heuristic check for castling
+        if newOccupancy[7][0] == 0 and newOccupancy[7][4] == 0 and self.board[7][0] != '-' and self.board[7][4] != '-':
+            self.get_logger().info("White Queen-Side Castling")
+            return [[7, 4], [7, 2], [7, 0], [7, 3]]
+
+        if newOccupancy[7][7] == 0 and newOccupancy[7][4] == 0 and self.board[7][7] != '-' and self.board[7][4] != '-':
+            self.get_logger().info("White King-Side Castling")
+            return [[7, 4], [7, 6], [7, 7], [7, 5]]
+
         for i in range(8):
             for y in range(8):
                 # the piece has moved
