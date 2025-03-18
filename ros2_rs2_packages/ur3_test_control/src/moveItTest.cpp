@@ -87,6 +87,19 @@
                 maneuver(currentPiece, goal, msgData[4]);
                 // moveToCameraViewJ();
             }
+        void setMoveGroup(moveit::planning_interface::MoveGroupInterface* mg) {
+            move_group_ptr = mg;
+        }
+    
+    private:
+        void chess_topic_callback(const std_msgs::msg::String::SharedPtr msg) {
+            std::string msgData = msg->data;
+            if (msgData.length() < 6) { // if greater than 6 means it's the fen string for the camera node
+                std::pair<double, double> currentPiece = chessToGridCenter(msgData[0], msgData[1]), goal = chessToGridCenter(msgData[2], msgData[3]);
+                RCLCPP_INFO(this->get_logger(), "Stockfish move: '%s'", msgData.c_str());
+                maneuver(currentPiece, goal, msgData[4]);
+            }
+        }
 
             void maneuver(std::pair<double, double> cur, std::pair<double, double> goal, char moveType) {
                 std::vector<geometry_msgs::msg::Pose> points = {};
