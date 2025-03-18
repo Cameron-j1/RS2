@@ -30,6 +30,20 @@ class CameraNode(Node):
         try:
             # Convert ROS Image message to OpenCV format (BGR)
             self.latest_image = self.bridge.imgmsg_to_cv2(msg, desired_encoding='bgr8')
+            
+            if self.latest_image is None:
+                # Handle the error gracefully, log it, or return early
+                print("Received a None image. Skipping processing.")
+                return
+
+            #show the image in open cv
+            cv2.imshow("Latest Image", self.latest_image)
+            cv2.waitKey(0)
+            cv2.destroyAllWindows()
+
+            #crop the self.latest_image to remove everything apart from the chessboard
+            self.latest_image = self.isolate_chess_board(self.latest_image)
+
             chessBoard = self.process_chessboard(self.latest_image, False)
             chessStr = np.array2string(chessBoard, separator=', ')
             self.get_logger().info(f'ChessBoard:\n{chessStr}')
@@ -42,6 +56,40 @@ class CameraNode(Node):
                 
         except Exception as e:
             self.get_logger().error(f'Error processing image: {str(e)}')
+
+    def isolate_chess_board(self, image):
+        gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+
+        print(image.shape[:2])
+
+        # Threshold to create a binary image for contour detection
+        _, thresh = cv2.threshold(gray, 200, 255, cv2.THRESH_BINARY)
+
+        # Find contours
+        contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
+        # Find the largest contour (assuming it's the chessboard)
+        largest_contour = max(contours, key=cv2.contourArea)
+
+        # Create a blank mask with the same height/width as the image
+        mask = np.zeros(image.shape[:2], dtype=np.uint8)
+
+        # Draw the largest contour onto the mask
+        cv2.drawContours(mask, [largest_contour], -1, 255, thickness=cv2.FILLED)
+
+        # Convert mask to 3 channels (so it matches the color image)
+        mask_3ch = cv2.merge([mask, mask, mask])
+
+        # Apply mask to original image (preserving color)
+        result = cv2.bitwise_and(image, mask_3ch)
+
+        # Show the output
+        cv2.imshow("Extracted Chessboard", result)
+        cv2.waitKey(0)
+        cv2.destroyAllWindows()
+
+        return result
+    
 
     def canny(self, img):
         # Maybe add some auto thresholding here
