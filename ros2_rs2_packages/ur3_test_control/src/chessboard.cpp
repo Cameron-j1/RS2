@@ -396,11 +396,24 @@ void logBoard() {
 int main(int argc, char * argv[]) {
 
     rclcpp::init(argc, argv);
+    std::string msgFromCamera;
+    bool newMove = false;
     auto node = rclcpp::Node::make_shared("chessGUI",
         rclcpp::NodeOptions().automatically_declare_parameters_from_overrides(true));
 
     RCLCPP_INFO(node->get_logger(), "Starting chess GUI node...");
     auto publisher = node->create_publisher<std_msgs::msg::String>("/chess_moves", 10);
+
+    auto subscriber = node->create_subscription<std_msgs::msg::String>(
+        "/player_move", 10,
+        [node, &msgFromCamera, &newMove](const std_msgs::msg::String::SharedPtr msg) {  // Capture 'a' by reference
+            if (!newMove) {
+                msgFromCamera = msg->data;  // Copy the message data to 'a'
+                newMove = true;
+                RCLCPP_INFO(node->get_logger(), "Received from Camera: %s", msgFromCamera.c_str());
+            }
+        });
+
     auto msg = std_msgs::msg::String();
 
     // Initialising stockfish communication via boost
@@ -419,10 +432,20 @@ int main(int argc, char * argv[]) {
 
     // Change the fen string to set a different piece placement
     std::string fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR";
-
+    // Setting a random board position for testing, have to uncomment if not in debug
+    //fen = "rn1qkb1r/pp2pppp/2p1bn2/3p4/4P3/3P1N2/PPP1BPPP/RNBQK2R";
+    // fen = "r2qkb1r/pppb1ppp/4pn2/3p4/1n2P3/2NPBN2/PPPQ1PPP/R3KB1R";
     window.setVerticalSyncEnabled(false);
     std::vector<std::string> pieceName;
     std::vector<sf::Sprite> pieces = makePieces(texture, fen);
+    // publish the initial state of the chess board to the camera node for initialisation
+    for (int i = 0; i < 8; i++) {
+        for (int y = 0; y < 8; y++) {
+            msg.data += board[i][y];
+        }
+    }
+    publisher->publish(msg);
+
     int lastClickedPiece = -1;
     int curRow = 0, curCol = 0;
     bool whiteCaptured = false, blackTurn = false;
@@ -430,6 +453,7 @@ int main(int argc, char * argv[]) {
 
     // Game loop until window is closed
     while (window.isOpen() && rclcpp::ok()) {
+        rclcpp::spin_some(node);
         sf::Event event;
         // Human to move (check if any mouse click was detected)
         while (window.pollEvent(event)) {
@@ -530,6 +554,30 @@ int main(int argc, char * argv[]) {
             }
         }
 
+        // Update the chess board with the real move from player (sent from camera node)
+        if (newMove && !blackTurn) {
+            newMove = false;
+            //RowStart, ColStart, RowEnd, ColEnd
+            // Put in a while loop to update all pending moves easier (in this case only castling moves lol)
+            while (msgFromCamera.length() > 0) {
+                int physicalMove[4];
+                for (int i = 0; i < 4; i++) {
+                    physicalMove[i] = msgFromCamera[i] - '0';
+                } 
+                for (int i = 0; i < pieces.size(); i++) {
+                    // Find the piece played
+                    if ((int(pieces[i].getPosition().y)-8)/SQUARE_SIZE == physicalMove[0] &&
+                        (int(pieces[i].getPosition().x)-8)/SQUARE_SIZE == physicalMove[1]) {
+                            pieces[i].setPosition(physicalMove[3] * SQUARE_SIZE + 8, physicalMove[2] * SQUARE_SIZE + 8);
+                            board[physicalMove[2]][physicalMove[3]] = board[physicalMove[0]][physicalMove[1]];
+                            board[physicalMove[0]][physicalMove[1]] = '-';
+                        }
+                }
+                msgFromCamera.erase(0, 4);
+            }
+            blackTurn = true;
+        }
+
         window.clear();
         drawBoard(window);
         for (int i = 0; i < pieces.size(); i++) {
@@ -551,6 +599,7 @@ int main(int argc, char * argv[]) {
             blackTurn = false;
             stockfish_in << fen << std::flush;
             stockfish_in << "go depth 10\n" << std::flush;
+            char piecePlayed = ' ';
 
             while (std::getline(stockfish_out, line)) {
                 if (line.rfind("bestmove", 0) == 0) {
@@ -579,6 +628,7 @@ int main(int argc, char * argv[]) {
                             }
                             pieces[i].setPosition(fishMoves[1][1] * SQUARE_SIZE + 8, fishMoves[1][0] * SQUARE_SIZE + 8);
                             board[fishMoves[1][0]][fishMoves[1][1]] = board[row][col];
+                            piecePlayed = board[row][col];
 
                             if (board[row][col] == 'p') pawn = true;
                             // Castling check and move the correct rooks
@@ -605,20 +655,25 @@ int main(int argc, char * argv[]) {
                     }
                     if (capture || pawn) halfmoveClock = 0; else halfmoveClock++; 
                     fullmoveNumer++;
-                    msg.data = move + moveType;
+                    msg.data = move + moveType + piecePlayed;
                     break; // Stop after printing the move
                 }
             }
+            // Publish the move to control node
             publisher->publish(msg);
             // logBoard();
+            std::string boardStr;
             for (int i = 0; i < 8; i++) {
                 std::string row;
                 for (int y = 0; y < 8; y++) {
                     row += std::string(1, board[i][y]) + " "; // Convert char to string and add space
+                    boardStr += board[i][y];
                 }
                 RCLCPP_INFO(node->get_logger(), "%s", row.c_str()); // Log each row
             }
-            RCLCPP_INFO(node->get_logger(), ""); // Empty line for newline
+            RCLCPP_INFO(node->get_logger(), " "); // Empty line for newline
+            msg.data = boardStr;
+            publisher->publish(msg); // publish the board state to the camera node
         }
     }
     
