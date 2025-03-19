@@ -1,0 +1,15 @@
+README
+
+to start the driver
+ros2 launch ur_robot_driver ur_control.launch.py ur_type:=ur3e robot_ip:=192.168.0.250 launch_rviz:=true
+things to note:
+- ensure that the robot ip matches
+
+then start the program on the ur3e - ensure that the driver is done setting up and has stopped printing
+note:
+- ensure that the return pc ip is the same as your ip: you can check this with ifconfig
+- once done you should see that the driver confirms ready to receive commands
+
+next step is to start our moveIt launch with ros2 launch ur3_test_control moveL.launch.py
+note:
+- to run this you need to ros package from the git symbolicaly linked to your ros2 workspace
