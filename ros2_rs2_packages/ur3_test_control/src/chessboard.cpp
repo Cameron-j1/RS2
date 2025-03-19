@@ -599,7 +599,7 @@ int main(int argc, char * argv[]) {
             blackTurn = false;
             stockfish_in << fen << std::flush;
             stockfish_in << "go depth 10\n" << std::flush;
-            char piecePlayed = ' ';
+            char piecePlayed = ' ', pieceCaptured = ' ';
 
             while (std::getline(stockfish_out, line)) {
                 if (line.rfind("bestmove", 0) == 0) {
@@ -620,8 +620,11 @@ int main(int argc, char * argv[]) {
                             for (int y = 0; y < pieces.size(); y++) {
                                 int rowy = (int(pieces[y].getPosition().y)-8)/SQUARE_SIZE;
                                 int coly = (int(pieces[y].getPosition().x)-8)/SQUARE_SIZE; 
+                                // Remove the captured piece from the chessboard by setting its position somewhere far far away
                                 if (rowy == fishMoves[1][0] && coly == fishMoves[1][1]) {
                                     pieces[y].setPosition(5000.0f, 5000.0f);
+                                    pieceCaptured = board[fishMoves[1][0]][fishMoves[1][1]];
+                                    moveType = 'x';
                                     capture = true;
                                     break;
                                 }
@@ -656,6 +659,7 @@ int main(int argc, char * argv[]) {
                     if (capture || pawn) halfmoveClock = 0; else halfmoveClock++; 
                     fullmoveNumer++;
                     msg.data = move + moveType + piecePlayed;
+                    if (capture) msg.data += pieceCaptured;
                     break; // Stop after printing the move
                 }
             }
