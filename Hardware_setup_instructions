@@ -13,3 +13,28 @@ note:
 next step is to start our moveIt launch with ros2 launch ur3_test_control moveL.launch.py
 note:
 - to run this you need to ros package from the git symbolicaly linked to your ros2 workspace
+
+center pose
+x: pose:
+  position:
+    x: -0.007513489702168074
+    y: -0.34951772406979686
+    z: 0.0818855213891164
+  orientation:
+    x: 0.10266693853203239
+    y: -0.994715788312728
+    z: -5.721744596536031e-06
+    w: 1.3457703884266772e-05
+
+drop pose:
+pose:
+  position:
+    x: -0.29530003362180285
+    y: -0.30987919323857865
+    z: 0.1629595448838247
+  orientation:
+    x: -0.10268623815610047
+    y: 0.9947137961422314
+    z: 1.4407278592246102e-05
+    w: 7.077439808658086e-06
+
