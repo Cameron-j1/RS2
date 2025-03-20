@@ -113,10 +113,11 @@ class RobotKinematics : public rclcpp::Node {
                 tempPosition.position.z = operation_height;
                 moveStraightToPoint({tempPosition}, 0.05, 0.05);
                 // WE HAVE TO FIND THE X AND Y OF THE DROPPING POSITION
-                // tempPosition.position.x = goal.first;
-                // tempPosition.position.y = goal.second;
-                // moveStraightToPoint({tempPosition}, 0.05, 0.05);
+                tempPosition.position.x = -0.292;
+                tempPosition.position.y = 0.290;
+                moveStraightToPoint({tempPosition}, 0.05, 0.05);
                 publishServoState(true);
+                std::this_thread::sleep_for(std::chrono::seconds(1));
             }   
             // Here, we play the damn piece
             if (moveType == 'n' || moveType == 'x') {
@@ -168,37 +169,30 @@ class RobotKinematics : public rclcpp::Node {
             if (col < 0 || col > 7) {
                 throw std::invalid_argument("File must be between 'a' and 'h'");
             }
+            col = abs(col-7);
         
             // Convert rank to row index (0-based: '1' = 0, '8' = 7)
             double row = rank - '1';
             if (row < 0 || row > 7) {
                 throw std::invalid_argument("Rank must be between '1' and '8'");
             }
-        
-            // Calculate bottom-left corner of the square
-            double x = col * SQUARE_SIZE;
-            double y = row * SQUARE_SIZE;
-        
-            // Calculate center of the square (before rotation)
-            double x_center = x + SQUARE_SIZE / 2;
-            double y_center = y + SQUARE_SIZE / 2;
-        
-            // Step 1: Translate so the board's center is at (0, 0)
-            double board_center_x = 4 * SQUARE_SIZE; // Center of 8x8 board
-            double board_center_y = 4 * SQUARE_SIZE;
-            double x_translated = x_center - board_center_x;
-            double y_translated = y_center - board_center_y;
-        
-            // Step 2: Apply 90-degree counterclockwise rotation (x', y') = (-y, x)
-            double x_rotated = -y_translated;
-            double y_rotated = x_translated;
-        
-            // Step 3: Translate back to original position
-            double x_final = x_rotated + board_center_x;
-            double y_final = y_rotated + board_center_y;
-        
-            // Scale to meters (as in your original function)
-            return {-((y_final / 1000) - 0.256/2), (x_final / 1000) + 0.2};
+
+            //measured from board
+            double H8_X = 0.11436;
+            double A1_Y = -0.469443135;
+
+            double x_final = H8_X - col*(SQUARE_SIZE/1000);
+
+            double y_final = A1_Y + row*(SQUARE_SIZE/1000);
+
+            return robotReadToControlFrame({x_final, y_final}); //reordered here for transform
+        }
+
+        std::pair<double, double> robotReadToControlFrame(std::pair<double, double> in){
+            in.first = -in.first;
+            in.second = -in.second;
+            // in.first = in.first + 0.15;
+            return in;
         }
 
         void publish_point(double x, double y, double z, double r, double g, double b) {
