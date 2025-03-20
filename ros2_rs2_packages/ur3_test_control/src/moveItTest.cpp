@@ -97,8 +97,8 @@ class RobotKinematics : public rclcpp::Node {
             tempPosition.position.z = operation_height;
             tempPosition.orientation.x = 1.0;
             tempPosition.orientation.y = 0.0;
-            tempPosition.orientation.z = 0.0;
             tempPosition.orientation.w = 0.0;
+
             // remove the captured piece from the board
             if (moveType == 'x') {
                 tempPosition.position.x = goal.first;
@@ -108,7 +108,7 @@ class RobotKinematics : public rclcpp::Node {
                 tempPosition.position.z = pickupHeightCap;
                 moveStraightToPoint({tempPosition}, 0.05, 0.05);
                 publishServoState(false);
-                std::this_thread::sleep_for(std::chrono::seconds(1));
+                std::this_thread::sleep_for(std::chrono::seconds(3));
                 // Raise the shit up
                 tempPosition.position.z = operation_height;
                 moveStraightToPoint({tempPosition}, 0.05, 0.05);
@@ -117,7 +117,7 @@ class RobotKinematics : public rclcpp::Node {
                 tempPosition.position.y = 0.290;
                 moveStraightToPoint({tempPosition}, 0.05, 0.05);
                 publishServoState(true);
-                std::this_thread::sleep_for(std::chrono::seconds(1));
+                std::this_thread::sleep_for(std::chrono::seconds(3));
             }   
             // Here, we play the damn piece
             if (moveType == 'n' || moveType == 'x') {
@@ -130,7 +130,7 @@ class RobotKinematics : public rclcpp::Node {
                 tempPosition.position.z = pickupHeight;
                 moveStraightToPoint({tempPosition}, 0.05, 0.05);
                 publishServoState(false);
-                std::this_thread::sleep_for(std::chrono::seconds(1));
+                std::this_thread::sleep_for(std::chrono::seconds(3));
                 tempPosition.position.z = operation_height;
                 moveStraightToPoint({tempPosition}, 0.05, 0.05);
                 tempPosition.position.x = goal.first;
@@ -140,10 +140,13 @@ class RobotKinematics : public rclcpp::Node {
                 tempPosition.position.z = pickupHeight;
                 moveStraightToPoint({tempPosition}, 0.05, 0.05);
                 publishServoState(true);
-                std::this_thread::sleep_for(std::chrono::seconds(1));
+                std::this_thread::sleep_for(std::chrono::seconds(3));
                 tempPosition.position.z = operation_height;
                 moveStraightToPoint({tempPosition}, 0.05, 0.05);
             }
+
+            moveToJointAngles(camera_view_jangle.at(0), camera_view_jangle.at(1),camera_view_jangle.at(2),camera_view_jangle.at(3),camera_view_jangle.at(4),camera_view_jangle.at(5));
+
         }
 
         bool moveStraightToPoint(std::vector<geometry_msgs::msg::Pose> tempPosition, double vel, double acc) {
@@ -229,19 +232,19 @@ class RobotKinematics : public rclcpp::Node {
         int markerNum = 0;
         rclcpp::Publisher<std_msgs::msg::Bool>::SharedPtr servo_publisher_;
         std::vector<double> camera_view_jangle = {
-            -74.63*(M_PI/180),
-            -108.28*(M_PI/180),
-            -4.65*(M_PI/180),
-            -156.51*(M_PI/180),
-            89.47*(M_PI/180),
-            15.37*(M_PI/180),
+            58.92*(M_PI/180),
+            -89.71*(M_PI/180),
+            54.74*(M_PI/180),
+            -55.06*(M_PI/180),
+            -89.81*(M_PI/180),
+            330.39*(M_PI/180),
         };
 
         std::unordered_map<char, double> pieceHeight = {
-            {'p', 0.165}, {'r', 0.1702}, {'n', 0.1793},
-            {'b', 0.1783}, {'q', 0.1848}, {'k', 0.1877},
-            {'P', 0.165}, {'R', 0.1702}, {'N', 0.1793},
-            {'B', 0.1783}, {'Q', 0.1848}, {'K', 0.1877}
+            {'p', 0.165}, {'r', 0.1793}, {'n', 0.1793},
+            {'b', 0.1783-0.005}, {'q', 0.1848}, {'k', 0.1877},
+            {'P', 0.165}, {'R', 0.1793}, {'N', 0.1793},
+            {'B', 0.1783-0.005}, {'Q', 0.1848}, {'K', 0.1877}
         };
 };
 
