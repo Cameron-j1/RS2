@@ -37,4 +37,28 @@ pose:
     y: 0.9947137961422314
     z: 1.4407278592246102e-05
     w: 7.077439808658086e-06
+    
+    command to show end effector pose
+	    ros2 run tf2_ros tf2_echo base_link tool0
 
+
+At time 1744091488.302613047
+- Translation: [0.270, -0.079, 0.086]
+- Rotation: in Quaternion [-0.385, 0.923, -0.000, 0.000]
+- Rotation: in RPY (radian) [-3.141, 0.000, -2.351]
+- Rotation: in RPY (degree) [-179.970, 0.002, -134.683]
+- Matrix:
+ -0.703 -0.711  0.000  0.270
+ -0.711  0.703 -0.000 -0.079
+ -0.000 -0.001 -1.000  0.086
+  0.000  0.000  0.000  1.000
+  
+  https://moveit.picknik.ai/humble/doc/examples/hand_eye_calibration/hand_eye_calibration_tutorial.html
+
+
+cameraTransform = np.array([
+            [1,0,0,0.01],
+            [0,1,0,-0.057],
+            [0,0,1,0],
+            [0,0,0,1],
+        ])

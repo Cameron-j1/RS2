@@ -98,8 +98,7 @@ def generate_launch_description():
     robot_description = get_robot_description()
     robot_description_semantic = get_robot_description_semantic()
     
-    # Your test node
-    demo_node = Node(
+    main_node = Node(
         package="ur3_test_control",
         executable="moveIt_test_node",
         name="moveIt_test",
@@ -124,8 +123,8 @@ def generate_launch_description():
 
     cam_node = Node(
         package="ur3_test_control",
-        executable="camera_node.py",
-        name="Camera",
+        executable="image_processing_exe",
+        name="image_processing",
         output="screen",
     )
 
@@ -139,4 +138,4 @@ def generate_launch_description():
         }.items()
     )
     
-    return launch.LaunchDescription([ur_moveit_launch, demo_node, cam_node, chess_node])
+    return launch.LaunchDescription([ur_moveit_launch, cam_node])

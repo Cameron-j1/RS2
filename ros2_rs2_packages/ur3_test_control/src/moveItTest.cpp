@@ -246,6 +246,18 @@ class RobotKinematics : public rclcpp::Node {
             {'P', 0.165}, {'R', 0.1793}, {'N', 0.1793},
             {'B', 0.1783-0.005}, {'Q', 0.1848}, {'K', 0.1877}
         };
+
+        void calibrate_image_pos(){
+            //used to calibrate the camera positions
+            //move to point above each corner of the board
+
+            geometry_msgs::msg::Pose guess_start_pos;
+            // guess_start_pos.position.x = ;
+            // guess_start_pos.position.z = ;
+            // guess_start_pos.position.y = ;
+            // guess_start_pos.
+
+        }
 };
 
 int main(int argc, char * argv[])

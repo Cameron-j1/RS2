@@ -10,354 +10,362 @@ import cv2
 import scipy.spatial as spatial
 import scipy.cluster as clstr
 
-def canny(img):
-    # Maybe add some auto thresholding here
-    edges = cv2.Canny(img, 80, 200)
-    return edges
+import rclpy
+from rclpy.node import Node
+from sensor_msgs.msg import Image
+from cv_bridge import CvBridge
 
-
-def hough_lines(img):
-    rho, theta, thresh = 2, np.pi / 180, 600
-    return cv2.HoughLines(img, rho, theta, thresh)
-
-
-def sort_lines(lines):
-    """
-    Sorts lines by horizontal and vertical
-    """
-    h = []
-    v = []
-    for i in range(lines.shape[0]):
-        rho = lines[i][0][0]
-        theta = lines[i][0][1]
-        if theta < np.pi / 4 or theta > np.pi - np.pi / 4:
-            v.append([rho, theta])
-        else:
-            h.append([rho, theta])
-    return h, v
-
-
-def calculate_intersections(h, v):
-    """
-    Finds the intersection of two lines given in Hesse normal form.
-    See https://stackoverflow.com/a/383527/5087436
-    """
-    points = []
-    for rho1, theta1 in h:
-        for rho2, theta2 in v:
-            A = np.array([
-                [np.cos(theta1), np.sin(theta1)],
-                [np.cos(theta2), np.sin(theta2)]
-            ])
-            b = np.array([[rho1], [rho2]])
-            point = np.linalg.solve(A, b)
-            point = int(np.round(point[0])), int(np.round(point[1]))
-            points.append(point)
-    return np.array(points)
-
-
-def cluster_intersections(points, max_dist=40):
-    # I want to change this to kmeans
-    Y = spatial.distance.pdist(points)
-    Z = clstr.hierarchy.single(Y)
-    T = clstr.hierarchy.fcluster(Z, max_dist, 'distance')
-    clusters = defaultdict(list)
-    for i in range(len(T)):
-        clusters[T[i]].append(points[i])
-    clusters = clusters.values()
-    clusters = map(lambda arr: (np.mean(np.array(arr)[:, 0]), np.mean(np.array(arr)[:, 1])), clusters)
-
-    result = []
-    for point in clusters:
-        result.append([point[0], point[1]])
-    return result
-
-def find_dot(image):
+class ChessboardProcessor(Node):
+    def __init__(self):
+        super().__init__('chessboard_processor')
         
-    height, width = image.shape[:2]
-
-    # Calculate new dimensions (20% of original size)
-    new_width = int(width * 0.2)
-    new_height = int(height * 0.2)
-
-    # Find center coordinates
-    center_x, center_y = width // 2, height // 2
-
-    # Calculate cropping boundaries
-    x1 = max(center_x - new_width // 2, 0)
-    x2 = min(center_x + new_width // 2, width)
-    y1 = max(center_y - new_height // 2, 0)
-    y2 = min(center_y + new_height // 2, height)
-
-    # Crop the image
-    cropped_image = image[y1:y2, x1:x2]
-    cv2.imshow('cropped_image', cropped_image)
-    cv2.waitKey(0)
-    cv2.destroyAllWindows()
-
-
-
-
-    # Convert BGR to HSV color space (better for color detection), make sure image is an opencv image.
-    hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
-
-    _, red_thresh = cv2.threshold(image[:,:,2], 150, 255, cv2.THRESH_BINARY)
-    cv2.imshow('red_thresh', hsv)
-    cv2.waitKey(0)
-    cv2.destroyAllWindows()
-
-    
-    # Define range for blue color in HSV
-    # lower_blue = np.array([100, 150, 50])    # Lower bound (Hue, Saturation, Value)
-    # upper_blue = np.array([140, 255, 255])  # Upper bound
-    
-    lower_red1 = np.array([0, 150, 10])    # Lower range for red
-    upper_red1 = np.array([20, 255, 255])  
-
-    lower_red2 = np.array([160, 150, 50])  # Upper range for red (due to hue wrapping)
-    upper_red2 = np.array([180, 255, 255])
-
-    # Create two masks for the red color using the defined ranges
-    mask1 = cv2.inRange(hsv, lower_red1, upper_red1)
-    mask2 = cv2.inRange(hsv, lower_red2, upper_red2)
-
-    # Combine the two masks to capture the full red range
-    mask = cv2.bitwise_or(mask1, mask2)
-
-    # Find contours in the combined mask
-    contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-
-    if contours:
-        # Find the largest contour (assuming it's the dot we want)
-        largest_contour = max(contours, key=cv2.contourArea)
+        # Create a subscriber to the camera topic
+        self.subscription = self.create_subscription(
+            Image,
+            '/camera/camera/color/image_raw',
+            self.image_callback,
+            10)
         
-        # Get the center and radius of the minimum enclosing circle
-        ((x, y), radius) = cv2.minEnclosingCircle(largest_contour)
+        # Initialize CV bridge to convert between ROS and OpenCV images
+        self.bridge = CvBridge()
         
-        # Only consider it a dot if it's roughly circular and within size limits
-        if 0.5 < radius < 5:  # Adjust these values based on your needs
-            # Draw circle on the original image
-            cv2.circle(image, (int(x), int(y)), int(radius), (0, 255, 0), 2)
+        # Set output path
+        self.output_path = ""  # Set your desired output path here
+        self.output_prefix = ""
+        self.debug = True
+        
+        self.get_logger().info('Chessboard processor initialized. Waiting for images...')
+
+    def image_callback(self, msg):
+        self.get_logger().info('Received image. Processing...')
+        
+        try:
+            # Convert ROS Image message to OpenCV image
+            src = self.bridge.imgmsg_to_cv2(msg, desired_encoding='bgr8')
             
-            # Show the result
-            cv2.imshow('Red Dot Found', image)
-            cv2.waitKey(0)
-            cv2.destroyAllWindows()
+            # Process the image
+            self.process_chessboard(src)
             
-            return True
-        else:
-            # if radius < 0.5
-            return False
+        except Exception as e:
+            self.get_logger().error(f'Error processing image: {str(e)}')
+
+    def process_chessboard(self, src):
+        if src is None:
+            self.get_logger().error("Invalid image!")
+            return
+
+        src = cv2.resize(src, (1000, 1000))
+        src_copy = src.copy()
+
+        # Convert to grayscale
+        process = cv2.cvtColor(src, cv2.COLOR_BGR2GRAY)
+
+        if self.debug:
+            cv2.imshow("Grayscale", process)
+            cv2.waitKey(1)
+
+        # Blur to remove disturbing things
+        process = cv2.blur(process, (4, 4))
+
+        if self.debug:
+            cv2.imshow("Blur", process)
+            cv2.waitKey(1)
+
+        # Use Canny Edge Detector
+        process = cv2.Canny(process, 25, 75)
+
+        if self.debug:
+            cv2.imshow("Canny", process)
+            cv2.waitKey(1)
+
+        # Dilate image (thicker lines)
+        process = cv2.dilate(process, np.ones((3, 3), dtype=np.uint8))
+
+        if self.debug:
+            cv2.imshow("Dilate", process)
+            cv2.waitKey(1)
+
+        # Use Hough transform to detect lines
+        lines = self.hough_lines(process)
         
-    else:
-        return False
-    
+        if lines is None:
+            self.get_logger().warn("No lines detected in the image")
+            return
 
-def analyseContours(contours, mask ):
-    pass
+        # Sort lines by horizontal and vertical
+        h, v = self.sort_lines(lines)
 
+        if self.debug:
+            src_line_viz = src_copy.copy()
+            self.render_lines(src_line_viz, h, (0, 255, 0))
+            self.render_lines(src_line_viz, v, (0, 0, 255))
+            cv2.imshow("Sorted lines", src_line_viz)
+            cv2.waitKey(1)
 
-def find_chessboard_corners(points):
-    """
-    Code from https://medium.com/@neshpatel/solving-sudoku-part-ii-9a7019d196a2
-    """
-    # Bottom-right point has the largest (x + y) value
-    # Top-left has point smallest (x + y) value
-    # Bottom-left point has smallest (x - y) value
-    # Top-right point has largest (x - y) value
-    bottom_right, _ = max(enumerate([pt[0] + pt[1] for pt in points]), key=operator.itemgetter(1))
-    top_left, _ = min(enumerate([pt[0] + pt[1] for pt in points]), key=operator.itemgetter(1))
-    bottom_left, _ = min(enumerate([pt[0] - pt[1] for pt in points]), key=operator.itemgetter(1))
-    top_right, _ = max(enumerate([pt[0] - pt[1] for pt in points]), key=operator.itemgetter(1))
-    return [points[top_left], points[top_right], points[bottom_left], points[bottom_right]]
+        if len(h) < 9 or len(v) < 9:
+            self.get_logger().warn(f"Not enough lines detected: {len(h)} horizontal, {len(v)} vertical")
+            return
 
+        # Calculate intersections of the horizontal and vertical lines
+        intersections = self.calculate_intersections(h, v)
 
-def distance_between(p1, p2):
-    """
-    Code from https://medium.com/@neshpatel/solving-sudoku-part-ii-9a7019d196a2
-    """
-    a = p2[0] - p1[0]
-    b = p2[1] - p1[1]
-    return np.sqrt((a ** 2) + (b ** 2))
+        if self.debug:
+            src_int_viz = src_copy.copy()
+            self.render_intersections(src_int_viz, intersections, (255, 0, 0), 1)
+            cv2.imshow("Intersections", src_int_viz)
+            cv2.waitKey(1)
 
+        # Cluster intersection since there are many
+        clustered = self.cluster_intersections(intersections)
 
-def warp_image(img, edges):
-    """
-    Code from https://medium.com/@neshpatel/solving-sudoku-part-ii-9a7019d196a2
-    """
-    top_left, top_right, bottom_left, bottom_right = edges[0], edges[1], edges[2], edges[3]
+        if self.debug:
+            src_cluster_viz = src_copy.copy()
+            self.render_intersections(src_cluster_viz, clustered, (0, 255, 0), 5, True)
+            cv2.imshow("Clustered Intersections", src_cluster_viz)
+            cv2.waitKey(1)
 
-    # Explicitly set the data type to float32 or 'getPerspectiveTransform' will throw an error
-    warp_src = np.array([top_left, top_right, bottom_right, bottom_left], dtype='float32')
+        if len(clustered) != 81:
+            self.get_logger().warn(f"Unexpected number of intersections: {len(clustered)} (expected 81)")
 
-    side = max([
-        distance_between(bottom_right, top_right),
-        distance_between(top_left, bottom_left),
-        distance_between(bottom_right, bottom_left),
-        distance_between(top_left, top_right)
-    ])
+        # Find outer corners of the chessboard
+        corners = self.find_chessboard_corners(clustered)
 
-    # Describe a square with side of the calculated length, this is the new perspective we want to warp to
-    warp_dst = np.array([[0, 0], [side - 1, 0], [side - 1, side - 1], [0, side - 1]], dtype='float32')
+        if self.debug:
+            src_corner_viz = src_copy.copy()
+            self.render_intersections(src_corner_viz, corners, (255, 0, 0), 5)
+            cv2.imshow("Corners", src_corner_viz)
+            cv2.waitKey(1)
 
-    # Gets the transformation matrix for skewing the image to fit a square by comparing the 4 before and after points
-    m = cv2.getPerspectiveTransform(warp_src, warp_dst)
+        # Warp and crop image
+        dst = self.warp_image(src, corners)
 
-    # Performs the transformation on the original image
-    return cv2.warpPerspective(img, m, (int(side), int(side)))
+        if self.debug:
+            cv2.imshow("Warped", dst)
+            cv2.waitKey(1)
 
+        # Cut chessboard into 64 tiles
+        self.cut_chessboard(dst, self.output_path, self.output_prefix)
+        
+        self.get_logger().info("Processing complete")
 
-def cut_chessboard(img, output_path, output_prefix=""):
-    side_len = int(img.shape[0] / 8)
-    for i in range(8):
-        for j in range(8):
-            tile = img[i * side_len: (i + 1) * side_len, j * side_len: (j + 1) * side_len]
-            if find_dot(tile) == False:
-                cv2.imwrite(output_path + output_prefix + "-" + str(j + i * 8) + "-occupied" + ".jpg", tile)
+    def hough_lines(self, img):
+        rho, theta, thresh = 2, np.pi / 180, 600
+        return cv2.HoughLines(img, rho, theta, thresh)
+
+    def sort_lines(self, lines):
+        """
+        Sorts lines by horizontal and vertical
+        """
+        h = []
+        v = []
+        for i in range(lines.shape[0]):
+            rho = lines[i][0][0]
+            theta = lines[i][0][1]
+            if theta < np.pi / 4 or theta > np.pi - np.pi / 4:
+                v.append([rho, theta])
             else:
-                cv2.imwrite(output_path + output_prefix + "-" + str(j + i * 8) + "-empty" + ".jpg", tile)
+                h.append([rho, theta])
+        return h, v
 
+    def calculate_intersections(self, h, v):
+        """
+        Finds the intersection of two lines given in Hesse normal form.
+        """
+        points = []
+        for rho1, theta1 in h:
+            for rho2, theta2 in v:
+                A = np.array([
+                    [np.cos(theta1), np.sin(theta1)],
+                    [np.cos(theta2), np.sin(theta2)]
+                ])
+                b = np.array([[rho1], [rho2]])
+                try:
+                    point = np.linalg.solve(A, b)
+                    point = int(np.round(point[0])), int(np.round(point[1]))
+                    points.append(point)
+                except np.linalg.LinAlgError:
+                    continue
+        return np.array(points)
 
-def resize_image(img):
-    """
-    Resizes image to a maximum width of 800px
-    """
-    width = img.shape[1]
-    if width > 800:
-        scale = 800 / width
-        return cv2.resize(img, None, fx=scale, fy=scale)
-    else:
-        return img
+    def cluster_intersections(self, points, max_dist=40):
+        if len(points) == 0:
+            return []
+            
+        Y = spatial.distance.pdist(points)
+        Z = clstr.hierarchy.single(Y)
+        T = clstr.hierarchy.fcluster(Z, max_dist, 'distance')
+        clusters = defaultdict(list)
+        for i in range(len(T)):
+            clusters[T[i]].append(points[i])
+        clusters = clusters.values()
+        clusters = map(lambda arr: (np.mean(np.array(arr)[:, 0]), np.mean(np.array(arr)[:, 1])), clusters)
 
+        result = []
+        for point in clusters:
+            result.append([point[0], point[1]])
+        return result
 
-def process_chessboard(src_path, output_path, output_prefix="", debug=False):
-    src = cv2.imread(src_path)
+    def find_dot(self, image):
+        # Convert BGR to HSV color space (better for color detection)
+        hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
+        
+        lower_red1 = np.array([0, 150, 10])    # Lower range for red
+        upper_red1 = np.array([20, 255, 255])  
 
-    if src is None:
-        sys.exit("There is no file with this path!")
+        lower_red2 = np.array([160, 150, 50])  # Upper range for red (due to hue wrapping)
+        upper_red2 = np.array([180, 255, 255])
 
-    src = cv2.resize(src, (1000, 1000))
-    src_copy = src.copy()
+        # Create two masks for the red color using the defined ranges
+        mask1 = cv2.inRange(hsv, lower_red1, upper_red1)
+        mask2 = cv2.inRange(hsv, lower_red2, upper_red2)
 
-    # Convert to grayscale
-    process = cv2.cvtColor(src, cv2.COLOR_BGR2GRAY)
+        # Combine the two masks to capture the full red range
+        mask = cv2.bitwise_or(mask1, mask2)
 
-    if debug:
-        cv2.imshow("Grayscale", process)
-        cv2.imwrite('grayscale.png', process)
-        cv2.waitKey()
-        cv2.destroyWindow("Grayscale")
+        # Find contours in the combined mask
+        contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
-    # Blur to remove disturbing things
-    process = cv2.blur(process, (4, 4))
+        if contours:
+            # Find the largest contour (assuming it's the dot we want)
+            largest_contour = max(contours, key=cv2.contourArea)
+            
+            # Get the center and radius of the minimum enclosing circle
+            ((x, y), radius) = cv2.minEnclosingCircle(largest_contour)
+            
+            # Only consider it a dot if it's roughly circular and within size limits
+            if 0.5 < radius < 5:  # Adjust these values based on your needs
+                if self.debug:
+                    # Draw circle on the original image
+                    img_copy = image.copy()
+                    cv2.circle(img_copy, (int(x), int(y)), int(radius), (0, 255, 0), 2)
+                    cv2.imshow('Red Dot Found', img_copy)
+                    cv2.waitKey(1)
+                
+                return True
+            else:
+                return False
+            
+        else:
+            return False
 
-    if debug:
-        cv2.imshow("Blur", process)
-        cv2.imwrite('blur.png', process)
-        cv2.waitKey()
-        cv2.destroyWindow("Blur")
+    def find_chessboard_corners(self, points):
+        """
+        Find the corners of the chessboard
+        """
+        if len(points) < 4:
+            # Return dummy corners if we don't have enough points
+            self.get_logger().error("Not enough points to find chessboard corners")
+            return [[0, 0], [100, 0], [0, 100], [100, 100]]
+            
+        # Bottom-right point has the largest (x + y) value
+        # Top-left has point smallest (x + y) value
+        # Bottom-left point has smallest (x - y) value
+        # Top-right point has largest (x - y) value
+        bottom_right, _ = max(enumerate([pt[0] + pt[1] for pt in points]), key=operator.itemgetter(1))
+        top_left, _ = min(enumerate([pt[0] + pt[1] for pt in points]), key=operator.itemgetter(1))
+        bottom_left, _ = min(enumerate([pt[0] - pt[1] for pt in points]), key=operator.itemgetter(1))
+        top_right, _ = max(enumerate([pt[0] - pt[1] for pt in points]), key=operator.itemgetter(1))
+        
+        return [points[top_left], points[top_right], points[bottom_left], points[bottom_right]]
 
-    # Use Canny Edge Detector https://en.wikipedia.org/wiki/Canny_edge_detector
-    process = cv2.Canny(process, 25, 75)
+    def distance_between(self, p1, p2):
+        """
+        Calculate Euclidean distance between two points
+        """
+        a = p2[0] - p1[0]
+        b = p2[1] - p1[1]
+        return np.sqrt((a ** 2) + (b ** 2))
 
-    if debug:
-        cv2.imshow("Canny", process)
-        cv2.imwrite('canny.png', process)
-        cv2.waitKey()
-        cv2.destroyWindow("Canny")
+    def warp_image(self, img, edges):
+        """
+        Warp the image to get a square chessboard
+        """
+        top_left, top_right, bottom_left, bottom_right = edges[0], edges[1], edges[2], edges[3]
 
-    # Dilate image (thicker lines)
-    process = cv2.dilate(process, np.ones((3, 3), dtype=np.uint8))
+        # Explicitly set the data type to float32 or 'getPerspectiveTransform' will throw an error
+        warp_src = np.array([top_left, top_right, bottom_right, bottom_left], dtype='float32')
 
-    if debug:
-        cv2.imshow("Dilate", process)
-        cv2.imwrite('dilate.png', process)
-        cv2.waitKey()
-        cv2.destroyWindow("Dilate")
+        side = max([
+            self.distance_between(bottom_right, top_right),
+            self.distance_between(top_left, bottom_left),
+            self.distance_between(bottom_right, bottom_left),
+            self.distance_between(top_left, top_right)
+        ])
 
-    # Use Hough transform to detect lines https://en.wikipedia.org/wiki/Hough_transform
-    lines = hough_lines(process)
+        # Describe a square with side of the calculated length, this is the new perspective we want to warp to
+        warp_dst = np.array([[0, 0], [side - 1, 0], [side - 1, side - 1], [0, side - 1]], dtype='float32')
 
-    # Sort lines by horizontal and vertical
-    h, v = sort_lines(lines)
+        # Gets the transformation matrix for skewing the image to fit a square by comparing the 4 before and after points
+        m = cv2.getPerspectiveTransform(warp_src, warp_dst)
 
-    if debug:
-        render_lines(src_copy, h, (0, 255, 0))
-        render_lines(src_copy, v, (0, 0, 255))
-        cv2.imshow("Sorted lines", src_copy)
-        cv2.imwrite('sorted-lines.png', src_copy)
-        cv2.waitKey()
-        cv2.destroyWindow("Sorted lines")
+        # Performs the transformation on the original image
+        return cv2.warpPerspective(img, m, (int(side), int(side)))
 
-    if len(h) < 9 or len(v) < 9:
-        print("There are not enough horizontal and vertical lines in this image. Try it anyway!")
+    def cut_chessboard(self, img, output_path, output_prefix=""):
+        """
+        Cut the chessboard into 64 tiles and detect if they're empty or occupied
+        """
+        side_len = int(img.shape[0] / 8)
+        timestamp = int(time.time())
+        
+        for i in range(8):
+            for j in range(8):
+                tile = img[i * side_len: (i + 1) * side_len, j * side_len: (j + 1) * side_len]
+                
+                # Check if tile is empty or occupied
+                is_empty = self.find_dot(tile)
+                
+                # Save the tile
+                if output_path:
+                    status = "empty" if is_empty else "occupied"
+                    filename = f"{output_path}{output_prefix}-{j + i * 8}-{status}-{timestamp}.jpg"
+                    cv2.imwrite(filename, tile)
+                
+                # Display the tile
+                if self.debug:
+                    status_text = "Empty" if is_empty else "Occupied"
+                    tile_copy = tile.copy()
+                    cv2.putText(tile_copy, status_text, (10, 20), 
+                                cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 1)
+                    cv2.imshow(f"Tile {j + i * 8}", tile_copy)
+                    cv2.waitKey(1)
 
-    # Calculate intersections of the horizontal and vertical lines
-    intersections = calculate_intersections(h, v)
+    def render_lines(self, img, lines, color):
+        """
+        Helper function to render lines
+        """
+        for rho, theta in lines:
+            a = math.cos(theta)
+            b = math.sin(theta)
+            x0, y0 = a * rho, b * rho
+            pt1 = (int(x0 + 1000 * (-b)), int(y0 + 1000 * a))
+            pt2 = (int(x0 - 1000 * (-b)), int(y0 - 1000 * a))
+            cv2.line(img, pt1, pt2, color, 1, cv2.LINE_AA)
 
-    if debug:
-        render_intersections(src_copy, intersections, (255, 0, 0), 1)
-        cv2.imshow("Intersections", src_copy)
-        cv2.imwrite('intersections.png', src_copy)
-        cv2.waitKey()
-        cv2.destroyWindow("Intersections")
+    def render_intersections(self, img, points, color, size, slow=False):
+        """
+        Helper function to render intersection points
+        """
+        for point in points:
+            cv2.circle(img, (int(point[0]), int(point[1])), 2, color, size)
+            if slow:
+                cv2.waitKey(10)
 
-    # Cluster intersection since there are many
-    clustered = cluster_intersections(intersections)
+def main(args=None):
+    rclpy.init(args=args)
+    
+    chessboard_processor = ChessboardProcessor()
+    
+    try:
+        rclpy.spin(chessboard_processor)
+    except KeyboardInterrupt:
+        pass
+    finally:
+        # Destroy the node explicitly
+        chessboard_processor.destroy_node()
+        rclpy.shutdown()
+        # Close all OpenCV windows
+        cv2.destroyAllWindows()
 
-    if debug:
-        src_copy = src.copy()
-        render_intersections(src_copy, clustered, (0, 255, 0), 5, True)
-        cv2.imshow("Clustered Intersections", src_copy)
-        cv2.imwrite('clustered-intersections.png', src_copy)
-        cv2.waitKey()
-        cv2.destroyWindow("Clustered Intersections")
-
-    if len(clustered) != 81:
-        print("Something is wrong. There are " + str(len(intersections)) + " instead of 81 intersections.")
-
-    # Find outer corners of the chessboard
-    corners = find_chessboard_corners(clustered)
-
-    if debug:
-        src_copy = src.copy()
-        render_intersections(src_copy, corners, (255, 0, 0), 5)
-        cv2.imshow("Corners", src_copy)
-        cv2.imwrite('corners.png', src_copy)
-        cv2.waitKey()
-        cv2.destroyWindow("Corners")
-
-    # Warp and crop image
-    dst = warp_image(src, corners)
-
-    if debug:
-        cv2.imshow("Warped", dst)
-        cv2.imwrite('warped.png', dst)
-        cv2.waitKey()
-        cv2.destroyWindow("Warped")
-
-    # Cut chessboard into 64 tiles
-    cut_chessboard(dst, output_path, output_prefix)
-
-
-def render_lines(img, lines, color):
-    for rho, theta in lines:
-        a = math.cos(theta)
-        b = math.sin(theta)
-        x0, y0 = a * rho, b * rho
-        pt1 = (int(x0 + 1000 * (-b)), int(y0 + 1000 * a))
-        pt2 = (int(x0 - 1000 * (-b)), int(y0 - 1000 * a))
-        cv2.line(img, pt1, pt2, color, 1, cv2.LINE_AA)
-
-
-def render_intersections(img, points, color, size, slow=False):
-    for point in points:
-        cv2.circle(img, (int(point[0]), int(point[1])), 2, color, size)
-
-def main():
-    # TODO: instead of checking if there are enough intersections and lines, check if the corners are correct.
-    process_chessboard('/home/charles/git/RS2/python_tests/img_Color.png', "", "", True)
-
-
-if __name__ == "__main__":
+if __name__ == '__main__':
     main()

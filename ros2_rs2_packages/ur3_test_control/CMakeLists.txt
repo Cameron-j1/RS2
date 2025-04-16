@@ -20,20 +20,14 @@ find_package(OpenCV REQUIRED)
 
 include_directories(${Boost_INCLUDE_DIRS})
 
-add_executable(joint_publisher src/main.cpp)
-ament_target_dependencies(joint_publisher rclcpp sensor_msgs)
-
-add_executable(keyboard_publisher src/keyboard_node.cpp)
-ament_target_dependencies(keyboard_publisher rclcpp sensor_msgs)
-
-add_executable(trajectory_node src/trajectory_test.cpp)
-ament_target_dependencies(trajectory_node rclcpp sensor_msgs trajectory_msgs geometry_msgs tf2_geometry_msgs)
-
 add_executable(moveIt_test_node src/moveItTest.cpp)
 ament_target_dependencies(moveIt_test_node rclcpp std_msgs sensor_msgs geometry_msgs tf2_geometry_msgs moveit_ros_planning_interface)
 
 add_executable(chess_node src/chessboard.cpp)
 ament_target_dependencies(chess_node rclcpp std_msgs ament_index_cpp)
+
+add_executable(image_processing_exe src/image_processing.cpp)
+ament_target_dependencies(image_processing_exe rclcpp std_msgs sensor_msgs geometry_msgs tf2_geometry_msgs moveit_ros_planning_interface cv_bridge OpenCV)
 
 target_link_libraries(chess_node
   sfml-graphics
@@ -42,7 +36,7 @@ target_link_libraries(chess_node
   Threads::Threads
 )
 
-install(TARGETS joint_publisher keyboard_publisher trajectory_node moveIt_test_node chess_node 
+install(TARGETS moveIt_test_node chess_node image_processing_exe
   DESTINATION lib/${PROJECT_NAME}
 )
 
