@@ -138,4 +138,4 @@ def generate_launch_description():
         }.items()
     )
     
-    return launch.LaunchDescription([ur_moveit_launch, cam_node])
+    return launch.LaunchDescription([ur_moveit_launch, main_node, chess_node])

@@ -40,7 +40,6 @@ class CameraPosePublisher:
         self.timer = None
         self.processed_poses = []
         
-        
         # Default Y-rotation of 270 degrees (common for cameras)
         rot_y_270 = R.from_euler('y', 270, degrees=True).as_matrix()
         self.default_rotation = np.eye(4)
@@ -51,13 +50,13 @@ class CameraPosePublisher:
         while rclpy.ok() and self.running:
             rclpy.spin_once(self.node, timeout_sec=0.1)
     
-    def add_pose(self, transformation_matrix, id, apply_default_rotation=True):
-        # print("pose added")
+    def add_pose(self, transformation_matrix, id, apply_default_rotation=False):  # Changed default to False
         """
         Add a camera pose using a 4x4 transformation matrix.
         
         Args:
             transformation_matrix: 4x4 transformation matrix
+            id: Integer ID for this transform
             apply_default_rotation: Whether to apply the default 270-degree Y rotation
         """
         if transformation_matrix.shape != (4, 4):
@@ -78,10 +77,11 @@ class CameraPosePublisher:
         self.processed_poses.append({
             'position': position,
             'quaternion': quaternion,
-            'id':int(id),
+            'id': int(id),
+            'rotation_matrix': rotation_matrix  # Store rotation matrix for axis visualization
         })
 
-        print(f"saving id {id}")
+        print(f"Saved transform with id {id}")
         
         # If we're already publishing, publish once immediately to show the new pose
         if self.timer is not None:
@@ -110,65 +110,108 @@ class CameraPosePublisher:
         # Publish immediately once
         self._publish_markers()
         
-        self.get_logger().info(f"Started publishing camera markers at {frequency} Hz")
+        self.node.get_logger().info(f"Started publishing camera markers at {frequency} Hz")
     
     def stop_publishing(self):
         """Stop publishing markers."""
         if self.timer is not None:
             self.timer.cancel()
             self.timer = None
-            self.get_logger().info("Stopped publishing camera markers")
+            self.node.get_logger().info("Stopped publishing camera markers")
     
     def publish_once(self):
         """Publish markers once."""
         self._publish_markers()
     
+    def _create_axis_marker(self, pose_data, axis_index, id_offset, color, scale):
+        """Create a marker for a specific axis."""
+        marker = Marker()
+        marker.header.frame_id = "base_link"
+        marker.header.stamp = self.node.get_clock().now().to_msg()
+        marker.ns = "camera_axis"
+        marker.id = pose_data['id'] * 10 + id_offset  # Create unique ID
+        marker.type = Marker.ARROW
+        marker.action = Marker.ADD
+        
+        # Set starting position
+        marker.pose.position.x = pose_data['position'][0]
+        marker.pose.position.y = pose_data['position'][1]
+        marker.pose.position.z = pose_data['position'][2]
+        
+        # Get the rotation matrix columns - each column represents an axis direction
+        rotation_matrix = pose_data['rotation_matrix']
+        
+        # Create a quaternion that aligns the arrow with the specific axis
+        # For this, we need to create a rotation matrix where the first column (arrow direction)
+        # points in the direction of the desired axis from the original rotation
+        target_axis = rotation_matrix[:, axis_index]
+        
+        # Create a rotation matrix for this specific axis
+        axis_matrix = np.eye(3)
+        
+        # Set the X-axis of the arrow to point in our target direction
+        axis_matrix[:, 0] = target_axis / np.linalg.norm(target_axis)
+        
+        # Find perpendicular vectors for Y and Z axes
+        # First find a vector not collinear with our target axis
+        if np.abs(axis_matrix[0, 0]) < 0.9:
+            temp_vec = np.array([1.0, 0.0, 0.0])
+        else:
+            temp_vec = np.array([0.0, 1.0, 0.0])
+            
+        # Y-axis is perpendicular to both X-axis and temp vector
+        axis_matrix[:, 1] = np.cross(axis_matrix[:, 0], temp_vec)
+        axis_matrix[:, 1] = axis_matrix[:, 1] / np.linalg.norm(axis_matrix[:, 1])
+        
+        # Z-axis is perpendicular to X and Y
+        axis_matrix[:, 2] = np.cross(axis_matrix[:, 0], axis_matrix[:, 1])
+        
+        # Convert to quaternion
+        quat_wxyz = mat2quat(axis_matrix)
+        
+        marker.pose.orientation.x = quat_wxyz[1]
+        marker.pose.orientation.y = quat_wxyz[2]
+        marker.pose.orientation.z = quat_wxyz[3]
+        marker.pose.orientation.w = quat_wxyz[0]
+        
+        # Scale (length, width, height)
+        marker.scale.x = scale[0]  # Length
+        marker.scale.y = scale[1]  # Width
+        marker.scale.z = scale[2]  # Height
+        
+        # Color (r, g, b)
+        marker.color.r = color[0]
+        marker.color.g = color[1]
+        marker.color.b = color[2]
+        marker.color.a = 1.0  # Alpha
+        
+        marker.lifetime.sec = 0
+        marker.lifetime.nanosec = 0
+        
+        return marker
+    
     def _publish_markers(self):
-        # print("published markers!")
-
-        """Publish all processed poses as markers."""
+        """Publish all processed poses as markers with all three axes shown."""
         marker_array = MarkerArray()
         
-        for i, pose_data in enumerate(self.processed_poses):
-            # print(f"publishing marker {i}")
-            marker = Marker()
-            marker.header.frame_id = "world"
-            marker.header.stamp = self.node.get_clock().now().to_msg()
-            marker.ns = "camera"
-            marker.id = pose_data['id']  # Each marker needs a unique ID
-            marker.type = Marker.ARROW
-            marker.action = Marker.ADD
-            
-            marker.pose.position.x = pose_data['position'][0]
-            marker.pose.position.y = pose_data['position'][1]
-            marker.pose.position.z = pose_data['position'][2]
-            marker.pose.orientation.x = pose_data['quaternion'][0]
-            marker.pose.orientation.y = pose_data['quaternion'][1]
-            marker.pose.orientation.z = pose_data['quaternion'][2]
-            marker.pose.orientation.w = pose_data['quaternion'][3]
-            
-            # Set different colors based on marker ID
-            colors = [
-                (1.0, 0.0, 0.0),  # Red
-                (0.0, 1.0, 0.0),  # Green
-                (0.0, 0.0, 1.0),  # Blue
-                (1.0, 1.0, 0.0),  # Yellow
-                (0.0, 1.0, 1.0),  # Cyan
-                (1.0, 0.0, 1.0),  # Magenta
+        for pose_data in self.processed_poses:
+            # Define axis colors: X=Red, Y=Green, Z=Blue
+            axis_colors = [
+                (1.0, 0.0, 0.0),  # X axis - Red
+                (0.0, 1.0, 0.0),  # Y axis - Green
+                (0.0, 0.0, 1.0),  # Z axis - Blue
             ]
-            r, g, b = colors[i % len(colors)]
             
-            marker.scale.x = 0.3  # Arrow length
-            marker.scale.y = 0.01  # Arrow width
-            marker.scale.z = 0.01  # Arrow height
-            marker.color.r = r
-            marker.color.g = g
-            marker.color.b = b
-            marker.color.a = 1.0
-            marker.lifetime.sec = 0
-            marker.lifetime.nanosec = 0
-            
-            marker_array.markers.append(marker)
+            # Create arrows for each axis
+            for i, (color, length) in enumerate(zip(axis_colors, [0.1, 0.1, 0.2])):
+                marker = self._create_axis_marker(
+                    pose_data, 
+                    i,           # Axis index (0=X, 1=Y, 2=Z)
+                    i+1,         # ID offset
+                    color,       # Color for this axis
+                    (length, 0.01, 0.01)  # Scale - different length for each axis
+                )
+                marker_array.markers.append(marker)
         
         self.publisher.publish(marker_array)
     
@@ -203,7 +246,7 @@ def main(args=None):
             [-0.002, -0.002, -1.000,  0.401],
             [ 0.0,    0.0,    0.0,    1.0]
         ])
-        publisher.add_pose(transformation_matrix, 1)
+        publisher.add_pose(transformation_matrix, 1, False)
         
         # Start publishing
         publisher.start_publishing(10.0)  # 10 Hz

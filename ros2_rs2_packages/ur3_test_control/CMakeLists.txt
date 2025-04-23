@@ -17,11 +17,13 @@ find_package(Threads REQUIRED)
 find_package(gazebo_ros REQUIRED)
 find_package(cv_bridge REQUIRED)
 find_package(OpenCV REQUIRED)
+find_package(tf2_ros REQUIRED)
+find_package(visualization_msgs REQUIRED)
 
 include_directories(${Boost_INCLUDE_DIRS})
 
 add_executable(moveIt_test_node src/moveItTest.cpp)
-ament_target_dependencies(moveIt_test_node rclcpp std_msgs sensor_msgs geometry_msgs tf2_geometry_msgs moveit_ros_planning_interface)
+ament_target_dependencies(moveIt_test_node rclcpp std_msgs sensor_msgs geometry_msgs tf2_geometry_msgs moveit_ros_planning_interface visualization_msgs tf2_ros)
 
 add_executable(chess_node src/chessboard.cpp)
 ament_target_dependencies(chess_node rclcpp std_msgs ament_index_cpp)

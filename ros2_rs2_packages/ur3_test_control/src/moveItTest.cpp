@@ -5,6 +5,13 @@
 #include <geometry_msgs/msg/pose.hpp>
 #include <std_msgs/msg/string.hpp>
 #include "std_msgs/msg/bool.hpp"
+
+//for markers
+#include "visualization_msgs/msg/marker_array.hpp"
+#include "tf2_ros/transform_listener.h"
+#include "tf2_ros/buffer.h"
+#include "geometry_msgs/msg/transform_stamped.hpp"
+
 #include <utility>
 #include <string>
 #include <stdexcept>
@@ -25,6 +32,12 @@ class RobotKinematics : public rclcpp::Node {
             RCLCPP_INFO(this->get_logger(), "Kinematic node started");
 
             servo_publisher_ = this->create_publisher<std_msgs::msg::Bool>("/servo_control", 10);
+
+            tf_buffer_ = std::make_unique<tf2_ros::Buffer>(this->get_clock());
+            tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
+            subscription_ = this->create_subscription<visualization_msgs::msg::MarkerArray>(
+                "camera_markers_auto", 10,
+                std::bind(&RobotKinematics::marker_callback, this, std::placeholders::_1));
 
             // moveToCameraViewJ();
         }
@@ -229,7 +242,7 @@ class RobotKinematics : public rclcpp::Node {
 
         // calculate the height of other pieces based on the height of the pawn
         double operation_height = 0.15 + 0.1;//, pickupHeight = 0.05 + 0.1+0.015;
-        int markerNum = 0;
+        int markerNum = 50;
         rclcpp::Publisher<std_msgs::msg::Bool>::SharedPtr servo_publisher_;
         std::vector<double> camera_view_jangle = {
             58.92*(M_PI/180),
@@ -247,16 +260,52 @@ class RobotKinematics : public rclcpp::Node {
             {'B', 0.1783-0.005}, {'Q', 0.1848}, {'K', 0.1877}
         };
 
-        void calibrate_image_pos(){
-            //used to calibrate the camera positions
-            //move to point above each corner of the board
+        //bring in markers for aruco positions
+        rclcpp::Subscription<visualization_msgs::msg::MarkerArray>::SharedPtr subscription_;
+        std::unique_ptr<tf2_ros::Buffer> tf_buffer_;
+        std::shared_ptr<tf2_ros::TransformListener> tf_listener_;
+        std::map<int, geometry_msgs::msg::TransformStamped> marker_transforms_;
 
-            geometry_msgs::msg::Pose guess_start_pos;
-            // guess_start_pos.position.x = ;
-            // guess_start_pos.position.z = ;
-            // guess_start_pos.position.y = ;
-            // guess_start_pos.
+        
 
+        void marker_callback(const visualization_msgs::msg::MarkerArray::SharedPtr msg){
+            RCLCPP_INFO(this->get_logger(), "Received marker array with %zu markers", msg->markers.size());
+            
+            for (const auto& marker : msg->markers) {
+            int marker_id = marker.id;
+            std::string frame_id = marker.header.frame_id;
+            
+            RCLCPP_INFO(this->get_logger(), "Marker ID: %d, Frame ID: %s", marker_id, frame_id.c_str());
+            
+            // Try to get the transform for this marker
+            try {
+                // You may need to adjust these frame names according to your setup
+                // Here we assume we want to transform from marker frame to "base_link"
+                std::string target_frame = "base_link";
+                std::string source_frame = frame_id;
+                
+                geometry_msgs::msg::TransformStamped transform_stamped = 
+                tf_buffer_->lookupTransform(target_frame, source_frame, tf2::TimePointZero);
+                
+                // Store the transform in the map, associated with the marker ID
+                marker_transforms_[marker_id] = transform_stamped;
+                
+                RCLCPP_INFO(this->get_logger(), 
+                        "Transform for marker %d: [%f, %f, %f] [%f, %f, %f, %f]",
+                        marker_id,
+                        transform_stamped.transform.translation.x,
+                        transform_stamped.transform.translation.y,
+                        transform_stamped.transform.translation.z,
+                        transform_stamped.transform.rotation.x,
+                        transform_stamped.transform.rotation.y,
+                        transform_stamped.transform.rotation.z,
+                        transform_stamped.transform.rotation.w);
+            }
+            catch (tf2::TransformException &ex) {
+                RCLCPP_WARN(this->get_logger(), "Could not transform from %s to base_link: %s", 
+                        frame_id.c_str(), ex.what());
+            }
+            }
         }
 };
 
