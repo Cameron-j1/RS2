@@ -34,10 +34,11 @@ def get_aruco_transforms(image, marker_size_mm=250):
         gray = image
     
     # Define the ArUco dictionary (6x6 markers)
-    aruco_dict = aruco.getPredefinedDictionary(aruco.DICT_6X6_250)
+    aruco_dict = aruco.getPredefinedDictionary(aruco.DICT_4X4_50)
     
     # Create ArUco parameters
     parameters = aruco.DetectorParameters()
+    
     
     # Create detector
     detector = aruco.ArucoDetector(aruco_dict, parameters)
@@ -62,6 +63,16 @@ def get_aruco_transforms(image, marker_size_mm=250):
             [0.0,       910.9561, 364.3235],   # 0,  fy,  cy
             [0.0,         0.0,       1.0   ]   # 0,   0,   1
         ], dtype=np.float32)
+
+        # camera_matrix = np.array([
+            # [910.88428579,   0.        , 646.56956061],
+            # [  0.        , 909.49046737, 357.94919134],
+            # [  0.        ,   0.        ,   1.        ]
+        # ])
+
+        # dist_coeffs = np.array([[ 0.08300782,  0.09867322, -0.00272421,  0.0034501, -0.91121635]])
+
+
         dist_coeffs = np.zeros((5, 1), dtype=np.float32)
         
         # For each detected marker
@@ -145,8 +156,6 @@ def calculate_transforms(img, publisher, T_base_to_ee):
         [ 0.000000000000,  0.000000000000,  0.000000000000,  1.000000000000],
     ])) 
 
-    T_cam_to_ee = T_cam_to_ee
-
     tempRot = R.from_euler('x', 180, degrees=True).as_matrix()
     T_frame_adjust_x = np.eye(4)
     T_frame_adjust_x[:3, :3] = tempRot
@@ -159,28 +168,36 @@ def calculate_transforms(img, publisher, T_base_to_ee):
     T_frame_adjust_z = np.eye(4)
     T_frame_adjust_z[:3, :3] = tempRot
 
-    T_cam_to_ee = T_cam_to_ee @ T_frame_adjust_z
+    T_cam_to_ee = T_cam_to_ee @ T_frame_adjust_z #- this makes the axis on rviz for the camera line up
 
     #calulate camera pose from end effector and T_cam_to_ee
     T_cam = T_base_to_ee @ (T_cam_to_ee)
     publisher.add_pose(T_cam, 124)
     
     aruco_transforms = None
-    aruco_transforms, ids = get_aruco_transforms(image, 70)
+    aruco_transforms, ids = get_aruco_transforms(image, 33)
     print(ids)
     print(aruco_transforms)
 
     if aruco_transforms is not None:
         for i, transform in enumerate(aruco_transforms):
             print(f'detected aruco X: {transform[0][3]}, Y: {transform[1][3]}, Z: {transform[2][3]}')
-            T_cam_to_marker = transform
-            T_marker_to_cam  = invert_transform(T_cam_to_marker)
 
-            publisher.add_pose(T_cam_to_marker, 10001)
+            T_marker_to_cam  = invert_transform(transform)
+            T_cam_to_marker = transform
+
+
+            print(f"T_marker_to_cam X:{T_marker_to_cam[0, 3]}, Y:{T_marker_to_cam[1, 3]}, Z:{T_marker_to_cam[2, 3]}")
+            print(f"T_cam_to_marker X:{T_cam_to_marker[0, 3]}, Y:{T_cam_to_marker[1, 3]}, Z:{T_cam_to_marker[2, 3]}")
+
+            print()
+
+            # publisher.add_pose(T_cam_to_marker, 10001)
 
             T_base_to_marker = T_cam @ T_cam_to_marker
 
-            publisher.add_pose(T_base_to_marker, i) 
+
+            publisher.add_pose(T_base_to_marker, ids[i]) 
 
             # Extract position
             pos_in_base = T_base_to_marker[:3, 3]

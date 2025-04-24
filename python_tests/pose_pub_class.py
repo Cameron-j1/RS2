@@ -50,7 +50,7 @@ class CameraPosePublisher:
         while rclpy.ok() and self.running:
             rclpy.spin_once(self.node, timeout_sec=0.1)
     
-    def add_pose(self, transformation_matrix, id, apply_default_rotation=False):  # Changed default to False
+    def add_pose(self, transformation_matrix, id, apply_default_rotation=False, frame="base_link"):  # Changed default to False
         """
         Add a camera pose using a 4x4 transformation matrix.
         
@@ -78,7 +78,8 @@ class CameraPosePublisher:
             'position': position,
             'quaternion': quaternion,
             'id': int(id),
-            'rotation_matrix': rotation_matrix  # Store rotation matrix for axis visualization
+            'rotation_matrix': rotation_matrix,  # Store rotation matrix for axis visualization
+            'frame': frame
         })
 
         print(f"Saved transform with id {id}")
@@ -126,7 +127,7 @@ class CameraPosePublisher:
     def _create_axis_marker(self, pose_data, axis_index, id_offset, color, scale):
         """Create a marker for a specific axis."""
         marker = Marker()
-        marker.header.frame_id = "base_link"
+        marker.header.frame_id = pose_data['frame']
         marker.header.stamp = self.node.get_clock().now().to_msg()
         marker.ns = "camera_axis"
         marker.id = pose_data['id'] * 10 + id_offset  # Create unique ID
