@@ -52,6 +52,8 @@ def get_aruco_transforms(image, marker_size_mm=250):
     
     # Check if any markers were detected
     if ids is not None and len(ids) > 0:
+        # cv2.aruco.drawDetectedMarkers(image, corners, ids)
+
         # Get camera matrix and distortion coefficients
         # Note: In a real application, you would load these from a calibration file
         # Here we're creating a simple estimate based on image dimensions
