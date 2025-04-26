@@ -50,7 +50,7 @@ install(DIRECTORY config
   DESTINATION share/${PROJECT_NAME}
 )
 
-install(DIRECTORY images world urdf
+install(DIRECTORY world
   DESTINATION share/${PROJECT_NAME}
 )
 

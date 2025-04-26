@@ -116,7 +116,7 @@ class RobotKinematics : public rclcpp::Node {
             if (moveType == 'x') {
                 tempPosition.position.x = goal.first;
                 tempPosition.position.y = goal.second;
-                mcode in not aruco working state! also added rosbag for joetion.position.y = 0.290;
+                //mcode in not aruco working state! also added rosbag for joetion.position.y = 0.290;
                 moveStraightToPoint({tempPosition}, 0.05, 0.05);
                 publishServoState(true);
                 std::this_thread::sleep_for(std::chrono::seconds(3));

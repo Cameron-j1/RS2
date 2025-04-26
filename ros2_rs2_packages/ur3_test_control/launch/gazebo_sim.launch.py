@@ -140,7 +140,7 @@ def generate_launch_description():
     )
     
     return launch.LaunchDescription([
-        ur_moveit_launch,
+        # ur_moveit_launch,
         main_node,
         chess_node,
         cam_node
