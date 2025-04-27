@@ -49,6 +49,8 @@ def calibrate_camera(images_folder='folder', pattern_size=(7, 5), square_size=24
         
         # Find the chessboard corners
         ret, corners = cv2.findChessboardCorners(gray, pattern_size, None)
+
+        print(f"processing image {i}")
         
         # If found, add object points and image points
         if ret:

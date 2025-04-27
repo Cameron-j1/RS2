@@ -141,6 +141,39 @@ def invert_transform(T):
     
     return T_inv
 
+def publish_basic(publisher, T_base_to_ee):
+    print(f"ee is X:{T_base_to_ee[0, 3]}, Y:{T_base_to_ee[1, 3]}, Z:{T_base_to_ee[2, 3]} from the base")
+
+    T_ee_to_base = invert_transform(T_base_to_ee)
+
+    publisher.add_pose(T_base_to_ee, 123) #using 123 as a placeholder 
+
+    #from eye in hand calibration
+    T_cam_to_ee = (np.array([
+        [ 0.000338072668,  0.999999801432,  0.000329791286,  0.017143913668],
+        [-0.999998857238,  0.000411703512,  0.001278763264, -0.060065853878],
+        [ 0.001278926362, -0.000328268593,  0.999999125353,  0.015976452427],
+        [ 0.000000000000,  0.000000000000,  0.000000000000,  1.000000000000],
+    ])) 
+
+    tempRot = R.from_euler('x', 180, degrees=True).as_matrix()
+    T_frame_adjust_x = np.eye(4)
+    T_frame_adjust_x[:3, :3] = tempRot
+
+    tempRot = R.from_euler('y', 180, degrees=True).as_matrix()
+    T_frame_adjust_y = np.eye(4)
+    T_frame_adjust_y[:3, :3] = tempRot
+
+    tempRot = R.from_euler('z', 90, degrees=True).as_matrix()
+    T_frame_adjust_z = np.eye(4)
+    T_frame_adjust_z[:3, :3] = tempRot
+
+    T_cam_to_ee = T_cam_to_ee @ T_frame_adjust_z #- this makes the axis on rviz for the camera line up
+
+    #calulate camera pose from end effector and T_cam_to_ee
+    T_cam = T_base_to_ee @ (T_cam_to_ee)
+    publisher.add_pose(T_cam, 124)
+
 def calculate_transforms(img, publisher, T_base_to_ee):
     image = img
 
@@ -237,6 +270,9 @@ try:
             cv2.imshow("Camera Frame", frame)
             if cv2.waitKey(1) & 0xFF == ord('q'):
                 break
+        else:
+            publish_basic(transform_publisher, ee_T)
+            transform_publisher.publish_once()
 finally:
     transform_publisher.shutdown()
     camera_subscriber.destroy_node()
