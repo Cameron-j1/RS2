@@ -64,7 +64,8 @@ def get_robot_description():
         " ",
         "prefix:=",
         '""',
-        " ",])
+
+        ])
 
     robot_description = {"robot_description": robot_description_content}
     return robot_description

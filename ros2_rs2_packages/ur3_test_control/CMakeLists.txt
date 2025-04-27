@@ -26,7 +26,11 @@ add_executable(moveIt_test_node src/moveItTest.cpp)
 ament_target_dependencies(moveIt_test_node rclcpp std_msgs sensor_msgs geometry_msgs tf2_geometry_msgs moveit_ros_planning_interface visualization_msgs tf2_ros)
 
 add_executable(chess_node src/chessboard.cpp)
-ament_target_dependencies(chess_node rclcpp std_msgs ament_index_cpp)
+ament_target_dependencies(chess_node
+  rclcpp
+  std_msgs
+  ament_index_cpp
+)
 
 add_executable(image_processing_exe src/image_processing.cpp)
 ament_target_dependencies(image_processing_exe rclcpp std_msgs sensor_msgs geometry_msgs tf2_geometry_msgs moveit_ros_planning_interface cv_bridge OpenCV)
@@ -36,6 +40,8 @@ target_link_libraries(chess_node
   sfml-window
   sfml-system
   Threads::Threads
+  Boost::system
+  Boost::filesystem
 )
 
 install(TARGETS moveIt_test_node chess_node image_processing_exe
@@ -54,11 +60,20 @@ install(DIRECTORY world
   DESTINATION share/${PROJECT_NAME}
 )
 
+install(DIRECTORY images
+  DESTINATION share/${PROJECT_NAME}
+)
+
+install(DIRECTORY meshes
+  DESTINATION share/${PROJECT_NAME}
+)
+
 ament_python_install_package(${PROJECT_NAME})
 
 install(PROGRAMS
   scripts/camera_node.py
   scripts/img_pub.py
+  scripts/gazebo_manager.py
   DESTINATION lib/${PROJECT_NAME}
 )
 
