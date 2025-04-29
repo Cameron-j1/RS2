@@ -12,6 +12,11 @@
 #include "tf2_ros/buffer.h"
 #include "geometry_msgs/msg/transform_stamped.hpp"
 
+//for collision
+#include <moveit/planning_scene_interface/planning_scene_interface.h>
+#include <moveit_msgs/msg/collision_object.hpp>
+#include <shape_msgs/msg/solid_primitive.hpp>
+
 #include <utility>
 #include <string>
 #include <stdexcept>
@@ -282,7 +287,7 @@ class RobotKinematics : public rclcpp::Node {
                 RCLCPP_INFO(this->get_logger(), 
                         "Transform for marker %d: [%f, %f, %f] [%f, %f, %f, %f]",
                         marker_id,
-                        transform_stamped.transform.translation.x,
+                        transform_stamped.transform.translation.x,  
                         transform_stamped.transform.translation.y,
                         transform_stamped.transform.translation.z,
                         transform_stamped.transform.rotation.x,
@@ -304,7 +309,11 @@ int main(int argc, char * argv[])
     rclcpp::init(argc, argv);
     auto node = std::make_shared<RobotKinematics>();
 
+    //Create the MoveGroupInterface
     moveit::planning_interface::MoveGroupInterface move_group(node, "ur_manipulator");
+    // Create the PlanningSceneInterface
+    moveit::planning_interface::PlanningSceneInterface planning_scene_interface;
+    
     node->setMoveGroup(&move_group);
     RCLCPP_INFO(node->get_logger(), "Reference frame: %s", move_group.getPlanningFrame().c_str());
     RCLCPP_INFO(node->get_logger(), "End effector link: %s", move_group.getEndEffectorLink().c_str());
@@ -313,6 +322,41 @@ int main(int argc, char * argv[])
     
     // Wait a bit for ROS to be fully initialized
     rclcpp::sleep_for(std::chrono::seconds(2));
+   
+    // Add a large cube directly under the robot base
+    moveit_msgs::msg::CollisionObject collision_object;
+    collision_object.header.frame_id = move_group.getPlanningFrame(); // Use the planning frame
+    collision_object.id = "floor_cube";
+   
+    // Define the cube as 1.5m in all dimensions
+    shape_msgs::msg::SolidPrimitive primitive;
+    primitive.type = primitive.BOX;
+    primitive.dimensions.resize(3);
+    primitive.dimensions[primitive.BOX_X] = 1.5;  // 1.5m in x-direction
+    primitive.dimensions[primitive.BOX_Y] = 1.5;  // 1.5m in y-direction
+    primitive.dimensions[primitive.BOX_Z] = 1.5;  // 1.5m in z-direction
+   
+    // Define the pose of the cube
+    // and center it at x=0, y=0
+    geometry_msgs::msg::Pose box_pose;
+    box_pose.orientation.w = 1.0;
+    box_pose.position.x = 0.0;  // Centered at x=0
+    box_pose.position.y = 0.0;  // Centered at y=0
+    box_pose.position.z = -0.75;  // Position is at the center of the box, so -0.75 puts the top at z=0
+
+    // Add the primitive and pose to the collision object
+    collision_object.primitives.push_back(primitive);
+    collision_object.primitive_poses.push_back(box_pose);
+    collision_object.operation = collision_object.ADD;
+
+    // Add the collision object to the planning scene
+    std::vector<moveit_msgs::msg::CollisionObject> collision_objects;
+    collision_objects.push_back(collision_object);
+    RCLCPP_INFO(node->get_logger(), "Adding large cube under robot base to planning scene");
+    planning_scene_interface.addCollisionObjects(collision_objects);
+
+    // Give the planning scene some time to update
+    rclcpp::sleep_for(std::chrono::seconds(1));
     
     move_group.setMaxVelocityScalingFactor(0.05);  // 20% of maximum velocity
     move_group.setMaxAccelerationScalingFactor(0.02);  // 20% of maximum acceleration
@@ -332,6 +376,12 @@ int main(int argc, char * argv[])
     while (rclcpp::ok()) {
         rclcpp::spin(node); // Process any pending callbacks
     }
+
+    //remove the objects
+    RCLCPP_INFO(node->get_logger(), "Removing objects from the scene");
+    std::vector<std::string> object_ids;
+    object_ids.push_back("floor_cube");
+    planning_scene_interface.removeCollisionObjects(object_ids);
     
     RCLCPP_INFO(node->get_logger(), "Done. Shutting down...");
     rclcpp::shutdown();
