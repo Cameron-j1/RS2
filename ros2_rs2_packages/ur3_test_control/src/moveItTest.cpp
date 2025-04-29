@@ -121,7 +121,18 @@ class RobotKinematics : public rclcpp::Node {
             if (moveType == 'x') {
                 tempPosition.position.x = goal.first;
                 tempPosition.position.y = goal.second;
-                //mcode in not aruco working state! also added rosbag for joetion.position.y = 0.290;
+                moveStraightToPoint({tempPosition}, 0.05, 0.05);
+                RCLCPP_INFO(this->get_logger(), "Remove captured: xStart: %.3f%% and yStart: %.3f%% and zPickUp: %.3f%%", cur.first, cur.second, pickupHeightCap);
+                tempPosition.position.z = pickupHeightCap;
+                moveStraightToPoint({tempPosition}, 0.05, 0.05);
+                publishServoState(false);
+                std::this_thread::sleep_for(std::chrono::seconds(3));
+                // Raise the shit up
+                tempPosition.position.z = operation_height;
+                moveStraightToPoint({tempPosition}, 0.05, 0.05);
+                // WE HAVE TO FIND THE X AND Y OF THE DROPPING POSITION
+                tempPosition.position.x = -0.292;
+                tempPosition.position.y = 0.290;
                 moveStraightToPoint({tempPosition}, 0.05, 0.05);
                 publishServoState(true);
                 std::this_thread::sleep_for(std::chrono::seconds(3));
@@ -152,7 +163,7 @@ class RobotKinematics : public rclcpp::Node {
                 moveStraightToPoint({tempPosition}, 0.05, 0.05);
             }
 
-            moveToJointAngles(camera_view_jangle.at(0), camera_view_jangle.at(1),camera_view_jangle.at(2),camera_view_jangle.at(3),camera_view_jangle.at(4),camera_view_jangle.at(5));
+            // moveToJointAngles(camera_view_jangle.at(0), camera_view_jangle.at(1),camera_view_jangle.at(2),camera_view_jangle.at(3),camera_view_jangle.at(4),camera_view_jangle.at(5));
 
         }
 

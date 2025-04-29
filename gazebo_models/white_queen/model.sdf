@@ -1,0 +1,57 @@
+<?xml version="1.0" ?>
+<sdf version="1.6">
+  <model name="white_queen">
+    <static>false</static> <!-- false because you want to pick it up -->
+    <link name="link">
+
+      <!-- Inertial properties -->
+      <inertial>
+        <mass>0.05</mass> <!-- 50 grams, change as needed -->
+        <inertia>
+          <ixx>0.00001</ixx>
+          <iyy>0.00001</iyy>
+          <izz>0.00001</izz>
+          <ixy>0.0</ixy>
+          <ixz>0.0</ixz>
+          <iyz>0.0</iyz>
+        </inertia>
+      </inertial>
+
+      <!-- Collision properties -->
+      <collision name="collision">
+        <geometry>
+          <mesh>
+            <uri>model://white_queen/meshes/white_queen.dae</uri>
+          </mesh>
+        </geometry>
+        <surface>
+          <contact>
+            <ode/>
+          </contact>
+          <friction>
+            <ode>
+              <mu>1.0</mu> <!-- static friction -->
+              <mu2>1.0</mu2> <!-- dynamic friction -->
+            </ode>
+          </friction>
+        </surface>
+      </collision>
+
+      <!-- Visual -->
+      <visual name="visual">
+        <geometry>
+          <mesh>
+            <uri>model://white_queen/meshes/white_queen.dae</uri>
+          </mesh>
+        </geometry>
+      </visual>
+    </link>
+    
+    <plugin name="ros2_objectpose_plugin" filename="libros2_objectpose_plugin.so">
+      <ros>
+        <namespace>white_queen</namespace>  <!-- <<== Matches your model/entity name -->
+      </ros>
+    </plugin>
+    
+  </model>
+</sdf>

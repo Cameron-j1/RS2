@@ -1,0 +1,30 @@
+ros2 launch ur_simulation_gazebo ur_sim_moveit.launch.py ur_type:=ur3e start_joint_controller:=true launch_rviz:=false gazebo_gui:=true
+
+ros2 launch ur_simulation_gazebo ur_sim_moveit.launch.py ur_type:=ur3e start_joint_controller:=true launch_rviz:=false gazebo_gui:=true world:=/home/charles/git/RS2/ros2_rs2_packages/ur3_test_control/world/test7.world
+
+example spawn model with pose tracking
+ros2 run gazebo_ros spawn_entity.py -file ~/git/RS2/gazebo_models/black_pawn/model.sdf -entity black_pawn_c7 -x 0.0 -y 0.34 -z 0.12 -robot_namespace black_pawn_c7
+  
+export GAZEBO_MODEL_PATH=$GAZEBO_MODEL_PATH:$HOME/git/RS2/gazebo_models
+export GAZEBO_MODEL_DATABASE_URI=""
+ros2 launch gazebo_ros gazebo.launch.py
+
+sudo apt install ros-humble-gazebo-ros2-control
+
+ros2 service call /ATTACHLINK linkattacher_msgs/srv/AttachLink \
+"{model1_name: 'ur', link1_name: 'wrist_3_link', model2_name: 'black_pawn', link2_name: 'link'}"
+
+ros2 service call /DETACHLINK linkattacher_msgs/srv/DetachLink \
+"{model1_name: 'ur', link1_name: 'wrist_3_link', model2_name: 'black_pawn', link2_name: 'link'}"
+
+
+for object pose plugin
+https://github.com/IFRA-Cranfield/IFRA_ObjectPose
+
+launch gazebo with ros2 bridge
+ros2 launch gazebo_ros gazebo.launch.py
+
+
+pkill -9 gazebo
+pkill -9 gzserver
+pkill -9 gzclient
