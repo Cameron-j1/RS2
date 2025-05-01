@@ -11,6 +11,28 @@ from image_sub_class import CameraSubscriber
 
 from pose_sub_class import FrameListener  # Adjust if needed
 
+#global variables
+#distances from H1
+aruco_board_span = 281/1000 #long distance
+aruco_square_span = 36/1000 #short distance
+H1_marker_ID = 5
+aruco_to_H1 = {
+    #aruco id: [x to H1 (m), y to H1 (m), rot z (rad)]
+    1: [-aruco_board_span, -aruco_square_span, 0],
+    2: [aruco_square_span, aruco_board_span, 0],
+    3: [-aruco_board_span, aruco_board_span, 0],
+    4: [aruco_square_span, - aruco_square_span, 0]
+}
+
+def calculate_H1_T(T_base_to_marker, marker_ID):
+    # print(f"ID using to calc H1: {marker_ID}")
+    T_H1 = np.copy(T_base_to_marker)
+    T_H1[0, 3] = T_H1[0, 3] + aruco_to_H1[marker_ID][0] #x position
+    T_H1[1, 3] = T_H1[1, 3] + aruco_to_H1[marker_ID][1] #y position
+    pos_in_base = T_H1[:3, 3]
+    # print("H1 marker position in robot base frame:", np.round(pos_in_base, 5))
+    return T_H1
+
 def get_aruco_transforms(image, marker_size_mm=250):
     """
     Detect 6x6 ArUco markers in an image and return the 4x4 transformation matrices
@@ -142,46 +164,6 @@ def invert_transform(T):
     
     return T_inv
 
-def publish_basic(publisher, T_base_to_ee):
-    print(f"ee is X:{T_base_to_ee[0, 3]}, Y:{T_base_to_ee[1, 3]}, Z:{T_base_to_ee[2, 3]} from the base")
-
-    T_ee_to_base = invert_transform(T_base_to_ee)
-
-    publisher.add_pose(T_base_to_ee, 123) #using 123 as a placeholder 
-
-    #from eye in hand calibration
-    # T_cam_to_ee = (np.array([
-    #     [ 0.000338072668,  0.999999801432,  0.000329791286,  0.017143913668],
-    #     [-0.999998857238,  0.000411703512,  0.001278763264, -0.060065853878],
-    #     [ 0.001278926362, -0.000328268593,  0.999999125353,  0.015976452427],
-    #     [ 0.000000000000,  0.000000000000,  0.000000000000,  1.000000000000],
-    # ])) 
-
-    # T_cam_to_ee = (np.array([
-    #     [ 0.000338072668,  0.999999801432,  0.000329791286,  -5.017143913668],
-    #     [-0.999998857238,  0.000411703512,  0.001278763264, -0.060065853878],
-    #     [ 0.001278926362, -0.000328268593,  0.999999125353,  2.115976452427],
-    #     [ 0.000000000000,  0.000000000000,  0.000000000000,  1.000000000000],
-    # ])) 
-
-    tempRot = R.from_euler('x', 180, degrees=True).as_matrix()
-    T_frame_adjust_x = np.eye(4)
-    T_frame_adjust_x[:3, :3] = tempRot
-
-    tempRot = R.from_euler('y', 180, degrees=True).as_matrix()
-    T_frame_adjust_y = np.eye(4)
-    T_frame_adjust_y[:3, :3] = tempRot
-
-    tempRot = R.from_euler('z', 90, degrees=True).as_matrix()
-    T_frame_adjust_z = np.eye(4)
-    T_frame_adjust_z[:3, :3] = tempRot
-
-    T_cam_to_ee = T_cam_to_ee @ T_frame_adjust_z #- this makes the axis on rviz for the camera line up
-
-    #calulate camera pose from end effector and T_cam_to_ee
-    T_cam = T_base_to_ee @ (T_cam_to_ee)
-    publisher.add_pose(T_cam, 124)
-
 def calculate_transforms(img, publisher, T_base_to_ee):
     image = img
 
@@ -199,24 +181,6 @@ def calculate_transforms(img, publisher, T_base_to_ee):
         [ 0.000000000000,  0.000000000000,  0.000000000000,  1.000000000000],
     ])) 
 
-    # T_cam_to_ee = (np.array([
-    #     [ 0.000338072668,  0.999999801432,  0.000329791286,  0.017143913668- 0.02],
-    #     [-0.999998857238,  0.000411703512,  0.001278763264, -0.060065853878],
-    #     [ 0.001278926362, -0.000328268593,  0.999999125353,  0.015976452427],
-    #     [ 0.000000000000,  0.000000000000,  0.000000000000,  1.000000000000],
-    # ])) 
-
-    # T_cam_to_ee = np.eye(4)
-    # T_cam_to_ee[3][3] = -14 
-
-    tempRot = R.from_euler('x', 180, degrees=True).as_matrix()
-    T_frame_adjust_x = np.eye(4)
-    T_frame_adjust_x[:3, :3] = tempRot
-
-    tempRot = R.from_euler('y', 180, degrees=True).as_matrix()
-    T_frame_adjust_y = np.eye(4)
-    T_frame_adjust_y[:3, :3] = tempRot
-
     tempRot = R.from_euler('z', 90, degrees=True).as_matrix()
     T_frame_adjust_z = np.eye(4)
     T_frame_adjust_z[:3, :3] = tempRot
@@ -226,7 +190,7 @@ def calculate_transforms(img, publisher, T_base_to_ee):
     #calulate camera pose from end effector and T_cam_to_ee
     T_cam = T_base_to_ee @ (T_cam_to_ee)
     publisher.add_pose(T_cam, 124)
-    publisher.add_pose(np.eye(4), 6969)
+    # publisher.add_pose(np.eye(4), 6969)
     
     aruco_transforms = None
     aruco_transforms, ids = get_aruco_transforms(image, 33)
@@ -234,33 +198,35 @@ def calculate_transforms(img, publisher, T_base_to_ee):
     print(ids)
     print(aruco_transforms)
 
+    H1_published = False
     if aruco_transforms is not None:
         for i, transform in enumerate(aruco_transforms):
             print(f'detected aruco X: {transform[0][3]}, Y: {transform[1][3]}, Z: {transform[2][3]}')
-
             T_marker_to_cam  = invert_transform(transform)
             T_cam_to_marker = transform
-
-
             print(f"T_marker_to_cam X:{T_marker_to_cam[0, 3]}, Y:{T_marker_to_cam[1, 3]}, Z:{T_marker_to_cam[2, 3]}")
             print(f"T_cam_to_marker X:{T_cam_to_marker[0, 3]}, Y:{T_cam_to_marker[1, 3]}, Z:{T_cam_to_marker[2, 3]}")
 
-            print()
-
-            # publisher.add_pose(T_cam_to_marker, 10001)
-
             T_base_to_marker = T_cam @ T_cam_to_marker
-
-
             publisher.add_pose(T_base_to_marker, ids[i]) 
 
             # Extract position
             pos_in_base = T_base_to_marker[:3, 3]
             print("ArUco marker position in robot base frame:", np.round(pos_in_base, 5))
 
+            try:
+                H1_T = calculate_H1_T(T_base_to_marker, ids[i])
+                if(H1_published == False):
+                    publisher.add_pose(H1_T, H1_marker_ID)
+                    H1_published = True
+                pass
+            except:
+                print('No saved transform between aruco and H1') 
+
 
 #start ROS crap
 rclpy.init()
+
 transform_publisher_node = Node('aruco_checker_node')
 
 # Create publisher
@@ -290,9 +256,6 @@ try:
             cv2.imshow("Camera Frame", frame)
             if cv2.waitKey(1) & 0xFF == ord('q'):
                 break
-        else:
-            publish_basic(transform_publisher, ee_T)
-            transform_publisher.publish_once()
 finally:
     transform_publisher.shutdown()
     camera_subscriber.destroy_node()
