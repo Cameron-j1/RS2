@@ -16,6 +16,7 @@
 #include <moveit/planning_scene_interface/planning_scene_interface.h>
 #include <moveit_msgs/msg/collision_object.hpp>
 #include <shape_msgs/msg/solid_primitive.hpp>
+#include <Eigen/Geometry>
 
 #include <utility>
 #include <string>
@@ -53,7 +54,12 @@ class RobotKinematics : public rclcpp::Node {
             servo_publisher_->publish(message);
             RCLCPP_INFO(this->get_logger(), "Published: %s", state ? "true" : "false");
         }
-    
+
+        double getYawFromQuaternion(double x, double y, double z, double w) {
+            Eigen::Quaterniond q(w, x, y, z); // Note: Eigen uses w, x, y, z order
+            Eigen::Vector3d euler = q.toRotationMatrix().eulerAngles(2, 1, 0); // ZYX order
+            return euler[0]; // yaw
+        }        
 
         void setMoveGroup(moveit::planning_interface::MoveGroupInterface* mg) {
             move_group_ptr = mg;
@@ -125,7 +131,7 @@ class RobotKinematics : public rclcpp::Node {
                 RCLCPP_INFO(this->get_logger(), "Remove captured: xStart: %.3f%% and yStart: %.3f%% and zPickUp: %.3f%%", cur.first, cur.second, pickupHeightCap);
                 tempPosition.position.z = pickupHeightCap;
                 moveStraightToPoint({tempPosition}, 0.05, 0.05);
-                publishServoState(false);
+                publishServoState(true);
                 std::this_thread::sleep_for(std::chrono::seconds(3));
                 // Raise the shit up
                 tempPosition.position.z = operation_height;
@@ -134,7 +140,7 @@ class RobotKinematics : public rclcpp::Node {
                 tempPosition.position.x = -0.292;
                 tempPosition.position.y = 0.290;
                 moveStraightToPoint({tempPosition}, 0.05, 0.05);
-                publishServoState(true);
+                publishServoState(false);
                 std::this_thread::sleep_for(std::chrono::seconds(3));
             }   
             // Here, we play the damn piece
@@ -147,7 +153,7 @@ class RobotKinematics : public rclcpp::Node {
                 moveStraightToPoint({tempPosition}, 0.05, 0.05);
                 tempPosition.position.z = pickupHeight;
                 moveStraightToPoint({tempPosition}, 0.05, 0.05);
-                publishServoState(false);
+                publishServoState(true);
                 std::this_thread::sleep_for(std::chrono::seconds(3));
                 tempPosition.position.z = operation_height;
                 moveStraightToPoint({tempPosition}, 0.05, 0.05);
@@ -157,7 +163,7 @@ class RobotKinematics : public rclcpp::Node {
                 moveStraightToPoint({tempPosition}, 0.05, 0.05);
                 tempPosition.position.z = pickupHeight;
                 moveStraightToPoint({tempPosition}, 0.05, 0.05);
-                publishServoState(true);
+                publishServoState(false);
                 std::this_thread::sleep_for(std::chrono::seconds(3));
                 tempPosition.position.z = operation_height;
                 moveStraightToPoint({tempPosition}, 0.05, 0.05);
@@ -199,12 +205,23 @@ class RobotKinematics : public rclcpp::Node {
             }
 
             //measured from board
-            double H8_X = 0.11436;
-            double A1_Y = -0.469443135;
+            // H1_X = 0.11436;
+            // H1_Y = -0.469443135;
 
-            double x_final = H8_X - col*(SQUARE_SIZE/1000);
+            // double dx = -col * (SQUARE_SIZE / 1000.0);
+            // double dy =  row * (SQUARE_SIZE / 1000.0);
 
-            double y_final = A1_Y + row*(SQUARE_SIZE/1000);
+            // // Apply 2D rotation to account for yaw
+            // double x_rotated = dx * cos(board_yaw) - dy * sin(board_yaw);
+            // double y_rotated = dx * sin(board_yaw) + dy * cos(board_yaw);
+
+            // // Final global position
+            // double x_final = H1_X + x_rotated;
+            // double y_final = H1_Y + y_rotated;
+
+            double x_final = H1_X - col*(SQUARE_SIZE/1000);
+
+            double y_final = H1_Y + row*(SQUARE_SIZE/1000);
 
             return robotReadToControlFrame({x_final, y_final}); //reordered here for transform
         }
@@ -270,46 +287,56 @@ class RobotKinematics : public rclcpp::Node {
         std::unique_ptr<tf2_ros::Buffer> tf_buffer_;
         std::shared_ptr<tf2_ros::TransformListener> tf_listener_;
         std::map<int, geometry_msgs::msg::TransformStamped> marker_transforms_;
-
+        double H1_X = 0.11436;
+        double H1_Y = -0.469443135;
+        double board_yaw = 0;
         
 
         void marker_callback(const visualization_msgs::msg::MarkerArray::SharedPtr msg){
             RCLCPP_INFO(this->get_logger(), "Received marker array with %zu markers", msg->markers.size());
             
             for (const auto& marker : msg->markers) {
-            int marker_id = marker.id;
-            std::string frame_id = marker.header.frame_id;
-            
-            RCLCPP_INFO(this->get_logger(), "Marker ID: %d, Frame ID: %s", marker_id, frame_id.c_str());
-            
-            // Try to get the transform for this marker
-            try {
-                // You may need to adjust these frame names according to your setup
-                // Here we assume we want to transform from marker frame to "base_link"
-                std::string target_frame = "base_link";
-                std::string source_frame = frame_id;
-                
-                geometry_msgs::msg::TransformStamped transform_stamped = 
-                tf_buffer_->lookupTransform(target_frame, source_frame, tf2::TimePointZero);
-                
-                // Store the transform in the map, associated with the marker ID
-                marker_transforms_[marker_id] = transform_stamped;
-                
-                RCLCPP_INFO(this->get_logger(), 
-                        "Transform for marker %d: [%f, %f, %f] [%f, %f, %f, %f]",
-                        marker_id,
-                        transform_stamped.transform.translation.x,  
-                        transform_stamped.transform.translation.y,
-                        transform_stamped.transform.translation.z,
-                        transform_stamped.transform.rotation.x,
-                        transform_stamped.transform.rotation.y,
-                        transform_stamped.transform.rotation.z,
-                        transform_stamped.transform.rotation.w);
-            }
-            catch (tf2::TransformException &ex) {
-                RCLCPP_WARN(this->get_logger(), "Could not transform from %s to base_link: %s", 
-                        frame_id.c_str(), ex.what());
-            }
+                int marker_id = marker.id;
+
+                if (marker_id == 5) {
+                    std::string frame_id = marker.header.frame_id;
+                    
+                    RCLCPP_INFO(this->get_logger(), "Marker ID: %d, Frame ID: %s", marker_id, frame_id.c_str());
+                    
+                    // Try to get the transform for this marker
+                    try {
+                        // You may need to adjust these frame names according to your setup
+                        // Here we assume we want to transform from marker frame to "base_link"
+                        std::string target_frame = "base_link";
+                        std::string source_frame = frame_id;
+                        
+                        geometry_msgs::msg::TransformStamped transform_stamped = 
+                        tf_buffer_->lookupTransform(target_frame, source_frame, tf2::TimePointZero);
+                        
+                        // Store the transform in the map, associated with the marker ID
+                        marker_transforms_[marker_id] = transform_stamped;
+                        
+                        RCLCPP_INFO(this->get_logger(), 
+                                "Transform for marker %d: [%f, %f, %f] [%f, %f, %f, %f]",
+                                marker_id,
+                                transform_stamped.transform.translation.x,  
+                                transform_stamped.transform.translation.y,
+                                transform_stamped.transform.translation.z,
+                                transform_stamped.transform.rotation.x,
+                                transform_stamped.transform.rotation.y,
+                                transform_stamped.transform.rotation.z,
+                                transform_stamped.transform.rotation.w);
+
+                        board_yaw = getYawFromQuaternion(transform_stamped.transform.rotation.x, transform_stamped.transform.rotation.y, transform_stamped.transform.rotation.z, transform_stamped.transform.rotation.w);
+                        H1_X = -transform_stamped.transform.translation.x;
+                        H1_Y = -transform_stamped.transform.translation.y;
+
+                    }
+                    catch (tf2::TransformException &ex) {
+                        RCLCPP_WARN(this->get_logger(), "Could not transform from %s to base_link: %s", 
+                                frame_id.c_str(), ex.what());
+                    }
+                }
             }
         }
 };
