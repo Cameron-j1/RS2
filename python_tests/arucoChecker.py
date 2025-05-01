@@ -11,7 +11,7 @@ from image_sub_class import CameraSubscriber
 
 from pose_sub_class import FrameListener  # Adjust if needed
 
-def get_aruco_transforms(image, marker_size_mm):
+def get_aruco_transforms(image, marker_size_mm=250):
     """
     Detect 6x6 ArUco markers in an image and return the 4x4 transformation matrices
     from camera to each detected marker.
@@ -34,7 +34,7 @@ def get_aruco_transforms(image, marker_size_mm):
         gray = image
     
     # Define the ArUco dictionary (6x6 markers)
-    aruco_dict = aruco.getPredefinedDictionary(aruco.DICT_6X6_250)
+    aruco_dict = aruco.getPredefinedDictionary(aruco.DICT_4X4_250)
     
     # Create ArUco parameters
     parameters = aruco.DetectorParameters()
@@ -61,10 +61,11 @@ def get_aruco_transforms(image, marker_size_mm):
         focal_length = width
         center = (width / 2, height / 2)
         camera_matrix = np.array([
-            [913.0385,   0.0,     642.7385],   # fx,  0,  cx
-            [0.0,       910.9561, 364.3235],   # 0,  fy,  cy
-            [0.0,         0.0,       1.0   ]   # 0,   0,   1
+            [608.69232,   0.        , 321.825],
+            [  0.        , 607.304016, 242.8823],
+            [  0.        ,   0.        ,   1.        ]
         ], dtype=np.float32)
+
 
         # camera_matrix = np.array([
             # [910.88428579,   0.        , 646.56956061],
@@ -120,9 +121,6 @@ def get_aruco_transforms(image, marker_size_mm):
         # Return empty arrays with correct shapes if no markers detected
         transforms = None
         ids = None
-
-    print('aruco transform')
-    print(transforms)
     
     return transforms, ids
 
@@ -152,12 +150,19 @@ def publish_basic(publisher, T_base_to_ee):
     publisher.add_pose(T_base_to_ee, 123) #using 123 as a placeholder 
 
     #from eye in hand calibration
-    T_cam_to_ee = (np.array([
-        [ 0.000338072668,  0.999999801432,  0.000329791286,  0.017143913668],
-        [-0.999998857238,  0.000411703512,  0.001278763264, -0.060065853878],
-        [ 0.001278926362, -0.000328268593,  0.999999125353,  0.015976452427],
-        [ 0.000000000000,  0.000000000000,  0.000000000000,  1.000000000000],
-    ])) 
+    # T_cam_to_ee = (np.array([
+    #     [ 0.000338072668,  0.999999801432,  0.000329791286,  0.017143913668],
+    #     [-0.999998857238,  0.000411703512,  0.001278763264, -0.060065853878],
+    #     [ 0.001278926362, -0.000328268593,  0.999999125353,  0.015976452427],
+    #     [ 0.000000000000,  0.000000000000,  0.000000000000,  1.000000000000],
+    # ])) 
+
+    # T_cam_to_ee = (np.array([
+    #     [ 0.000338072668,  0.999999801432,  0.000329791286,  -5.017143913668],
+    #     [-0.999998857238,  0.000411703512,  0.001278763264, -0.060065853878],
+    #     [ 0.001278926362, -0.000328268593,  0.999999125353,  2.115976452427],
+    #     [ 0.000000000000,  0.000000000000,  0.000000000000,  1.000000000000],
+    # ])) 
 
     tempRot = R.from_euler('x', 180, degrees=True).as_matrix()
     T_frame_adjust_x = np.eye(4)
@@ -188,11 +193,21 @@ def calculate_transforms(img, publisher, T_base_to_ee):
 
     #from eye in hand calibration
     T_cam_to_ee = (np.array([
-        [ 0.000338072668,  0.999999801432,  0.000329791286,  0.017143913668],
-        [-0.999998857238,  0.000411703512,  0.001278763264, -0.060065853878],
+        [ 0.000338072668,  0.999999801432,  0.000329791286,  -0.037143913668-0.015],
+        [-0.999998857238,  0.000411703512,  0.001278763264, -0.060065853878-0.008],
         [ 0.001278926362, -0.000328268593,  0.999999125353,  0.015976452427],
         [ 0.000000000000,  0.000000000000,  0.000000000000,  1.000000000000],
     ])) 
+
+    # T_cam_to_ee = (np.array([
+    #     [ 0.000338072668,  0.999999801432,  0.000329791286,  0.017143913668- 0.02],
+    #     [-0.999998857238,  0.000411703512,  0.001278763264, -0.060065853878],
+    #     [ 0.001278926362, -0.000328268593,  0.999999125353,  0.015976452427],
+    #     [ 0.000000000000,  0.000000000000,  0.000000000000,  1.000000000000],
+    # ])) 
+
+    # T_cam_to_ee = np.eye(4)
+    # T_cam_to_ee[3][3] = -14 
 
     tempRot = R.from_euler('x', 180, degrees=True).as_matrix()
     T_frame_adjust_x = np.eye(4)
@@ -211,9 +226,11 @@ def calculate_transforms(img, publisher, T_base_to_ee):
     #calulate camera pose from end effector and T_cam_to_ee
     T_cam = T_base_to_ee @ (T_cam_to_ee)
     publisher.add_pose(T_cam, 124)
+    publisher.add_pose(np.eye(4), 6969)
     
     aruco_transforms = None
-    aruco_transforms, ids = get_aruco_transforms(image, 93) #cahnge back to 33 for the small arucos
+    aruco_transforms, ids = get_aruco_transforms(image, 33)
+    # aruco_transforms, ids = get_aruco_transforms(image, 94.2)
     print(ids)
     print(aruco_transforms)
 
@@ -239,7 +256,7 @@ def calculate_transforms(img, publisher, T_base_to_ee):
 
             # Extract position
             pos_in_base = T_base_to_marker[:3, 3]
-            print("ArUco marker position in robot base frame:", np.round(pos_in_base, 3))
+            print("ArUco marker position in robot base frame:", np.round(pos_in_base, 5))
 
 
 #start ROS crap
