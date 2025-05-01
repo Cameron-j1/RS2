@@ -1,0 +1,39 @@
+intrinsics:
+  fx: 608.69232
+  fy: 607.304016
+  cx: 321.825
+  cy: 242.8823
+
+# Pose guesses
+camera_mount_to_camera_guess:
+  x:  0.0
+  y:  0.0
+  z:  0.0
+  qx: 0.0
+  qy: 0.0
+  qz: 0.0
+  qw: 1.0
+  
+target_mount_to_target_guess:
+  x:  0.0
+  y:  0.0
+  z:  0.0
+  qx: 0.0
+  qy: 0.0
+  qz: 0.0
+  qw: 1.0
+
+
+
+# Other parameters
+homography_threshold: 2.0
+static_camera: true
+
+# Target finder
+target_finder:
+  type: CharucoGridTargetFinder
+    rows: 10
+    cols: 7
+    chessboard_dim: 0.0225
+    aruco_marker_dim: 0.01686
+    dictionary: 0  # DICT_4X4_250

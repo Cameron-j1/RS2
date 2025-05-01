@@ -11,7 +11,7 @@ from image_sub_class import CameraSubscriber
 
 from pose_sub_class import FrameListener  # Adjust if needed
 
-def get_aruco_transforms(image, marker_size_mm=250):
+def get_aruco_transforms(image, marker_size_mm):
     """
     Detect 6x6 ArUco markers in an image and return the 4x4 transformation matrices
     from camera to each detected marker.
@@ -34,7 +34,7 @@ def get_aruco_transforms(image, marker_size_mm=250):
         gray = image
     
     # Define the ArUco dictionary (6x6 markers)
-    aruco_dict = aruco.getPredefinedDictionary(aruco.DICT_4X4_50)
+    aruco_dict = aruco.getPredefinedDictionary(aruco.DICT_6X6_250)
     
     # Create ArUco parameters
     parameters = aruco.DetectorParameters()
@@ -120,6 +120,9 @@ def get_aruco_transforms(image, marker_size_mm=250):
         # Return empty arrays with correct shapes if no markers detected
         transforms = None
         ids = None
+
+    print('aruco transform')
+    print(transforms)
     
     return transforms, ids
 
@@ -210,7 +213,7 @@ def calculate_transforms(img, publisher, T_base_to_ee):
     publisher.add_pose(T_cam, 124)
     
     aruco_transforms = None
-    aruco_transforms, ids = get_aruco_transforms(image, 33)
+    aruco_transforms, ids = get_aruco_transforms(image, 93) #cahnge back to 33 for the small arucos
     print(ids)
     print(aruco_transforms)
 
