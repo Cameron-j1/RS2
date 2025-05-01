@@ -1,0 +1,13 @@
+[ 50%] Built target joint_publisher
+[ 50%] Built target keyboard_publisher
+[ 75%] Built target trajectory_node
+[100%] Built target moveIt_test_node
+-- Install configuration: ""
+-- Execute custom install script
+-- Up-to-date symlink: /home/cameron/ros2_ws/src/RS2/ros2_rs2_packages/ur3_test_control/install/ur3_test_control/lib/ur3_test_control/joint_publisher
+-- Up-to-date symlink: /home/cameron/ros2_ws/src/RS2/ros2_rs2_packages/ur3_test_control/install/ur3_test_control/lib/ur3_test_control/keyboard_publisher
+-- Up-to-date symlink: /home/cameron/ros2_ws/src/RS2/ros2_rs2_packages/ur3_test_control/install/ur3_test_control/lib/ur3_test_control/trajectory_node
+-- Up-to-date symlink: /home/cameron/ros2_ws/src/RS2/ros2_rs2_packages/ur3_test_control/install/ur3_test_control/lib/ur3_test_control/moveIt_test_node
+-- Up-to-date symlink: /home/cameron/ros2_ws/src/RS2/ros2_rs2_packages/ur3_test_control/install/ur3_test_control/share/ur3_test_control/launch/moveL.launch.py
+-- Up-to-date symlink: /home/cameron/ros2_ws/src/RS2/ros2_rs2_packages/ur3_test_control/install/ur3_test_control/share/ur3_test_control/config/controllers.yaml
+-- Up-to-date symlink: /home/cameron/ros2_ws/src/RS2/ros2_rs2_packages/ur3_test_control/install/ur3_test_control/share/ur3_test_control/config/kinematics.yaml

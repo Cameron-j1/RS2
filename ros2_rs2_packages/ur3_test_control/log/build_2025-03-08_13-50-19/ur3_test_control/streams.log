@@ -1,0 +1,25 @@
+[0.008s] Invoking command in '/home/cameron/ros2_ws/src/RS2/ros2_rs2_packages/ur3_test_control/build/ur3_test_control': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/home/cameron/ros2_ws/install/sjtu_drone_control:/home/cameron/ros2_ws/install/sjtu_drone_bringup:/opt/ros/humble /usr/bin/cmake --build /home/cameron/ros2_ws/src/RS2/ros2_rs2_packages/ur3_test_control/build/ur3_test_control -- -j16 -l16
+[0.058s] [ 50%] Built target joint_publisher
+[0.058s] [ 50%] Built target keyboard_publisher
+[0.060s] [ 75%] Built target trajectory_node
+[0.065s] [100%] Built target moveIt_test_node
+[0.074s] Invoked command in '/home/cameron/ros2_ws/src/RS2/ros2_rs2_packages/ur3_test_control/build/ur3_test_control' returned '0': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/home/cameron/ros2_ws/install/sjtu_drone_control:/home/cameron/ros2_ws/install/sjtu_drone_bringup:/opt/ros/humble /usr/bin/cmake --build /home/cameron/ros2_ws/src/RS2/ros2_rs2_packages/ur3_test_control/build/ur3_test_control -- -j16 -l16
+[0.082s] Invoking command in '/home/cameron/ros2_ws/src/RS2/ros2_rs2_packages/ur3_test_control/build/ur3_test_control': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/home/cameron/ros2_ws/install/sjtu_drone_control:/home/cameron/ros2_ws/install/sjtu_drone_bringup:/opt/ros/humble /usr/bin/cmake --install /home/cameron/ros2_ws/src/RS2/ros2_rs2_packages/ur3_test_control/build/ur3_test_control
+[0.088s] -- Install configuration: ""
+[0.088s] -- Execute custom install script
+[0.088s] -- Up-to-date symlink: /home/cameron/ros2_ws/src/RS2/ros2_rs2_packages/ur3_test_control/install/ur3_test_control/lib/ur3_test_control/joint_publisher
+[0.088s] -- Up-to-date symlink: /home/cameron/ros2_ws/src/RS2/ros2_rs2_packages/ur3_test_control/install/ur3_test_control/lib/ur3_test_control/keyboard_publisher
+[0.089s] -- Up-to-date symlink: /home/cameron/ros2_ws/src/RS2/ros2_rs2_packages/ur3_test_control/install/ur3_test_control/lib/ur3_test_control/trajectory_node
+[0.089s] -- Up-to-date symlink: /home/cameron/ros2_ws/src/RS2/ros2_rs2_packages/ur3_test_control/install/ur3_test_control/lib/ur3_test_control/moveIt_test_node
+[0.089s] -- Up-to-date symlink: /home/cameron/ros2_ws/src/RS2/ros2_rs2_packages/ur3_test_control/install/ur3_test_control/share/ur3_test_control/launch/moveL.launch.py
+[0.089s] -- Up-to-date symlink: /home/cameron/ros2_ws/src/RS2/ros2_rs2_packages/ur3_test_control/install/ur3_test_control/share/ur3_test_control/config/controllers.yaml
+[0.089s] -- Up-to-date symlink: /home/cameron/ros2_ws/src/RS2/ros2_rs2_packages/ur3_test_control/install/ur3_test_control/share/ur3_test_control/config/kinematics.yaml
+[0.089s] [31mCMake Error at ament_cmake_symlink_install/ament_cmake_symlink_install.cmake:100 (message):
+[0.089s]   ament_cmake_symlink_install_directory() can't find
+[0.089s]   '/home/cameron/ros2_ws/src/RS2/ros2_rs2_packages/ur3_test_control/urdf'
+[0.089s] Call Stack (most recent call first):
+[0.089s]   ament_cmake_symlink_install/ament_cmake_symlink_install.cmake:323 (ament_cmake_symlink_install_directory)
+[0.090s]   cmake_install.cmake:46 (include)
+[0.090s] 
+[0.090s] [0m
+[0.090s] Invoked command in '/home/cameron/ros2_ws/src/RS2/ros2_rs2_packages/ur3_test_control/build/ur3_test_control' returned '1': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/home/cameron/ros2_ws/install/sjtu_drone_control:/home/cameron/ros2_ws/install/sjtu_drone_bringup:/opt/ros/humble /usr/bin/cmake --install /home/cameron/ros2_ws/src/RS2/ros2_rs2_packages/ur3_test_control/build/ur3_test_control
