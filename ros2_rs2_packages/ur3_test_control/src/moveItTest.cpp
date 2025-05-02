@@ -18,6 +18,10 @@
 #include <shape_msgs/msg/solid_primitive.hpp>
 #include <Eigen/Geometry>
 
+//for joint state
+#include <sensor_msgs/msg/joint_state.hpp>
+
+
 #include <utility>
 #include <string>
 #include <stdexcept>
@@ -45,7 +49,14 @@ class RobotKinematics : public rclcpp::Node {
                 "camera_markers_auto", 10,
                 std::bind(&RobotKinematics::marker_callback, this, std::placeholders::_1));
 
-            // moveToCameraViewJ();
+            joint_state_sub_ = this->create_subscription<sensor_msgs::msg::JointState>(
+                "/joint_states", 10,
+                std::bind(&RobotKinematics::jointStateCallback, this, std::placeholders::_1));    
+
+            robot_stationary_ = false;
+            pickup_dropoff_wait_ = 1.5; //seconds
+
+            moveToJointAngles(camera_view_jangle.at(0), camera_view_jangle.at(1),camera_view_jangle.at(2),camera_view_jangle.at(3),camera_view_jangle.at(4),camera_view_jangle.at(5));
         }
 
         void publishServoState(bool state) {
@@ -132,7 +143,7 @@ class RobotKinematics : public rclcpp::Node {
                 tempPosition.position.z = pickupHeightCap;
                 moveStraightToPoint({tempPosition}, 0.05, 0.05);
                 publishServoState(true);
-                std::this_thread::sleep_for(std::chrono::seconds(3));
+                std::this_thread::sleep_for(std::chrono::seconds(pickup_dropoff_wait_));
                 // Raise the shit up
                 tempPosition.position.z = operation_height;
                 moveStraightToPoint({tempPosition}, 0.05, 0.05);
@@ -141,7 +152,7 @@ class RobotKinematics : public rclcpp::Node {
                 tempPosition.position.y = 0.290;
                 moveStraightToPoint({tempPosition}, 0.05, 0.05);
                 publishServoState(false);
-                std::this_thread::sleep_for(std::chrono::seconds(3));
+                std::this_thread::sleep_for(std::chrono::seconds(pickup_dropoff_wait_));
             }   
             // Here, we play the damn piece
             if (moveType == 'n' || moveType == 'x') {
@@ -154,7 +165,7 @@ class RobotKinematics : public rclcpp::Node {
                 tempPosition.position.z = pickupHeight;
                 moveStraightToPoint({tempPosition}, 0.05, 0.05);
                 publishServoState(true);
-                std::this_thread::sleep_for(std::chrono::seconds(3));
+                std::this_thread::sleep_for(std::chrono::seconds(pickup_dropoff_wait_));
                 tempPosition.position.z = operation_height;
                 moveStraightToPoint({tempPosition}, 0.05, 0.05);
                 tempPosition.position.x = goal.first;
@@ -164,12 +175,13 @@ class RobotKinematics : public rclcpp::Node {
                 tempPosition.position.z = pickupHeight;
                 moveStraightToPoint({tempPosition}, 0.05, 0.05);
                 publishServoState(false);
-                std::this_thread::sleep_for(std::chrono::seconds(3));
+                std::this_thread::sleep_for(std::chrono::seconds(pickup_dropoff_wait_));
                 tempPosition.position.z = operation_height;
                 moveStraightToPoint({tempPosition}, 0.05, 0.05);
             }
 
             // moveToJointAngles(camera_view_jangle.at(0), camera_view_jangle.at(1),camera_view_jangle.at(2),camera_view_jangle.at(3),camera_view_jangle.at(4),camera_view_jangle.at(5));
+            moveToJointAngles(-1.525+M_PI, -1.647, 0.291, -0.390, -1.549, 6.215);
 
         }
 
@@ -276,10 +288,10 @@ class RobotKinematics : public rclcpp::Node {
         };
 
         std::unordered_map<char, double> pieceHeight = {
-            {'p', 0.165}, {'r', 0.1793}, {'n', 0.1793},
-            {'b', 0.1783-0.005}, {'q', 0.1848}, {'k', 0.1877},
-            {'P', 0.165}, {'R', 0.1793}, {'N', 0.1793},
-            {'B', 0.1783-0.005}, {'Q', 0.1848}, {'K', 0.1877}
+            {'p', 0.165-20/1000}, {'r', ((0.1783-0.005) + (0.165-20/1000))/2 }, {'n', 0.1793},
+            {'b', 0.1783-0.005}, {'q', 0.1848-50/1000 }, {'k', 0.1877},
+            {'P', 0.165-20/1000}, {'R', ((0.1783-0.005) + (0.165-20/1000))/2}, {'N', 0.1793},
+            {'B', 0.1783-0.005}, {'Q', 0.1848-50/1000}, {'K', 0.1877}
         };
 
         //bring in markers for aruco positions
@@ -298,47 +310,58 @@ class RobotKinematics : public rclcpp::Node {
             for (const auto& marker : msg->markers) {
                 int marker_id = marker.id;
 
-                if (marker_id == 5) {
+                RCLCPP_INFO(this->get_logger(), "MARKER!! ID: %d", marker_id);
+
+                if (marker_id == 51 && robot_stationary_) { //only read the markers if the robot is currently stationary
                     std::string frame_id = marker.header.frame_id;
                     
                     RCLCPP_INFO(this->get_logger(), "Marker ID: %d, Frame ID: %s", marker_id, frame_id.c_str());
                     
                     // Try to get the transform for this marker
-                    try {
-                        // You may need to adjust these frame names according to your setup
-                        // Here we assume we want to transform from marker frame to "base_link"
-                        std::string target_frame = "base_link";
-                        std::string source_frame = frame_id;
-                        
-                        geometry_msgs::msg::TransformStamped transform_stamped = 
-                        tf_buffer_->lookupTransform(target_frame, source_frame, tf2::TimePointZero);
-                        
-                        // Store the transform in the map, associated with the marker ID
-                        marker_transforms_[marker_id] = transform_stamped;
-                        
-                        RCLCPP_INFO(this->get_logger(), 
-                                "Transform for marker %d: [%f, %f, %f] [%f, %f, %f, %f]",
-                                marker_id,
-                                transform_stamped.transform.translation.x,  
-                                transform_stamped.transform.translation.y,
-                                transform_stamped.transform.translation.z,
-                                transform_stamped.transform.rotation.x,
-                                transform_stamped.transform.rotation.y,
-                                transform_stamped.transform.rotation.z,
-                                transform_stamped.transform.rotation.w);
-
-                        board_yaw = getYawFromQuaternion(transform_stamped.transform.rotation.x, transform_stamped.transform.rotation.y, transform_stamped.transform.rotation.z, transform_stamped.transform.rotation.w);
-                        H1_X = -transform_stamped.transform.translation.x;
-                        H1_Y = -transform_stamped.transform.translation.y;
-
-                    }
-                    catch (tf2::TransformException &ex) {
-                        RCLCPP_WARN(this->get_logger(), "Could not transform from %s to base_link: %s", 
-                                frame_id.c_str(), ex.what());
-                    }
+                    RCLCPP_INFO(this->get_logger(), 
+                    "READ MARKER POSE %d: [%f, %f, %f] [%f, %f, %f, %f]",
+                    marker_id,
+                    marker.pose.position.x,
+                    marker.pose.position.y,
+                    marker.pose.position.z,
+                    marker.pose.orientation.x,
+                    marker.pose.orientation.y,
+                    marker.pose.orientation.z,
+                    marker.pose.orientation.w);
+                
+                    board_yaw = getYawFromQuaternion(
+                        marker.pose.orientation.x,
+                        marker.pose.orientation.y,
+                        marker.pose.orientation.z,
+                        marker.pose.orientation.w);
+                    
+                    H1_X = -marker.pose.position.x;
+                    H1_Y = -marker.pose.position.y;
                 }
             }
         }
+
+        //to detect the robot moving
+        void jointStateCallback(const sensor_msgs::msg::JointState::SharedPtr msg) {
+            for (const auto& v : msg->velocity) {
+                if (std::abs(v) > 1e-3) { // small threshold for floating point noise
+                    robot_stationary_ = false;
+                    break;
+                }else{
+                    robot_stationary_ = true;
+                }
+            }
+        
+            if (robot_stationary_) {
+                RCLCPP_INFO(this->get_logger(), "Robot is stationary.");
+            } else {
+                RCLCPP_INFO(this->get_logger(), "Robot is moving.");
+            }
+        }
+        //joint state sub obj
+        rclcpp::Subscription<sensor_msgs::msg::JointState>::SharedPtr joint_state_sub_;
+        bool robot_stationary_;
+        int pickup_dropoff_wait_;
 };
 
 int main(int argc, char * argv[])
@@ -403,6 +426,15 @@ int main(int argc, char * argv[])
     move_group.setJointValueTarget({M_PI/2, -M_PI/2, M_PI/2, -M_PI/2, -M_PI/2, 0});
     moveit::planning_interface::MoveGroupInterface::Plan plan;
     auto planning_result = move_group.plan(plan);
+    if (planning_result == moveit::core::MoveItErrorCode::SUCCESS) {
+        if (move_group.execute(plan) == moveit::core::MoveItErrorCode::SUCCESS) {
+            RCLCPP_INFO(node->get_logger(), "Moved to joint angles successfully");
+        } else {
+            RCLCPP_ERROR(node->get_logger(), "Failed to execute joint space plan");
+        }
+    }
+    move_group.setJointValueTarget({-1.525+M_PI, -1.647, 0.291, -0.390, -1.549, 6.215});
+    planning_result = move_group.plan(plan);
     if (planning_result == moveit::core::MoveItErrorCode::SUCCESS) {
         if (move_group.execute(plan) == moveit::core::MoveItErrorCode::SUCCESS) {
             RCLCPP_INFO(node->get_logger(), "Moved to joint angles successfully");
