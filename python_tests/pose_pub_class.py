@@ -50,7 +50,7 @@ class CameraPosePublisher:
         while rclpy.ok() and self.running:
             rclpy.spin_once(self.node, timeout_sec=0.1)
     
-    def add_pose(self, transformation_matrix, id, apply_default_rotation=False, frame="base_link"):  # Changed default to False
+    def add_pose(self, transformation_matrix, id, publishxyAxis=True, frame="base_link"):  # Changed default to False
         """
         Add a camera pose using a 4x4 transformation matrix.
         
@@ -63,10 +63,8 @@ class CameraPosePublisher:
             raise ValueError("Transformation matrix must be 4x4")
             
         # Apply rotation if needed
-        if apply_default_rotation:
-            rotated_pose = transformation_matrix @ self.default_rotation
-        else:
-            rotated_pose = transformation_matrix
+        #variable name rotated_pose is a carry over from previous actions should be updated
+        rotated_pose = transformation_matrix
         
         # Extract position and quaternion
         position = rotated_pose[:3, 3]
@@ -79,10 +77,9 @@ class CameraPosePublisher:
             'quaternion': quaternion,
             'id': int(id),
             'rotation_matrix': rotation_matrix,  # Store rotation matrix for axis visualization
-            'frame': frame
+            'frame': frame,
+            'pubXY': publishxyAxis
         })
-
-        print(f"Saved transform with id {id}")
         
         # If we're already publishing, publish once immediately to show the new pose
         if self.timer is not None:
@@ -130,7 +127,12 @@ class CameraPosePublisher:
         marker.header.frame_id = pose_data['frame']
         marker.header.stamp = self.node.get_clock().now().to_msg()
         marker.ns = "camera_axis"
-        marker.id = pose_data['id'] * 10 + id_offset  # Create unique ID
+        if(id_offset != 0):
+            marker.id = pose_data['id'] * 10 + id_offset  # Create unique ID
+        else:
+            marker.id = pose_data['id']
+
+        print(f'publishing ID: {marker.id}')
         marker.type = Marker.ARROW
         marker.action = Marker.ADD
         
@@ -203,16 +205,27 @@ class CameraPosePublisher:
                 (0.0, 0.0, 1.0),  # Z axis - Blue
             ]
             
-            # Create arrows for each axis
-            for i, (color, length) in enumerate(zip(axis_colors, [0.1, 0.1, 0.2])):
+            if(pose_data['pubXY']):
+                # Create arrows for each axis
+                for i, (color, length) in enumerate(zip(axis_colors, [0.1, 0.1, 0.2])):
+                    marker = self._create_axis_marker(
+                        pose_data, 
+                        i,           # Axis index (0=X, 1=Y, 2=Z)
+                        i+1,         # ID offset
+                        color,       # Color for this axis
+                        (length, 0.01, 0.01)  # Scale - different length for each axis
+                    )
+                    marker_array.markers.append(marker)
+            else:
                 marker = self._create_axis_marker(
                     pose_data, 
-                    i,           # Axis index (0=X, 1=Y, 2=Z)
-                    i+1,         # ID offset
-                    color,       # Color for this axis
-                    (length, 0.01, 0.01)  # Scale - different length for each axis
+                    2,           # Axis index (0=X, 1=Y, 2=Z)
+                    0,         # ID offset
+                    (0.0, 0.0, 1.0),       # Color for this axis
+                    (0.2, 0.01, 0.01)  # Scale - different length for each axis
                 )
                 marker_array.markers.append(marker)
+            
         
         self.publisher.publish(marker_array)
     

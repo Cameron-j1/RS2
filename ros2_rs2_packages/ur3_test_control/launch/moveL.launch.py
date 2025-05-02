@@ -143,5 +143,5 @@ def generate_launch_description():
         ur_moveit_launch,
         main_node,
         chess_node,
-        cam_node
+        #cam_node
     ])

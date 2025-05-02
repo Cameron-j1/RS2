@@ -11,6 +11,8 @@ from image_sub_class import CameraSubscriber
 
 from pose_sub_class import FrameListener  # Adjust if needed
 
+#run vision with this: ros2 launch realsense2_camera rs_launch.py rgb_camera.color_profile:=1280x720x15
+
 #global variables
 #distances from H1
 aruco_board_span = 281/1000 #long distance
@@ -20,7 +22,7 @@ aruco_to_H1 = {
     #aruco id: [x to H1 (m), y to H1 (m), rot z (rad)]
     1: [-aruco_board_span, -aruco_square_span, 0],
     2: [aruco_square_span, aruco_board_span, 0],
-    3: [-aruco_board_span, aruco_board_span, 0],
+    3: [-aruco_board_span+30/1000, aruco_board_span, 0],
     4: [aruco_square_span, - aruco_square_span, 0]
 }
 
@@ -82,23 +84,28 @@ def get_aruco_transforms(image, marker_size_mm=250):
         height, width = gray.shape
         focal_length = width
         center = (width / 2, height / 2)
+        #640x480
         camera_matrix = np.array([
             [608.69232,   0.        , 321.825],
             [  0.        , 607.304016, 242.8823],
             [  0.        ,   0.        ,   1.        ]
         ], dtype=np.float32)
-
-
-        # camera_matrix = np.array([
-            # [910.88428579,   0.        , 646.56956061],
-            # [  0.        , 909.49046737, 357.94919134],
-            # [  0.        ,   0.        ,   1.        ]
-        # ])
-
-        # dist_coeffs = np.array([[ 0.08300782,  0.09867322, -0.00272421,  0.0034501, -0.91121635]])
-
-
         dist_coeffs = np.zeros((5, 1), dtype=np.float32)
+
+        #1280x720 intrinics
+        camera_matrix = np.array([
+            [904.31097901,   0.        , 641.57999223],
+            [  0.        , 903.36941042, 362.54800006],
+            [  0.        ,   0.        ,   1.        ]
+        ])
+
+        dist_coeffs = np.array([
+            [ 4.44499317e-02],
+            [ 5.56966659e-01],
+            [ 2.99253301e-04],
+            [-1.49486083e-03],
+            [-2.25401697e+00]
+        ])
         
         # For each detected marker
         for i in range(len(ids)):
@@ -167,19 +174,28 @@ def invert_transform(T):
 def calculate_transforms(img, publisher, T_base_to_ee):
     image = img
 
-    print(f"ee is X:{T_base_to_ee[0, 3]}, Y:{T_base_to_ee[1, 3]}, Z:{T_base_to_ee[2, 3]} from the base")
+    # print(f"ee is X:{T_base_to_ee[0, 3]}, Y:{T_base_to_ee[1, 3]}, Z:{T_base_to_ee[2, 3]} from the base")
 
     T_ee_to_base = invert_transform(T_base_to_ee)
 
-    publisher.add_pose(T_base_to_ee, 123) #using 123 as a placeholder 
+    # publisher.add_pose(T_base_to_ee, 123) #using 123 as a placeholder 
 
-    #from eye in hand calibration
+    #720p
     T_cam_to_ee = (np.array([
-        [ 0.000338072668,  0.999999801432,  0.000329791286,  -0.037143913668-0.015],
+        [ 0.000338072668,  0.999999801432,  0.000329791286,  -0.037143913668],
         [-0.999998857238,  0.000411703512,  0.001278763264, -0.060065853878-0.008],
         [ 0.001278926362, -0.000328268593,  0.999999125353,  0.015976452427],
         [ 0.000000000000,  0.000000000000,  0.000000000000,  1.000000000000],
     ])) 
+
+    # #from eye in hand calibration
+    #480p extrinsics
+    # T_cam_to_ee = (np.array([
+    #     [ 0.000338072668,  0.999999801432,  0.000329791286,  -0.037143913668-0.015],
+    #     [-0.999998857238,  0.000411703512,  0.001278763264, -0.060065853878-0.008],
+    #     [ 0.001278926362, -0.000328268593,  0.999999125353,  0.015976452427],
+    #     [ 0.000000000000,  0.000000000000,  0.000000000000,  1.000000000000],
+    # ])) 
 
     tempRot = R.from_euler('z', 90, degrees=True).as_matrix()
     T_frame_adjust_z = np.eye(4)
@@ -189,39 +205,54 @@ def calculate_transforms(img, publisher, T_base_to_ee):
 
     #calulate camera pose from end effector and T_cam_to_ee
     T_cam = T_base_to_ee @ (T_cam_to_ee)
-    publisher.add_pose(T_cam, 124)
+    # publisher.add_pose(T_cam, 124)
     # publisher.add_pose(np.eye(4), 6969)
     
     aruco_transforms = None
     aruco_transforms, ids = get_aruco_transforms(image, 33)
     # aruco_transforms, ids = get_aruco_transforms(image, 94.2)
     print(ids)
-    print(aruco_transforms)
+    # print(aruco_transforms)
 
     H1_published = False
+    arucos_found = []
+    aruco_Ts = []
     if aruco_transforms is not None:
         for i, transform in enumerate(aruco_transforms):
-            print(f'detected aruco X: {transform[0][3]}, Y: {transform[1][3]}, Z: {transform[2][3]}')
+            # print(f'detected aruco X: {transform[0][3]}, Y: {transform[1][3]}, Z: {transform[2][3]}')
             T_marker_to_cam  = invert_transform(transform)
             T_cam_to_marker = transform
-            print(f"T_marker_to_cam X:{T_marker_to_cam[0, 3]}, Y:{T_marker_to_cam[1, 3]}, Z:{T_marker_to_cam[2, 3]}")
-            print(f"T_cam_to_marker X:{T_cam_to_marker[0, 3]}, Y:{T_cam_to_marker[1, 3]}, Z:{T_cam_to_marker[2, 3]}")
+            # print(f"T_marker_to_cam X:{T_marker_to_cam[0, 3]}, Y:{T_marker_to_cam[1, 3]}, Z:{T_marker_to_cam[2, 3]}")
+            # print(f"T_cam_to_marker X:{T_cam_to_marker[0, 3]}, Y:{T_cam_to_marker[1, 3]}, Z:{T_cam_to_marker[2, 3]}")
 
             T_base_to_marker = T_cam @ T_cam_to_marker
-            publisher.add_pose(T_base_to_marker, ids[i]) 
-
-            # Extract position
             pos_in_base = T_base_to_marker[:3, 3]
-            print("ArUco marker position in robot base frame:", np.round(pos_in_base, 5))
+            if pos_in_base[2] < 0.1:
+                publisher.add_pose(T_base_to_marker, ids[i]) 
+                print("ArUco marker position in robot base frame:", np.round(pos_in_base, 5))
+                arucos_found.append(ids[i])
+                aruco_Ts.append(T_base_to_marker)
+                try:
+                    H1_T = calculate_H1_T(T_base_to_marker, ids[i])
+                    if(H1_published == False):
+                        publisher.add_pose(H1_T, H1_marker_ID, )
+                        H1_published = True
+                    pass
+                except:
+                    print('No saved transform between aruco and H1') 
 
-            try:
-                H1_T = calculate_H1_T(T_base_to_marker, ids[i])
-                if(H1_published == False):
-                    publisher.add_pose(H1_T, H1_marker_ID)
-                    H1_published = True
-                pass
-            except:
-                print('No saved transform between aruco and H1') 
+        # Calculate Euclidean distance in X-Y plane between all pairs of ArUco markers
+        print("\nEuclidean distances between markers (X-Y plane only):")
+        for i in range(len(aruco_Ts)):
+            for j in range(i+1, len(aruco_Ts)):
+                # Extract X and Y coordinates from transformation matrices
+                x1, y1 = aruco_Ts[i][0, 3], aruco_Ts[i][1, 3]
+                x2, y2 = aruco_Ts[j][0, 3], aruco_Ts[j][1, 3]
+                
+                # Calculate Euclidean distance in X-Y plane only
+                distance_xy = np.sqrt((x2 - x1)**2 + (y2 - y1)**2)
+                
+                print(f"Distance between marker {arucos_found[i]} and marker {arucos_found[j]}: {distance_xy:.5f} units")
 
 
 #start ROS crap
