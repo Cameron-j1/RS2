@@ -42,6 +42,7 @@ class ChessboardProcessor(Node):
         try:
             # Convert ROS Image message to OpenCV image
             src = self.bridge.imgmsg_to_cv2(msg, desired_encoding='bgr8')
+            src = self.make_square_crop(src)
             
             # Process the image
             self.process_chessboard(src)
@@ -319,16 +320,16 @@ class ChessboardProcessor(Node):
                 if output_path:
                     status = "empty" if is_empty else "occupied"
                     filename = f"{output_path}{output_prefix}-{j + i * 8}-{status}-{timestamp}.jpg"
-                    cv2.imwrite(filename, tile)
+                    # cv2.imwrite(filename, tile)
                 
                 # Display the tile
                 if self.debug:
                     status_text = "Empty" if is_empty else "Occupied"
                     tile_copy = tile.copy()
-                    cv2.putText(tile_copy, status_text, (10, 20), 
-                                cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 1)
-                    cv2.imshow(f"Tile {j + i * 8}", tile_copy)
-                    cv2.waitKey(1)
+                    # cv2.putText(tile_copy, status_text, (10, 20), 
+                    #             cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 1)
+                    # cv2.imshow(f"Tile {j + i * 8}", tile_copy)
+                    # cv2.waitKey(1)
 
     def render_lines(self, img, lines, color):
         """
@@ -350,6 +351,15 @@ class ChessboardProcessor(Node):
             cv2.circle(img, (int(point[0]), int(point[1])), 2, color, size)
             if slow:
                 cv2.waitKey(10)
+    
+    def make_square_crop(self, img):
+        """Crop the image to a square by trimming the longer dimension."""
+        height, width = img.shape[:2]
+        size = min(height, width)  # Use the smaller dimension as the square size
+        start_h = (height - size) // 2  # Center the crop vertically
+        start_w = (width - size) // 2   # Center the crop horizontally
+        square_img = img[start_h:start_h + size, start_w:start_w + size]
+        return square_img
 
 def main(args=None):
     rclpy.init(args=args)

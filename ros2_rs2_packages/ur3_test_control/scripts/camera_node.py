@@ -59,23 +59,23 @@ class CameraNode(Node):
             # Convert ROS Image message to OpenCV format (BGR)
             self.latest_image = self.bridge.imgmsg_to_cv2(msg, desired_encoding='bgr8')
             self.latest_image = self.make_square_crop(self.latest_image)
-            # When the spacebar is pressed, it will trigger the chess analysis process (TODO)
-            chessBoardB = self.process_chessboard(self.latest_image, False)
-            chessStr = np.array2string(chessBoardB, separator=', ')
-            self.get_logger().info(f'Occupancy grid from black perspective:\n{chessStr}')
-            # Convert to the white perspective to match with the chess node
-            chessBoardW = [row[::-1] for row in chessBoardB[::-1]]
-            playerMove = self.find_move(chessBoardW)
-            self.get_logger().info(f'Start P: {playerMove[0][0]}, {playerMove[0][1]}; End P: {playerMove[1][0]}, {playerMove[1][1]} ')
-            # Publish the move to the chess node for stockfish
-            toChessNode = ''.join(str(num) for sublist in playerMove for num in sublist)
-            self.player_publish.publish(String(data=toChessNode))
+            # # When the spacebar is pressed, it will trigger the chess analysis process (TODO)
+            # chessBoardB = self.process_chessboard(self.latest_image, False)
+            # chessStr = np.array2string(chessBoardB, separator=', ')
+            # self.get_logger().info(f'Occupancy grid from black perspective:\n{chessStr}')
+            # # Convert to the white perspective to match with the chess node
+            # chessBoardW = [row[::-1] for row in chessBoardB[::-1]]
+            # playerMove = self.find_move(chessBoardW)
+            # self.get_logger().info(f'Start P: {playerMove[0][0]}, {playerMove[0][1]}; End P: {playerMove[1][0]}, {playerMove[1][1]} ')
+            # # Publish the move to the chess node for stockfish
+            # toChessNode = ''.join(str(num) for sublist in playerMove for num in sublist)
+            # self.player_publish.publish(String(data=toChessNode))
             # Display the image in a window
-            # if self.latest_image is not None:
-            #     cv2.imshow('Camera Stream', self.latest_image)
-            #     cv2.waitKey(1)  # Refresh the window (1ms delay)
-            # else:
-            #     self.get_logger().warn('No image data received yet.')
+            if self.latest_image is not None:
+                cv2.imshow('Camera Stream', self.latest_image)
+                cv2.waitKey(1)  # Refresh the window (1ms delay)
+            else:
+                self.get_logger().warn('No image data received yet.')
                 
         except Exception as e:
             self.get_logger().error(f'Error processing image: {str(e)}')
