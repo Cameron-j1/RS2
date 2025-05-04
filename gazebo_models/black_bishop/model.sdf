@@ -21,7 +21,7 @@
       <collision name="collision">
         <geometry>
           <mesh>
-            <uri>model://black_bishop/meshes/black_bishop.dae</uri>
+            <uri>model://black_bishop/meshes/bishop.stl</uri>
           </mesh>
         </geometry>
         <surface>

@@ -6,7 +6,7 @@
 
       <!-- Inertial properties -->
       <inertial>
-        <mass>0.2</mass> <!-- 50 grams, change as needed -->
+        <mass>0.02</mass> <!-- 50 grams, change as needed -->
         <inertia>
           <ixx>0.00001</ixx>
           <iyy>0.00001</iyy>

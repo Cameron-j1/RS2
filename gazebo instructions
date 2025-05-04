@@ -1,6 +1,6 @@
 ros2 launch ur_simulation_gazebo ur_sim_moveit.launch.py ur_type:=ur3e start_joint_controller:=true launch_rviz:=false gazebo_gui:=true
 
-ros2 launch ur_simulation_gazebo ur_sim_moveit.launch.py ur_type:=ur3e start_joint_controller:=true launch_rviz:=false gazebo_gui:=true world:=/home/charles/git/RS2/ros2_rs2_packages/ur3_test_control/world/test7.world
+ros2 launch ur_simulation_gazebo ur_sim_moveit.launch.py ur_type:=ur3e start_joint_controller:=true launch_rviz:=false gazebo_gui:=true world:=/home/charles/git/RS2/ros2_rs2_packages/ur3_test_control/world/full_complete_v2.world
 
 example spawn model with pose tracking
 ros2 run gazebo_ros spawn_entity.py -file ~/git/RS2/gazebo_models/black_pawn/model.sdf -entity black_pawn_c7 -x 0.0 -y 0.34 -z 0.12 -robot_namespace black_pawn_c7
