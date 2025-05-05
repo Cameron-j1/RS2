@@ -394,6 +394,20 @@ void logBoard() {
     std::cout << '\n';
 }
 
+void publishFEN(
+    std::shared_ptr<rclcpp::Node> node,
+    std::shared_ptr<rclcpp::Publisher<std_msgs::msg::String>> publisher, 
+    bool blackTurn, 
+    std::string castlingAvail, 
+    int halfmoveClock, 
+    int fullmoveNumer) {
+    
+    std_msgs::msg::String msg;
+    msg.data = generateFullFEN(blackTurn ? 'b' : 'w', castlingAvail, halfmoveClock, fullmoveNumer);
+    publisher->publish(msg);
+    RCLCPP_INFO(node->get_logger(), "Published FEN: %s", msg.data.c_str());
+}
+
 int main(int argc, char * argv[]) {
 
     rclcpp::init(argc, argv);
@@ -450,6 +464,8 @@ int main(int argc, char * argv[]) {
 
     publisher->publish(msg);
 
+    auto fen_pub = node->create_publisher<std_msgs::msg::String>("/fen_string", 10);
+
     int lastClickedPiece = -1;
     int curRow = 0, curCol = 0;
     bool whiteCaptured = false, blackTurn = false;
@@ -458,7 +474,7 @@ int main(int argc, char * argv[]) {
     // Service: Reset Chessboard
     auto reset_service = node->create_service<std_srvs::srv::Trigger>(
         "/reset_chessboard",
-        [&pieces, &texture, &fen, &publisher, &msgFromCamera, &newMove, &blackTurn, &lastClickedPiece]
+        [&pieces, &texture, &fen, &publisher, &msgFromCamera, &newMove, &blackTurn, &lastClickedPiece, &fen_pub, node]
         (const std::shared_ptr<std_srvs::srv::Trigger::Request> request,
         std::shared_ptr<std_srvs::srv::Trigger::Response> response) {
             
@@ -489,6 +505,8 @@ int main(int argc, char * argv[]) {
                 }
             }
             publisher->publish(msg);
+            publishFEN(node, fen_pub, blackTurn, castlingAvail, halfmoveClock, fullmoveNumer);
+            std::cout << "publish FEN" << std::endl;
     
             response->success = true;
             response->message = "Board reset to initial position.";
@@ -499,6 +517,8 @@ int main(int argc, char * argv[]) {
     while (window.isOpen() && rclcpp::ok()) {
         rclcpp::spin_some(node);
         sf::Event event;
+        bool boardStateChanged = false;
+        
         // Human to move (check if any mouse click was detected)
         while (window.pollEvent(event)) {
             if (event.type == sf::Event::Closed)
@@ -511,16 +531,17 @@ int main(int argc, char * argv[]) {
                     sf::Vector2f mousePosF(static_cast<float>(mousePos.x), static_cast<float>(mousePos.y));
                     bool foundPiece = false;
 
-                    // First mouse click, to select the pieces and display possible moves for that piece
+                    // First click logic - selecting a piece
                     for (int i = 0; i < pieces.size(); i++) {
                         if (pieces[i].getGlobalBounds().contains(mousePosF)) {
                             // Find the clicked piece
                             if (lastClickedPiece == -1) {
+                                // Selection logic - no board state change
                                 curRow = (int(pieces[i].getPosition().y)-8)/SQUARE_SIZE;
                                 curCol = (int(pieces[i].getPosition().x)-8)/SQUARE_SIZE;
                                 foundPiece = true;
                                 lastClickedPiece = i;
-                                // Find the possible moves for that piece and display them 
+                                // Find possible moves
                                 moves = getPossibleMoves(curRow, curCol);
                                 isPotentialMove.assign(isPotentialMove.size() - 1, false);
 
@@ -528,7 +549,7 @@ int main(int argc, char * argv[]) {
                                     isPotentialMove[move[0]*8 + move[1]] = true;
                                 }
                             }
-                            // This is the capture move, the piece will be remove if it's an enemy piece
+                            // Capture move logic
                             else if (lastClickedPiece != -1) {
                                 int row = (int(pieces[i].getPosition().y)-8)/SQUARE_SIZE;
                                 int col = (int(pieces[i].getPosition().x)-8)/SQUARE_SIZE;
@@ -536,6 +557,7 @@ int main(int argc, char * argv[]) {
                                 if (isPotentialMove[row*8+col] == true) {
                                     pieces[i].setPosition(5000.0f, 5000.0f);
                                     whiteCaptured = true;
+                                    // Don't set boardStateChanged yet as the full move isn't complete
                                 }
                                 else {
                                     lastClickedPiece = -1;
@@ -545,10 +567,10 @@ int main(int argc, char * argv[]) {
                         }
                     }
                     
-                    // Second click to confirm next move
+                    // Second click to confirm the move
                     if (!foundPiece && lastClickedPiece != -1) {
                         for (int i = 0; i < potentialMove.size(); i++) {
-                            // Find the square within possible move that was clicked on and move the piece to that square
+                            // Move piece to selected square if it's a valid move
                             if (potentialMove[i].getGlobalBounds().contains(mousePosF) && isPotentialMove[i] == true) {
                                 int nextRow = (i/8) * SQUARE_SIZE + 8, nextCol = (i%8) * SQUARE_SIZE + 8;
                                 pieces[lastClickedPiece].setPosition(nextCol, nextRow);
@@ -557,16 +579,18 @@ int main(int argc, char * argv[]) {
                                     halfmoveClock = 0; whiteCaptured = false;
                                 }
                                 else halfmoveClock++;
-                                // Update the virtue chess board
+                                
+                                // Update the virtual chess board
                                 board[i/8][i%8] = board[curRow][curCol];
                                 board[curRow][curCol] = '-';
-                                // Check if the detected move is the castling move
-                                // If it is then move the right rook to the right position.
-                                // That side will no longer be allow to castle (Maybe a boolean to check for this condition ?)
+                                
+                                // Handle castling
                                 if (isCastling[i] == true) {
                                     int rookNextCol = i % 8 == 2 ? 3 : 5, rookCurCol = i % 8 == 2 ? 0 : 7;
                                     for (int y = 0; y < pieces.size(); y++) {
-                                        if ((int(pieces[y].getPosition().y)-8)/SQUARE_SIZE == curRow && (int(pieces[y].getPosition().x)-8)/SQUARE_SIZE == rookCurCol) {
+                                        if ((int(pieces[y].getPosition().y)-8)/SQUARE_SIZE == curRow && 
+                                            (int(pieces[y].getPosition().x)-8)/SQUARE_SIZE == rookCurCol) {
+                                            
                                             pieces[y].setPosition(rookNextCol * SQUARE_SIZE + 8, curRow * SQUARE_SIZE + 8);
                                             castlingAvail.erase(std::remove(castlingAvail.begin(), castlingAvail.end(), 'K'), castlingAvail.end());
                                             castlingAvail.erase(std::remove(castlingAvail.begin(), castlingAvail.end(), 'Q'), castlingAvail.end());
@@ -577,23 +601,23 @@ int main(int argc, char * argv[]) {
                                         }
                                     }
                                 }
+                                
                                 blackTurn = true;
+                                boardStateChanged = true; // Board state has changed, publish FEN later
                                 lastClickedPiece = -1;
                                 break;
                             }
-                            // If the user clicks somewhere not within the possible moves, it will reset.
+                            // Reset if clicked outside valid moves
                             else if (potentialMove[i].getGlobalBounds().contains(mousePosF) && isPotentialMove[i] == false) {
                                 lastClickedPiece = -1;
                             }
                         }
-                        // Remove the temporary castling check
+                        // Reset castling check and potential moves display
                         for (auto& pair : isCastling) {
                             pair.second = false;
                         }
-                        // The red square used to display potential move will be removed
                         isPotentialMove.assign(isPotentialMove.size() - 1, false);
                     }
-
                 }
             }
         }
@@ -601,8 +625,7 @@ int main(int argc, char * argv[]) {
         // Update the chess board with the real move from player (sent from camera node)
         if (newMove && !blackTurn) {
             newMove = false;
-            //RowStart, ColStart, RowEnd, ColEnd
-            // Put in a while loop to update all pending moves easier (in this case only castling moves lol)
+            // Process all pending moves
             while (msgFromCamera.length() > 0) {
                 int physicalMove[4];
                 for (int i = 0; i < 4; i++) {
@@ -612,16 +635,23 @@ int main(int argc, char * argv[]) {
                     // Find the piece played
                     if ((int(pieces[i].getPosition().y)-8)/SQUARE_SIZE == physicalMove[0] &&
                         (int(pieces[i].getPosition().x)-8)/SQUARE_SIZE == physicalMove[1]) {
-                            pieces[i].setPosition(physicalMove[3] * SQUARE_SIZE + 8, physicalMove[2] * SQUARE_SIZE + 8);
-                            board[physicalMove[2]][physicalMove[3]] = board[physicalMove[0]][physicalMove[1]];
-                            board[physicalMove[0]][physicalMove[1]] = '-';
-                        }
+                        pieces[i].setPosition(physicalMove[3] * SQUARE_SIZE + 8, physicalMove[2] * SQUARE_SIZE + 8);
+                        board[physicalMove[2]][physicalMove[3]] = board[physicalMove[0]][physicalMove[1]];
+                        board[physicalMove[0]][physicalMove[1]] = '-';
+                    }
                 }
                 msgFromCamera.erase(0, 4);
             }
             blackTurn = true;
+            boardStateChanged = true; // Board state has changed, publish FEN
         }
 
+        // Publish FEN only when board state has changed
+        if (boardStateChanged) {
+            publishFEN(node, fen_pub, blackTurn, castlingAvail, halfmoveClock, fullmoveNumer);
+        }
+
+        // Rendering logic
         window.clear();
         drawBoard(window);
         for (int i = 0; i < pieces.size(); i++) {
@@ -634,27 +664,31 @@ int main(int argc, char * argv[]) {
             }
         }
         window.display();
-        char moveType = 'n';
-        // // This is the Stockfish turn to play
+        
+        // Stockfish's turn
         if (blackTurn) {
-            std::this_thread::sleep_for(std::chrono::milliseconds(500)); // Sleep for 0.5 seconds
+            std::this_thread::sleep_for(std::chrono::milliseconds(500));
             fen = "position fen " + generateFullFEN('b', castlingAvail, halfmoveClock, fullmoveNumer) + '\n'; 
             std::cout << fen;
             blackTurn = false;
+            
+            // Stockfish move logic...
             stockfish_in << fen << std::flush;
             stockfish_in << "go depth 10\n" << std::flush;
             char piecePlayed = ' ', pieceCaptured = ' ';
-
+            char moveType = 'n';
+            std::string stockfishMove; // Declare stockfishMove variable
+            
             while (std::getline(stockfish_out, line)) {
                 if (line.rfind("bestmove", 0) == 0) {
                     bool capture = false, pawn = false;
                     // Extract only the move part
                     std::istringstream iss(line);
                     std::string bestmove;
-                    std::string move;
-                    iss >> bestmove >> move; // Skip "bestmove", get the move
-                    // std::cout << move << '\n';
-                    std::vector<std::vector<int>> fishMoves = chessMoveToCoordinates(move);
+                    iss >> bestmove >> stockfishMove; // Skip "bestmove", get the move
+                    
+                    // Process Stockfish move...
+                    std::vector<std::vector<int>> fishMoves = chessMoveToCoordinates(stockfishMove);
                     // Update the graphic to show stockfish's latest move
                     for (int i = 0; i < pieces.size(); i++) {
                         int row = (int(pieces[i].getPosition().y)-8)/SQUARE_SIZE;
@@ -702,26 +736,28 @@ int main(int argc, char * argv[]) {
                     }
                     if (capture || pawn) halfmoveClock = 0; else halfmoveClock++; 
                     fullmoveNumer++;
-                    msg.data = move + moveType + piecePlayed;
+                    msg.data = stockfishMove + moveType + piecePlayed; // Using stockfishMove instead of undefined move
                     if (capture) msg.data += pieceCaptured;
-                    break; // Stop after printing the move
+                    break;
                 }
             }
+            
             // Publish the move to control node
             publisher->publish(msg);
-            // logBoard();
+            
+            // Publish FEN after Stockfish move
+            publishFEN(node, fen_pub, blackTurn, castlingAvail, halfmoveClock, fullmoveNumer);
+            
+            // Publish board state to camera node
             std::string boardStr;
             for (int i = 0; i < 8; i++) {
-                std::string row;
                 for (int y = 0; y < 8; y++) {
-                    row += std::string(1, board[i][y]) + " "; // Convert char to string and add space
                     boardStr += board[i][y];
                 }
-                RCLCPP_INFO(node->get_logger(), "%s", row.c_str()); // Log each row
             }
-            RCLCPP_INFO(node->get_logger(), " "); // Empty line for newline
-            msg.data = boardStr;
-            publisher->publish(msg); // publish the board state to the camera node
+            std_msgs::msg::String boardMsg;
+            boardMsg.data = boardStr;
+            publisher->publish(boardMsg);
         }
     }
     
