@@ -26,6 +26,13 @@ aruco_to_H1 = {
     4: [aruco_square_span, - aruco_square_span, 0]
 }
 
+chess_board_side_ID_pairs = [
+    (2, 3),
+    (3, 1),
+    (4, 1),
+    (4, 2)
+]
+
 def calculate_H1_T(T_base_to_marker, marker_ID):
     # print(f"ID using to calc H1: {marker_ID}")
     T_H1 = np.copy(T_base_to_marker)
@@ -34,6 +41,48 @@ def calculate_H1_T(T_base_to_marker, marker_ID):
     pos_in_base = T_H1[:3, 3]
     # print("H1 marker position in robot base frame:", np.round(pos_in_base, 5))
     return T_H1
+
+def transform_add_yaw_from_points(input_transform, yaw_calc_T1, yaw_calc_T2):
+    # Extract X-Y positions from yaw_calc_T1 and yaw_calc_T2
+    x1, y1 = yaw_calc_T1[0, 3], yaw_calc_T1[1, 3]
+    x2, y2 = yaw_calc_T2[0, 3], yaw_calc_T2[1, 3]
+
+    # Compute yaw angle in radians
+    yaw = np.arctan2(y2 - y1, x2 - x1)
+
+    # Construct a yaw-only rotation matrix (Z-axis rotation)
+    cos_yaw = np.cos(yaw)
+    sin_yaw = np.sin(yaw)
+    R_yaw = np.array([
+        [cos_yaw, -sin_yaw, 0],
+        [sin_yaw,  cos_yaw, 0],
+        [0,        0,       1]
+    ])
+
+    # Create new transform with original translation and yaw-only rotation
+    new_transform = np.eye(4)
+    new_transform[:3, :3] = R_yaw
+    new_transform[:3, 3] = input_transform[:3, 3]
+
+    return new_transform
+
+
+
+def average_T_pos(Transforms):
+    #calculate the average position transformation matrix with 0 rotation
+    avg_x = 0
+    avg_y = 0
+    avg_z = 0
+    for transform in Transforms:
+        avg_x = avg_x + transform[0][3]
+        avg_y = avg_y + transform[1][3]
+        avg_z = avg_z + transform[2][3]
+    
+    avg_T = np.eye(4)
+    avg_T[0][3] = avg_x
+    avg_T[1][3] = avg_y
+    avg_T[2][3] = avg_z
+    return avg_T
 
 def get_aruco_transforms(image, marker_size_mm=250):
     """
@@ -205,18 +254,13 @@ def calculate_transforms(img, publisher, T_base_to_ee):
 
     #calulate camera pose from end effector and T_cam_to_ee
     T_cam = T_base_to_ee @ (T_cam_to_ee)
-    # publisher.add_pose(T_cam, 124)
-    # publisher.add_pose(np.eye(4), 6969)
     
     aruco_transforms = None
     aruco_transforms, ids = get_aruco_transforms(image, 33)
-    # aruco_transforms, ids = get_aruco_transforms(image, 94.2)
     print(ids)
-    # print(aruco_transforms)
 
-    H1_published = False
     arucos_found = []
-    aruco_Ts = []
+    H1_transforms = []
     if aruco_transforms is not None:
         for i, transform in enumerate(aruco_transforms):
             # print(f'detected aruco X: {transform[0][3]}, Y: {transform[1][3]}, Z: {transform[2][3]}')
@@ -230,30 +274,60 @@ def calculate_transforms(img, publisher, T_base_to_ee):
             if pos_in_base[2] < 0.1:
                 publisher.add_pose(T_base_to_marker, ids[i]) 
                 print("ArUco marker position in robot base frame:", np.round(pos_in_base, 5))
-                arucos_found.append(ids[i])
-                aruco_Ts.append(T_base_to_marker)
+                temp_aruco_data_inner = [ids[i], T_base_to_marker]
+                arucos_found.append(temp_aruco_data_inner)
                 try:
                     H1_T = calculate_H1_T(T_base_to_marker, ids[i])
-                    if(H1_published == False):
-                        publisher.add_pose(H1_T, H1_marker_ID, )
-                        H1_published = True
-                    pass
+                    H1_transforms.append(H1_T)
+                    H1_published = True
                 except:
                     print('No saved transform between aruco and H1') 
 
         # Calculate Euclidean distance in X-Y plane between all pairs of ArUco markers
         print("\nEuclidean distances between markers (X-Y plane only):")
-        for i in range(len(aruco_Ts)):
-            for j in range(i+1, len(aruco_Ts)):
+        for i in range(len(arucos_found)):
+            for j in range(i+1, len(arucos_found)):
                 # Extract X and Y coordinates from transformation matrices
-                x1, y1 = aruco_Ts[i][0, 3], aruco_Ts[i][1, 3]
-                x2, y2 = aruco_Ts[j][0, 3], aruco_Ts[j][1, 3]
+                x1, y1 = arucos_found[i][1][0, 3], arucos_found[i][1][1, 3]
+                x2, y2 = arucos_found[j][1][0, 3], arucos_found[j][1][1, 3]
                 
                 # Calculate Euclidean distance in X-Y plane only
                 distance_xy = np.sqrt((x2 - x1)**2 + (y2 - y1)**2)
-                
-                print(f"Distance between marker {arucos_found[i]} and marker {arucos_found[j]}: {distance_xy:.5f} units")
+                print(f"Distance between marker {arucos_found[i][0]} and marker {arucos_found[j][0]}: {distance_xy:.5f} units")
 
+
+        #calculate the yaw of the transform
+        H1_T_final = average_T_pos(H1_transforms)
+
+        #calculate the yaw of the chessboard
+        yaw_calc_ID_pair = [0,0]
+        ID_pair_exists = False
+        for ID_pair in chess_board_side_ID_pairs:
+            ID_pair_detected = [False, False]
+            for i, marker_id in enumerate(ID_pair):
+                for aruco in arucos_found:
+                    if aruco[0] == marker_id:
+                        ID_pair_detected[i] = True
+
+            if ID_pair_detected == [True, True]:
+                yaw_calc_ID_pair = ID_pair
+                ID_pair_exists = True
+                break #leave as we have found a pair
+        
+        if(ID_pair_exists):
+            #find the indexes of the relevant aruco transforms
+            yaw_t1_idx = -1
+            yaw_t2_idx = -1
+            for i, aruco in enumerate(arucos_found):
+                if aruco[0] == yaw_calc_ID_pair[0]:
+                    yaw_t1_idx = i
+                if aruco[0] == yaw_calc_ID_pair[1]:
+                    yaw_t2_idx = i         
+    
+            if yaw_t1_idx != -1 and yaw_t2_idx != -1:
+                H1_T_final = transform_add_yaw_from_points(H1_T_final, aruco_transforms[yaw_t1_idx][1], aruco_transforms[yaw_t2_idx][1])
+                #publish the finalised H1 transform because it is here it is not published unless the camera can see 2 transforms
+                publisher.add_pose(H1_T_final, H1_marker_ID)
 
 #start ROS crap
 rclpy.init()
