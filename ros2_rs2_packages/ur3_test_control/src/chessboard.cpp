@@ -14,6 +14,7 @@
 #include <rclcpp/rclcpp.hpp>
 #include <std_msgs/msg/string.hpp>
 #include <ament_index_cpp/get_package_share_directory.hpp>
+#include "std_srvs/srv/trigger.hpp"
 
 namespace bp = boost::process;
 
@@ -401,6 +402,8 @@ int main(int argc, char * argv[]) {
     auto node = rclcpp::Node::make_shared("chessGUI",
         rclcpp::NodeOptions().automatically_declare_parameters_from_overrides(true));
 
+
+
     RCLCPP_INFO(node->get_logger(), "Starting chess GUI node...");
     auto publisher = node->create_publisher<std_msgs::msg::String>("/chess_moves", 10);
 
@@ -444,12 +447,53 @@ int main(int argc, char * argv[]) {
             msg.data += board[i][y];
         }
     }
+
     publisher->publish(msg);
 
     int lastClickedPiece = -1;
     int curRow = 0, curCol = 0;
     bool whiteCaptured = false, blackTurn = false;
     std::vector<std::vector<int>> moves;
+
+    // Service: Reset Chessboard
+    auto reset_service = node->create_service<std_srvs::srv::Trigger>(
+        "/reset_chessboard",
+        [&pieces, &texture, &fen, &publisher, &msgFromCamera, &newMove, &blackTurn, &lastClickedPiece]
+        (const std::shared_ptr<std_srvs::srv::Trigger::Request> request,
+        std::shared_ptr<std_srvs::srv::Trigger::Response> response) {
+            
+            for (int r = 0; r < 8; ++r)
+                for (int c = 0; c < 8; ++c)
+                    board[r][c] = '-';
+
+            pieces.clear(); // Clear old sprite objects
+            fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR";
+            pieces = makePieces(texture, fen);
+    
+            halfmoveClock = 0;
+            fullmoveNumer = 1;
+            castlingAvail = "KQkq";
+            blackTurn = false;
+            lastClickedPiece = -1;
+            msgFromCamera.clear();
+            newMove = false;
+            isCastling.clear();
+            potentialMove.clear();
+            isPotentialMove.clear();
+    
+            // Publish new board state
+            std_msgs::msg::String msg;
+            for (int i = 0; i < 8; i++) {
+                for (int y = 0; y < 8; y++) {
+                    msg.data += board[i][y];
+                }
+            }
+            publisher->publish(msg);
+    
+            response->success = true;
+            response->message = "Board reset to initial position.";
+        }
+    );
 
     // Game loop until window is closed
     while (window.isOpen() && rclcpp::ok()) {

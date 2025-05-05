@@ -19,6 +19,7 @@ find_package(cv_bridge REQUIRED)
 find_package(OpenCV REQUIRED)
 find_package(tf2_ros REQUIRED)
 find_package(visualization_msgs REQUIRED)
+find_package(std_srvs REQUIRED)
 
 include_directories(${Boost_INCLUDE_DIRS})
 
@@ -30,6 +31,7 @@ ament_target_dependencies(chess_node
   rclcpp
   std_msgs
   ament_index_cpp
+  std_srvs
 )
 
 add_executable(image_processing_exe src/image_processing.cpp)
