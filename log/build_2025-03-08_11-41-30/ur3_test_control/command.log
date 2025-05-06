@@ -1,6 +1,0 @@
-Invoking command in '/home/cameron/ros2_ws/src/RS2/build/ur3_test_control': CMAKE_PREFIX_PATH=/opt/ros/humble /usr/bin/cmake /home/cameron/ros2_ws/src/RS2/ros2_rs2_packages/ur3_test_control -DCMAKE_INSTALL_PREFIX=/home/cameron/ros2_ws/src/RS2/install/ur3_test_control
-Invoked command in '/home/cameron/ros2_ws/src/RS2/build/ur3_test_control' returned '0': CMAKE_PREFIX_PATH=/opt/ros/humble /usr/bin/cmake /home/cameron/ros2_ws/src/RS2/ros2_rs2_packages/ur3_test_control -DCMAKE_INSTALL_PREFIX=/home/cameron/ros2_ws/src/RS2/install/ur3_test_control
-Invoking command in '/home/cameron/ros2_ws/src/RS2/build/ur3_test_control': CMAKE_PREFIX_PATH=/opt/ros/humble /usr/bin/cmake --build /home/cameron/ros2_ws/src/RS2/build/ur3_test_control -- -j16 -l16
-Invoked command in '/home/cameron/ros2_ws/src/RS2/build/ur3_test_control' returned '0': CMAKE_PREFIX_PATH=/opt/ros/humble /usr/bin/cmake --build /home/cameron/ros2_ws/src/RS2/build/ur3_test_control -- -j16 -l16
-Invoking command in '/home/cameron/ros2_ws/src/RS2/build/ur3_test_control': CMAKE_PREFIX_PATH=/opt/ros/humble /usr/bin/cmake --install /home/cameron/ros2_ws/src/RS2/build/ur3_test_control
-Invoked command in '/home/cameron/ros2_ws/src/RS2/build/ur3_test_control' returned '1': CMAKE_PREFIX_PATH=/opt/ros/humble /usr/bin/cmake --install /home/cameron/ros2_ws/src/RS2/build/ur3_test_control

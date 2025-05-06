@@ -51,10 +51,12 @@ struct Dropdown
 std::vector<Button> createButtons(sf::Font &font)
 {
     std::vector<Button> buttons;
-    std::vector<std::string> labels = {"ON", "OFF", "PAUSE", "RESET"};
+    std::vector<std::string> labels = {"ON", "OFF", "PAUSE"};  // Added RESET button
 
     int buttonWidth = 120, buttonHeight = 40;
     int rightPanelX = BOARD_OFFSET_X + BOARD_SIZE * SQUARE_SIZE + 60;
+    
+    std::cout << "Creating buttons at X position: " << rightPanelX << std::endl;
 
     for (int i = 0; i < labels.size(); i++)
     {
@@ -228,7 +230,7 @@ public:
     ChessSubscriber() : Node("chess_visualizer")
     {
         subscription_ = this->create_subscription<std_msgs::msg::String>(
-            "chess_moves", 10, std::bind(&ChessSubscriber::moveCallback, this, std::placeholders::_1));
+            "fen_string", 10, std::bind(&ChessSubscriber::moveCallback, this, std::placeholders::_1));
 
         publisher_ = this->create_publisher<std_msgs::msg::String>("chess_control", 10);
 
@@ -324,6 +326,37 @@ int main(int argc, char **argv)
 
     std::vector<Button> buttons = createButtons(font);
     Dropdown difficultyDropdown = createDifficultyDropdown(font);
+    
+    // Debug output to confirm buttons
+    std::cout << "Created " << buttons.size() << " buttons:" << std::endl;
+    for (const auto& button : buttons) {
+        std::cout << "Button: " << button.name << " at position (" 
+                  << button.shape.getPosition().x << ", " 
+                  << button.shape.getPosition().y << ")" << std::endl;
+    }
+
+    // Create a dedicated reset button
+    Button resetButton;
+    resetButton.shape.setSize(sf::Vector2f(120, 50));
+    resetButton.shape.setFillColor(sf::Color(220, 60, 60)); // Red color for reset
+    resetButton.shape.setOutlineThickness(2);
+    resetButton.shape.setOutlineColor(sf::Color::Black);
+    resetButton.shape.setPosition(BOARD_OFFSET_X + BOARD_SIZE * SQUARE_SIZE + 60, BOARD_OFFSET_Y + 320);
+    resetButton.label.setFont(font);
+    resetButton.label.setString("RESET BOARD");
+    resetButton.label.setCharacterSize(16);
+    resetButton.label.setFillColor(sf::Color::White);
+    resetButton.name = "RESET";
+    
+    // Position the text in the center of the button
+    sf::FloatRect textBounds = resetButton.label.getLocalBounds();
+    resetButton.label.setPosition(
+        resetButton.shape.getPosition().x + (resetButton.shape.getSize().x - textBounds.width) / 2.0f - textBounds.left,
+        resetButton.shape.getPosition().y + (resetButton.shape.getSize().y - textBounds.height) / 2.0f - textBounds.top);
+    
+    std::cout << "Created dedicated reset button at (" 
+              << resetButton.shape.getPosition().x << ", " 
+              << resetButton.shape.getPosition().y << ")" << std::endl;
 
     while (window.isOpen() && rclcpp::ok())
     {
@@ -345,25 +378,35 @@ int main(int argc, char **argv)
                         button.shape.setFillColor(button.isHovered ? buttonHover : buttonBlue);
                     }
                 }
+                
+                // Handle hover effect for reset button
+                bool wasResetHovered = resetButton.isHovered;
+                resetButton.isHovered = resetButton.shape.getGlobalBounds().contains(mousePos);
+                if (resetButton.isHovered != wasResetHovered)
+                {
+                    resetButton.shape.setFillColor(resetButton.isHovered ? sf::Color(255, 100, 100) : sf::Color(220, 60, 60));
+                }
             }
             if (event.type == sf::Event::MouseButtonPressed && event.mouseButton.button == sf::Mouse::Left)
             {
                 sf::Vector2f mousePos(event.mouseButton.x, event.mouseButton.y);
+                
+                // Check for regular button clicks
                 for (const auto &button : buttons)
                 {
                     if (button.shape.getGlobalBounds().contains(mousePos))
                     {
-                        if (button.name == "RESET")
-                        {
-                            status = "Resetting chessboard...";
-                            node->callResetService();
-                        }
-                        else
-                        {
-                            status = "Command: " + button.name;
-                            node->publishControl(button.name);
-                        }
+                        status = "Command: " + button.name;
+                        node->publishControl(button.name);
                     }
+                }
+                
+                // Check for dedicated reset button click
+                if (resetButton.shape.getGlobalBounds().contains(mousePos))
+                {
+                    std::cout << "Reset button clicked!" << std::endl;
+                    status = "Resetting chessboard...";
+                    node->callResetService();
                 }
                 if (difficultyDropdown.mainButton.getGlobalBounds().contains(mousePos))
                 {
@@ -440,6 +483,11 @@ int main(int argc, char **argv)
         }
 
         window.draw(indicatorLabel);
+        
+        // Draw the dedicated reset button
+        window.draw(resetButton.shape);
+        window.draw(resetButton.label);
+        
         window.display();
     }
 

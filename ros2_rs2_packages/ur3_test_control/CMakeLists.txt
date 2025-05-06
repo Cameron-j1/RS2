@@ -9,10 +9,11 @@ find_package(SFML 2.5 COMPONENTS graphics window system REQUIRED)
 find_package(rclpy REQUIRED)
 find_package(Threads REQUIRED)
 find_package(rclcpp REQUIRED)
+find_package(std_srvs REQUIRED)
 
 
 add_executable(chess_node src/chessboard.cpp)
-ament_target_dependencies(chess_node rclcpp std_msgs ament_index_cpp)
+ament_target_dependencies(chess_node rclcpp std_msgs ament_index_cpp std_srvs rclpy)
 
 target_link_libraries(chess_node
   sfml-graphics

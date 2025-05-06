@@ -1,6 +1,0 @@
-[31mCMake Error at cmake_install.cmake:134 (file):
-  file INSTALL cannot find
-  "/home/cameron/ros2_ws/src/RS2/ros2_rs2_packages/ur3_test_control/urdf": No
-  such file or directory.
-
-[0m
