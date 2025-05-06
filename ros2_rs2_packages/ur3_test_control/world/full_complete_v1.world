@@ -1,0 +1,2420 @@
+<sdf version='1.7'>
+  <world name='default'>
+    <gravity>0 0 -9.8</gravity>
+    <magnetic_field>6e-06 2.3e-05 -4.2e-05</magnetic_field>
+    <atmosphere type='adiabatic'/>
+    <physics type='ode'>
+      <max_step_size>0.001</max_step_size>
+      <real_time_factor>1</real_time_factor>
+      <real_time_update_rate>1000</real_time_update_rate>
+    </physics>
+    <scene>
+      <ambient>0.4 0.4 0.4 1</ambient>
+      <background>0.7 0.7 0.7 1</background>
+      <shadows>1</shadows>
+    </scene>
+    <audio>
+      <device>default</device>
+    </audio>
+    <wind/>
+    <spherical_coordinates>
+      <surface_model>EARTH_WGS84</surface_model>
+      <latitude_deg>0</latitude_deg>
+      <longitude_deg>0</longitude_deg>
+      <elevation>0</elevation>
+      <heading_deg>0</heading_deg>
+    </spherical_coordinates>
+    <model name='board'>
+      <static>1</static>
+      <link name='link'>
+        <visual name='visual'>
+          <geometry>
+            <mesh>
+              <uri>model://board/meshes/board.dae</uri>
+            </mesh>
+          </geometry>
+        </visual>
+        <collision name='collision'>
+          <geometry>
+            <mesh>
+              <uri>model://board/meshes/board.dae</uri>
+            </mesh>
+          </geometry>
+          <max_contacts>10</max_contacts>
+          <surface>
+            <contact>
+              <ode/>
+            </contact>
+            <bounce/>
+            <friction>
+              <torsional>
+                <ode/>
+              </torsional>
+              <ode/>
+            </friction>
+          </surface>
+        </collision>
+        <self_collide>0</self_collide>
+        <enable_wind>0</enable_wind>
+        <kinematic>0</kinematic>
+      </link>
+      <pose>-0.063199 0.345863 0 0 -0 0</pose>
+    </model>
+    <light name='user_point_light_0' type='point'>
+      <pose>-0.050834 1.0999 1 0 -0 0</pose>
+      <diffuse>0.5 0.5 0.5 1</diffuse>
+      <specular>0.1 0.1 0.1 1</specular>
+      <attenuation>
+        <range>20</range>
+        <constant>0.5</constant>
+        <linear>0.01</linear>
+        <quadratic>0.001</quadratic>
+      </attenuation>
+      <cast_shadows>0</cast_shadows>
+      <direction>0 0 -1</direction>
+      <spot>
+        <inner_angle>0</inner_angle>
+        <outer_angle>0</outer_angle>
+        <falloff>0</falloff>
+      </spot>
+    </light>
+    <state world_name='default'>
+      <sim_time>678 134000000</sim_time>
+      <real_time>617 218890464</real_time>
+      <wall_time>1746339251 726454143</wall_time>
+      <iterations>261449</iterations>
+      <model name='black_bishop_c8'>
+        <pose>0.062248 0.222764 0.024963 -2e-05 2.9e-05 0.000232</pose>
+        <scale>1 1 1</scale>
+        <link name='link'>
+          <pose>0.062248 0.222764 0.024963 -2e-05 2.9e-05 0.000232</pose>
+          <velocity>2e-06 1e-06 -0.011994 -0.089288 0.159015 -0</velocity>
+          <acceleration>0 0 -9.8 0 -0 0</acceleration>
+          <wrench>0 0 -0.49 0 -0 0</wrench>
+        </link>
+      </model>
+      <model name='black_bishop_f8'>
+        <pose>-0.042754 0.222762 0.024977 0.000159 -0.000289 0.00025</pose>
+        <scale>1 1 1</scale>
+        <link name='link'>
+          <pose>-0.042754 0.222762 0.024977 0.000159 -0.000289 0.00025</pose>
+          <velocity>2e-06 1e-06 0.007606 -0.089291 0.159014 0</velocity>
+          <acceleration>0.002268 0.001309 7.51883 -0.431289 -1.38877 3.1396</acceleration>
+          <wrench>0.000113 6.5e-05 0.375941 0 -0 0</wrench>
+        </link>
+      </model>
+      <model name='black_king_e8'>
+        <pose>-0.008361 0.222435 0.024973 5.1e-05 -3.4e-05 0.001191</pose>
+        <scale>1 1 1</scale>
+        <link name='link'>
+          <pose>-0.008361 0.222435 0.024973 5.1e-05 -3.4e-05 0.001191</pose>
+          <velocity>0 0 0 0 -0 0</velocity>
+          <acceleration>5e-06 -3.2e-05 0.038451 2.00003 -0.932485 0.007006</acceleration>
+          <wrench>0 -2e-06 0.001923 0 -0 0</wrench>
+        </link>
+      </model>
+      <model name='black_knight_b8'>
+        <pose>0.096603 0.222404 0.024973 -3e-05 -5.1e-05 -9.5e-05</pose>
+        <scale>1 1 1</scale>
+        <link name='link'>
+          <pose>0.096603 0.222404 0.024973 -3e-05 -5.1e-05 -9.5e-05</pose>
+          <velocity>0 0 -7.8e-05 -0.102201 -0.023904 -6e-06</velocity>
+          <acceleration>-4e-06 3.3e-05 -0.165537 -2.10145 -0.071165 -0.012964</acceleration>
+          <wrench>-0 2e-06 -0.008277 0 -0 0</wrench>
+        </link>
+      </model>
+      <model name='black_knight_g8'>
+        <pose>-0.078397 0.222404 0.024973 7.3e-05 -2.7e-05 -8.9e-05</pose>
+        <scale>1 1 1</scale>
+        <link name='link'>
+          <pose>-0.078397 0.222404 0.024973 7.3e-05 -2.7e-05 -8.9e-05</pose>
+          <velocity>0 -0 8.8e-05 0.107246 0.039 7e-06</velocity>
+          <acceleration>4e-06 -3.8e-05 0.17319 0.255598 -1.43234 -3.12791</acceleration>
+          <wrench>0 -2e-06 0.008659 0 -0 0</wrench>
+        </link>
+      </model>
+      <model name='black_pawn_a7'>
+        <pose>0.131746 0.257545 0.024974 9.2e-05 8.5e-05 -0.005098</pose>
+        <scale>1 1 1</scale>
+        <link name='link'>
+          <pose>0.131746 0.257545 0.024974 9.2e-05 8.5e-05 -0.005098</pose>
+          <velocity>1e-06 1e-06 -0.002163 -0.166872 0.169645 -2.6e-05</velocity>
+          <acceleration>-0.000622 -0.000932 -9.36506 2.87318 0.145525 -0.040529</acceleration>
+          <wrench>-3.1e-05 -4.7e-05 -0.468253 0 -0 0</wrench>
+        </link>
+      </model>
+      <model name='black_pawn_b7'>
+        <pose>0.096746 0.257545 0.024976 0.00026 -8.3e-05 -0.005085</pose>
+        <scale>1 1 1</scale>
+        <link name='link'>
+          <pose>0.096746 0.257545 0.024976 0.00026 -8.3e-05 -0.005085</pose>
+          <velocity>2e-06 1e-06 0.007202 -0.138331 0.169498 1.4e-05</velocity>
+          <acceleration>0.002232 0.002444 6.95216 -1.68556 1.37933 0.017437</acceleration>
+          <wrench>0.000112 0.000122 0.347608 0 -0 0</wrench>
+        </link>
+      </model>
+      <model name='black_pawn_c7'>
+        <pose>0.061485 0.258389 0.024976 0.00026 -8.3e-05 -0.005012</pose>
+        <scale>1 1 1</scale>
+        <link name='link'>
+          <pose>0.061485 0.258389 0.024976 0.00026 -8.3e-05 -0.005012</pose>
+          <velocity>2e-06 1e-06 0.007202 -0.138343 0.169488 1.4e-05</velocity>
+          <acceleration>0.002232 0.002445 6.95216 -1.73498 1.3156 0.017437</acceleration>
+          <wrench>0.000112 0.000122 0.347608 0 -0 0</wrench>
+        </link>
+      </model>
+      <model name='black_pawn_d7'>
+        <pose>0.026268 0.255779 0.024965 0.00063 -0.000429 0.016364</pose>
+        <scale>1 1 1</scale>
+        <link name='link'>
+          <pose>0.026268 0.255779 0.024965 0.00063 -0.000429 0.016364</pose>
+          <velocity>-1e-06 -1e-06 0.00025 0.74108 -0.4884 -3e-06</velocity>
+          <acceleration>-0.000619 -0.00094 8.77143 3.06858 -0.250099 0.003357</acceleration>
+          <wrench>-3.1e-05 -4.7e-05 0.438571 0 -0 0</wrench>
+        </link>
+      </model>
+      <model name='black_pawn_e7'>
+        <pose>-0.008254 0.257545 0.024974 9.2e-05 8.5e-05 -0.005091</pose>
+        <scale>1 1 1</scale>
+        <link name='link'>
+          <pose>-0.008254 0.257545 0.024974 9.2e-05 8.5e-05 -0.005091</pose>
+          <velocity>1e-06 1e-06 -0.002163 -0.166873 0.169644 -2.6e-05</velocity>
+          <acceleration>-0.000622 -0.000932 -9.36506 2.87318 0.145319 -0.040529</acceleration>
+          <wrench>-3.1e-05 -4.7e-05 -0.468253 0 -0 0</wrench>
+        </link>
+      </model>
+      <model name='black_pawn_f7'>
+        <pose>-0.043254 0.257545 0.024974 9.2e-05 8.5e-05 -0.0051</pose>
+        <scale>1 1 1</scale>
+        <link name='link'>
+          <pose>-0.043254 0.257545 0.024974 9.2e-05 8.5e-05 -0.0051</pose>
+          <velocity>1e-06 1e-06 -0.002163 -0.166871 0.169645 -2.6e-05</velocity>
+          <acceleration>-0.000622 -0.000932 -9.36506 2.87318 0.145582 -0.040529</acceleration>
+          <wrench>-3.1e-05 -4.7e-05 -0.468253 0 -0 0</wrench>
+        </link>
+      </model>
+      <model name='black_pawn_g7'>
+        <pose>-0.078254 0.257545 0.024965 0.00063 -0.000429 -0.005102</pose>
+        <scale>1 1 1</scale>
+        <link name='link'>
+          <pose>-0.078254 0.257545 0.024965 0.00063 -0.000429 -0.005102</pose>
+          <velocity>-1e-06 -1e-06 0.00025 0.730426 -0.504194 -3e-06</velocity>
+          <acceleration>-0.000639 -0.000926 8.77143 -2.85105 0.590891 0.003273</acceleration>
+          <wrench>-3.2e-05 -4.6e-05 0.438571 0 -0 0</wrench>
+        </link>
+      </model>
+      <model name='black_pawn_h7'>
+        <pose>-0.113254 0.257545 0.024973 0 0 -0.005101</pose>
+        <scale>1 1 1</scale>
+        <link name='link'>
+          <pose>-0.113254 0.257545 0.024973 0 0 -0.005101</pose>
+          <velocity>-0 -0 0.001278 -0.102387 0.073268 -6e-06</velocity>
+          <acceleration>0.000133 0.000276 3.66923 -1.62074 -0.46625 3.13418</acceleration>
+          <wrench>7e-06 1.4e-05 0.183461 0 -0 0</wrench>
+        </link>
+      </model>
+      <model name='black_queen_d8'>
+        <pose>0.026705 0.222518 0.024973 4e-06 -4.6e-05 0.001388</pose>
+        <scale>1 1 1</scale>
+        <link name='link'>
+          <pose>0.026705 0.222518 0.024973 4e-06 -4.6e-05 0.001388</pose>
+          <velocity>1e-06 -1e-06 0.000899 0.311132 0.151528 7e-05</velocity>
+          <acceleration>0.000453 -0.000831 1.82419 -1.05156 0.958715 0.111009</acceleration>
+          <wrench>2.3e-05 -4.2e-05 0.091209 0 -0 0</wrench>
+        </link>
+      </model>
+      <model name='black_rook_a8'>
+        <pose>0.13184 0.222449 0.024967 0.000528 -0.000646 -0.000872</pose>
+        <scale>1 1 1</scale>
+        <link name='link'>
+          <pose>0.13184 0.222449 0.024967 0.000528 -0.000646 -0.000872</pose>
+          <velocity>-0 0 0.00345 0.52151 -0.669012 -1.8e-05</velocity>
+          <acceleration>-0.000206 1.6e-05 13.2233 -0.317697 0.50824 -0.01826</acceleration>
+          <wrench>-1e-05 1e-06 0.661166 0 -0 0</wrench>
+        </link>
+      </model>
+      <model name='black_rook_h8'>
+        <pose>-0.113233 0.222503 0.024971 0.000232 -5.6e-05 -0.001577</pose>
+        <scale>1 1 1</scale>
+        <link name='link'>
+          <pose>-0.113233 0.222503 0.024971 0.000232 -5.6e-05 -0.001577</pose>
+          <velocity>0 -0 -0.002148 0.297747 -0.013855 1.6e-05</velocity>
+          <acceleration>0.000134 -0.000203 -2.15313 2.60621 0.486879 0.016065</acceleration>
+          <wrench>7e-06 -1e-05 -0.107657 0 -0 0</wrench>
+        </link>
+      </model>
+      <model name='board'>
+        <pose>-0.011355 0.342107 0.010873 0 -0 0</pose>
+        <scale>1 1 1</scale>
+        <link name='link'>
+          <pose>-0.011355 0.342107 0.010873 0 -0 0</pose>
+          <velocity>0 0 0 0 -0 0</velocity>
+          <acceleration>0 0 0 0 -0 0</acceleration>
+          <wrench>0 0 0 0 -0 0</wrench>
+        </link>
+      </model>
+      <model name='chess_bin'>
+        <pose>0.294975 0.020013 0 0 -0 0</pose>
+        <scale>1 1 1</scale>
+        <link name='link'>
+          <pose>0.294975 0.020013 0 0 -0 0</pose>
+          <velocity>0 0 0 0 -0 0</velocity>
+          <acceleration>0 0 0 0 -0 0</acceleration>
+          <wrench>0 0 0 0 -0 0</wrench>
+        </link>
+      </model>
+      <model name='chess_bin_lid'>
+        <pose>0.294988 0.020876 -9.8e-05 0.00595 -0.000107 9.1e-05</pose>
+        <scale>1 1 1</scale>
+        <link name='link'>
+          <pose>0.294988 0.020876 -9.8e-05 0.00595 -0.000107 9.1e-05</pose>
+          <velocity>-7.8e-05 -0.003836 -2.8e-05 -0.026134 0.000433 0.003428</velocity>
+          <acceleration>0.028596 -0.067738 0.000453 -0.460984 -0.136534 0.03632</acceleration>
+          <wrench>0.005719 -0.013548 9.1e-05 0 -0 0</wrench>
+        </link>
+      </model>
+      <model name='chess_clock'>
+        <pose>-0.272486 -0.056756 0 0 -0 0</pose>
+        <scale>1 1 1</scale>
+        <link name='link'>
+          <pose>-0.272486 -0.056756 0 0 -0 0</pose>
+          <velocity>0 0 0 0 -0 0</velocity>
+          <acceleration>0 0 0 0 -0 0</acceleration>
+          <wrench>0 0 0 0 -0 0</wrench>
+        </link>
+      </model>
+      <model name='trolley'>
+        <pose>0.004802 0.239803 -1.04769 0 -0 -3.1405</pose>
+        <scale>1 1 1</scale>
+        <link name='link'>
+          <pose>0.004802 0.239803 -1.04769 0 -0 -3.1405</pose>
+          <velocity>0 0 0 0 -0 0</velocity>
+          <acceleration>0 0 0 0 -0 0</acceleration>
+          <wrench>0 0 0 0 -0 0</wrench>
+        </link>
+      </model>
+      <model name='white_bishop_c1'>
+        <pose>0.062247 0.467763 0.024975 7e-05 -0.00013 0.000244</pose>
+        <scale>1 1 1</scale>
+        <link name='link'>
+          <pose>0.062247 0.467763 0.024975 7e-05 -0.00013 0.000244</pose>
+          <velocity>2e-06 1e-06 -0.002194 -0.089289 0.159014 0</velocity>
+          <acceleration>0 0 -9.8 -0 -0 -0</acceleration>
+          <wrench>0 0 -0.49 0 -0 0</wrench>
+        </link>
+      </model>
+      <model name='white_bishop_f1'>
+        <pose>-0.042753 0.467762 0.024975 7e-05 -0.00013 0.00024</pose>
+        <scale>1 1 1</scale>
+        <link name='link'>
+          <pose>-0.042753 0.467762 0.024975 7e-05 -0.00013 0.00024</pose>
+          <velocity>2e-06 1e-06 -0.002194 -0.089289 0.159015 0</velocity>
+          <acceleration>0 0 -9.8 -0 -0 -0</acceleration>
+          <wrench>0 0 -0.49 0 -0 0</wrench>
+        </link>
+      </model>
+      <model name='white_king_e1'>
+        <pose>-0.0084 0.4674 0.024973 -4.6e-05 -5.3e-05 -6e-06</pose>
+        <scale>1 1 1</scale>
+        <link name='link'>
+          <pose>-0.0084 0.4674 0.024973 -4.6e-05 -5.3e-05 -6e-06</pose>
+          <velocity>0 0 0 0 -0 0</velocity>
+          <acceleration>-0 2.9e-05 -0.046532 0.522096 -0.409348 3.13274</acceleration>
+          <wrench>-0 1e-06 -0.002327 0 -0 0</wrench>
+        </link>
+      </model>
+      <model name='white_knight_b1'>
+        <pose>0.096604 0.467404 0.024973 6.9e-05 -2.5e-05 -9.1e-05</pose>
+        <scale>1 1 1</scale>
+        <link name='link'>
+          <pose>0.096604 0.467404 0.024973 6.9e-05 -2.5e-05 -9.1e-05</pose>
+          <velocity>0 -0 7.1e-05 0.100919 0.036054 6e-06</velocity>
+          <acceleration>4e-06 -3.3e-05 0.149339 2.11559 -1.34537 0.011857</acceleration>
+          <wrench>0 -2e-06 0.007467 0 -0 0</wrench>
+        </link>
+      </model>
+      <model name='white_knight_g1'>
+        <pose>-0.078398 0.467404 0.024973 -3.2e-05 -6.1e-05 -9.6e-05</pose>
+        <scale>1 1 1</scale>
+        <link name='link'>
+          <pose>-0.078398 0.467404 0.024973 -3.2e-05 -6.1e-05 -9.6e-05</pose>
+          <velocity>0 0 -7.9e-05 -0.095975 -0.037998 -6e-06</velocity>
+          <acceleration>-2e-06 3.3e-05 -0.18665 -1.5735 -0.016948 3.13028</acceleration>
+          <wrench>-0 2e-06 -0.009332 0 -0 0</wrench>
+        </link>
+      </model>
+      <model name='white_pawn_a2'>
+        <pose>0.131609 0.432354 0.024973 0 -0 7e-05</pose>
+        <scale>1 1 1</scale>
+        <link name='link'>
+          <pose>0.131609 0.432354 0.024973 0 -0 7e-05</pose>
+          <velocity>-0 -0 0.001851 -0.229666 0.03022 -2.9e-05</velocity>
+          <acceleration>-0.000207 5.3e-05 3.12462 -0.427168 0.555668 3.10126</acceleration>
+          <wrench>-1e-05 3e-06 0.156231 0 -0 0</wrench>
+        </link>
+      </model>
+      <model name='white_pawn_b2'>
+        <pose>0.096609 0.432353 0.024972 -4.1e-05 -3.9e-05 6.9e-05</pose>
+        <scale>1 1 1</scale>
+        <link name='link'>
+          <pose>0.096609 0.432353 0.024972 -4.1e-05 -3.9e-05 6.9e-05</pose>
+          <velocity>-0 0 -0.001848 -0.166843 -0.135855 -1e-06</velocity>
+          <acceleration>-0.000264 5.5e-05 -5.26529 -1.12379 0.263119 0.001316</acceleration>
+          <wrench>-1.3e-05 3e-06 -0.263265 0 -0 0</wrench>
+        </link>
+      </model>
+      <model name='white_pawn_c2'>
+        <pose>0.061609 0.432354 0.024973 -0.000132 2.4e-05 7.8e-05</pose>
+        <scale>1 1 1</scale>
+        <link name='link'>
+          <pose>0.061609 0.432354 0.024973 -0.000132 2.4e-05 7.8e-05</pose>
+          <velocity>-0 0 -0.000472 -0.171604 0.026813 5e-06</velocity>
+          <acceleration>-1.2e-05 4.5e-05 -1.84374 3.00772 0.842847 0.003173</acceleration>
+          <wrench>-1e-06 2e-06 -0.092187 0 -0 0</wrench>
+        </link>
+      </model>
+      <model name='white_pawn_d2'>
+        <pose>0.026609 0.432355 0.024973 -0.000132 2.7e-05 7.8e-05</pose>
+        <scale>1 1 1</scale>
+        <link name='link'>
+          <pose>0.026609 0.432355 0.024973 -0.000132 2.7e-05 7.8e-05</pose>
+          <velocity>-0 0 -0.00049 -0.17205 0.029367 2e-06</velocity>
+          <acceleration>-4e-06 3.4e-05 -1.86014 -0.628267 -0.266467 -3.14156</acceleration>
+          <wrench>-0 2e-06 -0.093007 0 -0 0</wrench>
+        </link>
+      </model>
+      <model name='white_pawn_e2'>
+        <pose>-0.008391 0.432354 0.024973 -0.000132 2.7e-05 7.1e-05</pose>
+        <scale>1 1 1</scale>
+        <link name='link'>
+          <pose>-0.008391 0.432354 0.024973 -0.000132 2.7e-05 7.1e-05</pose>
+          <velocity>-0 0 -0.00049 -0.172076 0.029383 2e-06</velocity>
+          <acceleration>-4e-06 3.4e-05 -1.86145 -0.607997 -0.270813 -3.14156</acceleration>
+          <wrench>-0 2e-06 -0.093073 0 -0 0</wrench>
+        </link>
+      </model>
+      <model name='white_pawn_f2'>
+        <pose>-0.043391 0.432355 0.02497 -0.000234 -0.000205 8.1e-05</pose>
+        <scale>1 1 1</scale>
+        <link name='link'>
+          <pose>-0.043391 0.432355 0.02497 -0.000234 -0.000205 8.1e-05</pose>
+          <velocity>-0 0 -0.003391 -0.23362 -0.204913 -0</velocity>
+          <acceleration>0.000108 4.8e-05 -5.24281 -0.13042 1.52504 -3.12759</acceleration>
+          <wrench>5e-06 2e-06 -0.26214 0 -0 0</wrench>
+        </link>
+      </model>
+      <model name='white_pawn_g2'>
+        <pose>-0.078369 0.432427 0.024971 0.000187 -5.2e-05 0.000625</pose>
+        <scale>1 1 1</scale>
+        <link name='link'>
+          <pose>-0.078369 0.432427 0.024971 0.000187 -5.2e-05 0.000625</pose>
+          <velocity>0 -0 -0.001556 0.31628 0.021806 3e-05</velocity>
+          <acceleration>0.000297 -0.000427 -1.3239 -0.832638 1.21234 0.037625</acceleration>
+          <wrench>1.5e-05 -2.1e-05 -0.066195 0 -0 0</wrench>
+        </link>
+      </model>
+      <model name='white_pawn_h2'>
+        <pose>-0.11339 0.432356 0.024972 8.9e-05 -5.4e-05 7.9e-05</pose>
+        <scale>1 1 1</scale>
+        <link name='link'>
+          <pose>-0.11339 0.432356 0.024972 8.9e-05 -5.4e-05 7.9e-05</pose>
+          <velocity>-0 -0 -0.000896 0.238227 -0.179683 -7e-06</velocity>
+          <acceleration>-0.000421 -0.000427 -0.893569 1.02842 1.05637 -3.11991</acceleration>
+          <wrench>-2.1e-05 -2.1e-05 -0.044678 0 -0 0</wrench>
+        </link>
+      </model>
+      <model name='white_queen_d1'>
+        <pose>0.026602 0.467401 0.024973 4.3e-05 -2.4e-05 -6.8e-05</pose>
+        <scale>1 1 1</scale>
+        <link name='link'>
+          <pose>0.026602 0.467401 0.024973 4.3e-05 -2.4e-05 -6.8e-05</pose>
+          <velocity>0 -0 4.9e-05 0.084807 0.034626 4e-06</velocity>
+          <acceleration>2e-06 -2.9e-05 0.049409 2.13436 -0.065503 -3.13095</acceleration>
+          <wrench>0 -1e-06 0.00247 0 -0 0</wrench>
+        </link>
+      </model>
+      <model name='white_rook_a1'>
+        <pose>0.13176 0.467684 0.024975 7.2e-05 -0.000123 0.003946</pose>
+        <scale>1 1 1</scale>
+        <link name='link'>
+          <pose>0.13176 0.467684 0.024975 7.2e-05 -0.000123 0.003946</pose>
+          <velocity>0 1e-06 -0.001993 -0.192955 0.047772 -2.2e-05</velocity>
+          <acceleration>0.000246 8.1e-05 -9.59435 1.21764 -1.36469 -3.13601</acceleration>
+          <wrench>1.2e-05 4e-06 -0.479717 0 -0 0</wrench>
+        </link>
+      </model>
+      <model name='white_rook_h1'>
+        <pose>-0.113372 0.467446 0.024973 2e-06 -5.1e-05 0.000423</pose>
+        <scale>1 1 1</scale>
+        <link name='link'>
+          <pose>-0.113372 0.467446 0.024973 2e-06 -5.1e-05 0.000423</pose>
+          <velocity>-0 0 4e-06 -0.043009 -0.063805 -3e-06</velocity>
+          <acceleration>-1e-05 1e-05 0.025616 -2.92426 -0.140735 -0.004815</acceleration>
+          <wrench>-0 0 0.001281 0 -0 0</wrench>
+        </link>
+      </model>
+      <light name='user_point_light_0'>
+        <pose>-0.050834 1.0999 1 0 -0 0</pose>
+      </light>
+    </state>
+    <gui fullscreen='0'>
+      <camera name='user_camera'>
+        <pose>0.843669 0.809126 0.679198 -0 0.576105 -2.55984</pose>
+        <view_controller>orbit</view_controller>
+        <projection_type>perspective</projection_type>
+      </camera>
+    </gui>
+    <model name='black_pawn_a7'>
+      <static>0</static>
+      <link name='link'>
+        <inertial>
+          <mass>0.05</mass>
+          <inertia>
+            <ixx>1e-05</ixx>
+            <iyy>1e-05</iyy>
+            <izz>1e-05</izz>
+            <ixy>0</ixy>
+            <ixz>0</ixz>
+            <iyz>0</iyz>
+          </inertia>
+          <pose>0 0 0 0 -0 0</pose>
+        </inertial>
+        <collision name='collision'>
+          <geometry>
+            <mesh>
+              <uri>model://black_pawn/meshes/black_pawn.dae</uri>
+            </mesh>
+          </geometry>
+          <surface>
+            <contact>
+              <ode/>
+            </contact>
+            <friction>
+              <ode>
+                <mu>1</mu>
+                <mu2>1</mu2>
+              </ode>
+              <torsional>
+                <ode/>
+              </torsional>
+            </friction>
+            <bounce/>
+          </surface>
+          <max_contacts>10</max_contacts>
+        </collision>
+        <visual name='visual'>
+          <geometry>
+            <mesh>
+              <uri>model://black_pawn/meshes/black_pawn.dae</uri>
+            </mesh>
+          </geometry>
+        </visual>
+        <self_collide>0</self_collide>
+        <enable_wind>0</enable_wind>
+        <kinematic>0</kinematic>
+      </link>
+      <plugin name='ros2_objectpose_plugin' filename='libros2_objectpose_plugin.so'>
+        <ros>
+          <namespace>black_pawn_a7</namespace>
+        </ros>
+      </plugin>
+      <pose>0.1316 0.2574 0.026 0 -0 0</pose>
+    </model>
+    <model name='white_pawn_a2'>
+      <static>0</static>
+      <link name='link'>
+        <inertial>
+          <mass>0.05</mass>
+          <inertia>
+            <ixx>1e-05</ixx>
+            <iyy>1e-05</iyy>
+            <izz>1e-05</izz>
+            <ixy>0</ixy>
+            <ixz>0</ixz>
+            <iyz>0</iyz>
+          </inertia>
+          <pose>0 0 0 0 -0 0</pose>
+        </inertial>
+        <collision name='collision'>
+          <geometry>
+            <mesh>
+              <uri>model://white_pawn/meshes/white_pawn.dae</uri>
+            </mesh>
+          </geometry>
+          <surface>
+            <contact>
+              <ode/>
+            </contact>
+            <friction>
+              <ode>
+                <mu>1</mu>
+                <mu2>1</mu2>
+              </ode>
+              <torsional>
+                <ode/>
+              </torsional>
+            </friction>
+            <bounce/>
+          </surface>
+          <max_contacts>10</max_contacts>
+        </collision>
+        <visual name='visual'>
+          <geometry>
+            <mesh>
+              <uri>model://white_pawn/meshes/white_pawn.dae</uri>
+            </mesh>
+          </geometry>
+        </visual>
+        <self_collide>0</self_collide>
+        <enable_wind>0</enable_wind>
+        <kinematic>0</kinematic>
+      </link>
+      <plugin name='ros2_objectpose_plugin' filename='libros2_objectpose_plugin.so'>
+        <ros>
+          <namespace>white_pawn_a2</namespace>
+        </ros>
+      </plugin>
+      <pose>0.1316 0.4324 0.026 0 -0 0</pose>
+    </model>
+    <model name='black_pawn_b7'>
+      <static>0</static>
+      <link name='link'>
+        <inertial>
+          <mass>0.05</mass>
+          <inertia>
+            <ixx>1e-05</ixx>
+            <iyy>1e-05</iyy>
+            <izz>1e-05</izz>
+            <ixy>0</ixy>
+            <ixz>0</ixz>
+            <iyz>0</iyz>
+          </inertia>
+          <pose>0 0 0 0 -0 0</pose>
+        </inertial>
+        <collision name='collision'>
+          <geometry>
+            <mesh>
+              <uri>model://black_pawn/meshes/black_pawn.dae</uri>
+            </mesh>
+          </geometry>
+          <surface>
+            <contact>
+              <ode/>
+            </contact>
+            <friction>
+              <ode>
+                <mu>1</mu>
+                <mu2>1</mu2>
+              </ode>
+              <torsional>
+                <ode/>
+              </torsional>
+            </friction>
+            <bounce/>
+          </surface>
+          <max_contacts>10</max_contacts>
+        </collision>
+        <visual name='visual'>
+          <geometry>
+            <mesh>
+              <uri>model://black_pawn/meshes/black_pawn.dae</uri>
+            </mesh>
+          </geometry>
+        </visual>
+        <self_collide>0</self_collide>
+        <enable_wind>0</enable_wind>
+        <kinematic>0</kinematic>
+      </link>
+      <plugin name='ros2_objectpose_plugin' filename='libros2_objectpose_plugin.so'>
+        <ros>
+          <namespace>black_pawn_b7</namespace>
+        </ros>
+      </plugin>
+      <pose>0.0966 0.2574 0.026 0 -0 0</pose>
+    </model>
+    <model name='white_pawn_b2'>
+      <static>0</static>
+      <link name='link'>
+        <inertial>
+          <mass>0.05</mass>
+          <inertia>
+            <ixx>1e-05</ixx>
+            <iyy>1e-05</iyy>
+            <izz>1e-05</izz>
+            <ixy>0</ixy>
+            <ixz>0</ixz>
+            <iyz>0</iyz>
+          </inertia>
+          <pose>0 0 0 0 -0 0</pose>
+        </inertial>
+        <collision name='collision'>
+          <geometry>
+            <mesh>
+              <uri>model://white_pawn/meshes/white_pawn.dae</uri>
+            </mesh>
+          </geometry>
+          <surface>
+            <contact>
+              <ode/>
+            </contact>
+            <friction>
+              <ode>
+                <mu>1</mu>
+                <mu2>1</mu2>
+              </ode>
+              <torsional>
+                <ode/>
+              </torsional>
+            </friction>
+            <bounce/>
+          </surface>
+          <max_contacts>10</max_contacts>
+        </collision>
+        <visual name='visual'>
+          <geometry>
+            <mesh>
+              <uri>model://white_pawn/meshes/white_pawn.dae</uri>
+            </mesh>
+          </geometry>
+        </visual>
+        <self_collide>0</self_collide>
+        <enable_wind>0</enable_wind>
+        <kinematic>0</kinematic>
+      </link>
+      <plugin name='ros2_objectpose_plugin' filename='libros2_objectpose_plugin.so'>
+        <ros>
+          <namespace>white_pawn_b2</namespace>
+        </ros>
+      </plugin>
+      <pose>0.0966 0.4324 0.026 0 -0 0</pose>
+    </model>
+    <model name='white_pawn_c2'>
+      <static>0</static>
+      <link name='link'>
+        <inertial>
+          <mass>0.05</mass>
+          <inertia>
+            <ixx>1e-05</ixx>
+            <iyy>1e-05</iyy>
+            <izz>1e-05</izz>
+            <ixy>0</ixy>
+            <ixz>0</ixz>
+            <iyz>0</iyz>
+          </inertia>
+          <pose>0 0 0 0 -0 0</pose>
+        </inertial>
+        <collision name='collision'>
+          <geometry>
+            <mesh>
+              <uri>model://white_pawn/meshes/white_pawn.dae</uri>
+            </mesh>
+          </geometry>
+          <surface>
+            <contact>
+              <ode/>
+            </contact>
+            <friction>
+              <ode>
+                <mu>1</mu>
+                <mu2>1</mu2>
+              </ode>
+              <torsional>
+                <ode/>
+              </torsional>
+            </friction>
+            <bounce/>
+          </surface>
+          <max_contacts>10</max_contacts>
+        </collision>
+        <visual name='visual'>
+          <geometry>
+            <mesh>
+              <uri>model://white_pawn/meshes/white_pawn.dae</uri>
+            </mesh>
+          </geometry>
+        </visual>
+        <self_collide>0</self_collide>
+        <enable_wind>0</enable_wind>
+        <kinematic>0</kinematic>
+      </link>
+      <plugin name='ros2_objectpose_plugin' filename='libros2_objectpose_plugin.so'>
+        <ros>
+          <namespace>white_pawn_c2</namespace>
+        </ros>
+      </plugin>
+      <pose>0.0616 0.4324 0.026 0 -0 0</pose>
+    </model>
+    <model name='black_pawn_d7'>
+      <static>0</static>
+      <link name='link'>
+        <inertial>
+          <mass>0.05</mass>
+          <inertia>
+            <ixx>1e-05</ixx>
+            <iyy>1e-05</iyy>
+            <izz>1e-05</izz>
+            <ixy>0</ixy>
+            <ixz>0</ixz>
+            <iyz>0</iyz>
+          </inertia>
+          <pose>0 0 0 0 -0 0</pose>
+        </inertial>
+        <collision name='collision'>
+          <geometry>
+            <mesh>
+              <uri>model://black_pawn/meshes/black_pawn.dae</uri>
+            </mesh>
+          </geometry>
+          <surface>
+            <contact>
+              <ode/>
+            </contact>
+            <friction>
+              <ode>
+                <mu>1</mu>
+                <mu2>1</mu2>
+              </ode>
+              <torsional>
+                <ode/>
+              </torsional>
+            </friction>
+            <bounce/>
+          </surface>
+          <max_contacts>10</max_contacts>
+        </collision>
+        <visual name='visual'>
+          <geometry>
+            <mesh>
+              <uri>model://black_pawn/meshes/black_pawn.dae</uri>
+            </mesh>
+          </geometry>
+        </visual>
+        <self_collide>0</self_collide>
+        <enable_wind>0</enable_wind>
+        <kinematic>0</kinematic>
+      </link>
+      <plugin name='ros2_objectpose_plugin' filename='libros2_objectpose_plugin.so'>
+        <ros>
+          <namespace>black_pawn_d7</namespace>
+        </ros>
+      </plugin>
+      <pose>0.0266 0.2574 0.026 0 -0 0</pose>
+    </model>
+    <model name='white_pawn_d2'>
+      <static>0</static>
+      <link name='link'>
+        <inertial>
+          <mass>0.05</mass>
+          <inertia>
+            <ixx>1e-05</ixx>
+            <iyy>1e-05</iyy>
+            <izz>1e-05</izz>
+            <ixy>0</ixy>
+            <ixz>0</ixz>
+            <iyz>0</iyz>
+          </inertia>
+          <pose>0 0 0 0 -0 0</pose>
+        </inertial>
+        <collision name='collision'>
+          <geometry>
+            <mesh>
+              <uri>model://white_pawn/meshes/white_pawn.dae</uri>
+            </mesh>
+          </geometry>
+          <surface>
+            <contact>
+              <ode/>
+            </contact>
+            <friction>
+              <ode>
+                <mu>1</mu>
+                <mu2>1</mu2>
+              </ode>
+              <torsional>
+                <ode/>
+              </torsional>
+            </friction>
+            <bounce/>
+          </surface>
+          <max_contacts>10</max_contacts>
+        </collision>
+        <visual name='visual'>
+          <geometry>
+            <mesh>
+              <uri>model://white_pawn/meshes/white_pawn.dae</uri>
+            </mesh>
+          </geometry>
+        </visual>
+        <self_collide>0</self_collide>
+        <enable_wind>0</enable_wind>
+        <kinematic>0</kinematic>
+      </link>
+      <plugin name='ros2_objectpose_plugin' filename='libros2_objectpose_plugin.so'>
+        <ros>
+          <namespace>white_pawn_d2</namespace>
+        </ros>
+      </plugin>
+      <pose>0.0266 0.4324 0.026 0 -0 0</pose>
+    </model>
+    <model name='black_pawn_e7'>
+      <static>0</static>
+      <link name='link'>
+        <inertial>
+          <mass>0.05</mass>
+          <inertia>
+            <ixx>1e-05</ixx>
+            <iyy>1e-05</iyy>
+            <izz>1e-05</izz>
+            <ixy>0</ixy>
+            <ixz>0</ixz>
+            <iyz>0</iyz>
+          </inertia>
+          <pose>0 0 0 0 -0 0</pose>
+        </inertial>
+        <collision name='collision'>
+          <geometry>
+            <mesh>
+              <uri>model://black_pawn/meshes/black_pawn.dae</uri>
+            </mesh>
+          </geometry>
+          <surface>
+            <contact>
+              <ode/>
+            </contact>
+            <friction>
+              <ode>
+                <mu>1</mu>
+                <mu2>1</mu2>
+              </ode>
+              <torsional>
+                <ode/>
+              </torsional>
+            </friction>
+            <bounce/>
+          </surface>
+          <max_contacts>10</max_contacts>
+        </collision>
+        <visual name='visual'>
+          <geometry>
+            <mesh>
+              <uri>model://black_pawn/meshes/black_pawn.dae</uri>
+            </mesh>
+          </geometry>
+        </visual>
+        <self_collide>0</self_collide>
+        <enable_wind>0</enable_wind>
+        <kinematic>0</kinematic>
+      </link>
+      <plugin name='ros2_objectpose_plugin' filename='libros2_objectpose_plugin.so'>
+        <ros>
+          <namespace>black_pawn_e7</namespace>
+        </ros>
+      </plugin>
+      <pose>-0.0084 0.2574 0.026 0 -0 0</pose>
+    </model>
+    <model name='white_pawn_e2'>
+      <static>0</static>
+      <link name='link'>
+        <inertial>
+          <mass>0.05</mass>
+          <inertia>
+            <ixx>1e-05</ixx>
+            <iyy>1e-05</iyy>
+            <izz>1e-05</izz>
+            <ixy>0</ixy>
+            <ixz>0</ixz>
+            <iyz>0</iyz>
+          </inertia>
+          <pose>0 0 0 0 -0 0</pose>
+        </inertial>
+        <collision name='collision'>
+          <geometry>
+            <mesh>
+              <uri>model://white_pawn/meshes/white_pawn.dae</uri>
+            </mesh>
+          </geometry>
+          <surface>
+            <contact>
+              <ode/>
+            </contact>
+            <friction>
+              <ode>
+                <mu>1</mu>
+                <mu2>1</mu2>
+              </ode>
+              <torsional>
+                <ode/>
+              </torsional>
+            </friction>
+            <bounce/>
+          </surface>
+          <max_contacts>10</max_contacts>
+        </collision>
+        <visual name='visual'>
+          <geometry>
+            <mesh>
+              <uri>model://white_pawn/meshes/white_pawn.dae</uri>
+            </mesh>
+          </geometry>
+        </visual>
+        <self_collide>0</self_collide>
+        <enable_wind>0</enable_wind>
+        <kinematic>0</kinematic>
+      </link>
+      <plugin name='ros2_objectpose_plugin' filename='libros2_objectpose_plugin.so'>
+        <ros>
+          <namespace>white_pawn_e2</namespace>
+        </ros>
+      </plugin>
+      <pose>-0.0084 0.4324 0.026 0 -0 0</pose>
+    </model>
+    <model name='black_pawn_f7'>
+      <static>0</static>
+      <link name='link'>
+        <inertial>
+          <mass>0.05</mass>
+          <inertia>
+            <ixx>1e-05</ixx>
+            <iyy>1e-05</iyy>
+            <izz>1e-05</izz>
+            <ixy>0</ixy>
+            <ixz>0</ixz>
+            <iyz>0</iyz>
+          </inertia>
+          <pose>0 0 0 0 -0 0</pose>
+        </inertial>
+        <collision name='collision'>
+          <geometry>
+            <mesh>
+              <uri>model://black_pawn/meshes/black_pawn.dae</uri>
+            </mesh>
+          </geometry>
+          <surface>
+            <contact>
+              <ode/>
+            </contact>
+            <friction>
+              <ode>
+                <mu>1</mu>
+                <mu2>1</mu2>
+              </ode>
+              <torsional>
+                <ode/>
+              </torsional>
+            </friction>
+            <bounce/>
+          </surface>
+          <max_contacts>10</max_contacts>
+        </collision>
+        <visual name='visual'>
+          <geometry>
+            <mesh>
+              <uri>model://black_pawn/meshes/black_pawn.dae</uri>
+            </mesh>
+          </geometry>
+        </visual>
+        <self_collide>0</self_collide>
+        <enable_wind>0</enable_wind>
+        <kinematic>0</kinematic>
+      </link>
+      <plugin name='ros2_objectpose_plugin' filename='libros2_objectpose_plugin.so'>
+        <ros>
+          <namespace>black_pawn_f7</namespace>
+        </ros>
+      </plugin>
+      <pose>-0.0434 0.2574 0.026 0 -0 0</pose>
+    </model>
+    <model name='white_pawn_f2'>
+      <static>0</static>
+      <link name='link'>
+        <inertial>
+          <mass>0.05</mass>
+          <inertia>
+            <ixx>1e-05</ixx>
+            <iyy>1e-05</iyy>
+            <izz>1e-05</izz>
+            <ixy>0</ixy>
+            <ixz>0</ixz>
+            <iyz>0</iyz>
+          </inertia>
+          <pose>0 0 0 0 -0 0</pose>
+        </inertial>
+        <collision name='collision'>
+          <geometry>
+            <mesh>
+              <uri>model://white_pawn/meshes/white_pawn.dae</uri>
+            </mesh>
+          </geometry>
+          <surface>
+            <contact>
+              <ode/>
+            </contact>
+            <friction>
+              <ode>
+                <mu>1</mu>
+                <mu2>1</mu2>
+              </ode>
+              <torsional>
+                <ode/>
+              </torsional>
+            </friction>
+            <bounce/>
+          </surface>
+          <max_contacts>10</max_contacts>
+        </collision>
+        <visual name='visual'>
+          <geometry>
+            <mesh>
+              <uri>model://white_pawn/meshes/white_pawn.dae</uri>
+            </mesh>
+          </geometry>
+        </visual>
+        <self_collide>0</self_collide>
+        <enable_wind>0</enable_wind>
+        <kinematic>0</kinematic>
+      </link>
+      <plugin name='ros2_objectpose_plugin' filename='libros2_objectpose_plugin.so'>
+        <ros>
+          <namespace>white_pawn_f2</namespace>
+        </ros>
+      </plugin>
+      <pose>-0.0434 0.4324 0.026 0 -0 0</pose>
+    </model>
+    <model name='black_pawn_g7'>
+      <static>0</static>
+      <link name='link'>
+        <inertial>
+          <mass>0.05</mass>
+          <inertia>
+            <ixx>1e-05</ixx>
+            <iyy>1e-05</iyy>
+            <izz>1e-05</izz>
+            <ixy>0</ixy>
+            <ixz>0</ixz>
+            <iyz>0</iyz>
+          </inertia>
+          <pose>0 0 0 0 -0 0</pose>
+        </inertial>
+        <collision name='collision'>
+          <geometry>
+            <mesh>
+              <uri>model://black_pawn/meshes/black_pawn.dae</uri>
+            </mesh>
+          </geometry>
+          <surface>
+            <contact>
+              <ode/>
+            </contact>
+            <friction>
+              <ode>
+                <mu>1</mu>
+                <mu2>1</mu2>
+              </ode>
+              <torsional>
+                <ode/>
+              </torsional>
+            </friction>
+            <bounce/>
+          </surface>
+          <max_contacts>10</max_contacts>
+        </collision>
+        <visual name='visual'>
+          <geometry>
+            <mesh>
+              <uri>model://black_pawn/meshes/black_pawn.dae</uri>
+            </mesh>
+          </geometry>
+        </visual>
+        <self_collide>0</self_collide>
+        <enable_wind>0</enable_wind>
+        <kinematic>0</kinematic>
+      </link>
+      <plugin name='ros2_objectpose_plugin' filename='libros2_objectpose_plugin.so'>
+        <ros>
+          <namespace>black_pawn_g7</namespace>
+        </ros>
+      </plugin>
+      <pose>-0.0784 0.2574 0.026 0 -0 0</pose>
+    </model>
+    <model name='white_pawn_g2'>
+      <static>0</static>
+      <link name='link'>
+        <inertial>
+          <mass>0.05</mass>
+          <inertia>
+            <ixx>1e-05</ixx>
+            <iyy>1e-05</iyy>
+            <izz>1e-05</izz>
+            <ixy>0</ixy>
+            <ixz>0</ixz>
+            <iyz>0</iyz>
+          </inertia>
+          <pose>0 0 0 0 -0 0</pose>
+        </inertial>
+        <collision name='collision'>
+          <geometry>
+            <mesh>
+              <uri>model://white_pawn/meshes/white_pawn.dae</uri>
+            </mesh>
+          </geometry>
+          <surface>
+            <contact>
+              <ode/>
+            </contact>
+            <friction>
+              <ode>
+                <mu>1</mu>
+                <mu2>1</mu2>
+              </ode>
+              <torsional>
+                <ode/>
+              </torsional>
+            </friction>
+            <bounce/>
+          </surface>
+          <max_contacts>10</max_contacts>
+        </collision>
+        <visual name='visual'>
+          <geometry>
+            <mesh>
+              <uri>model://white_pawn/meshes/white_pawn.dae</uri>
+            </mesh>
+          </geometry>
+        </visual>
+        <self_collide>0</self_collide>
+        <enable_wind>0</enable_wind>
+        <kinematic>0</kinematic>
+      </link>
+      <plugin name='ros2_objectpose_plugin' filename='libros2_objectpose_plugin.so'>
+        <ros>
+          <namespace>white_pawn_g2</namespace>
+        </ros>
+      </plugin>
+      <pose>-0.0784 0.4324 0.026 0 -0 0</pose>
+    </model>
+    <model name='black_pawn_h7'>
+      <static>0</static>
+      <link name='link'>
+        <inertial>
+          <mass>0.05</mass>
+          <inertia>
+            <ixx>1e-05</ixx>
+            <iyy>1e-05</iyy>
+            <izz>1e-05</izz>
+            <ixy>0</ixy>
+            <ixz>0</ixz>
+            <iyz>0</iyz>
+          </inertia>
+          <pose>0 0 0 0 -0 0</pose>
+        </inertial>
+        <collision name='collision'>
+          <geometry>
+            <mesh>
+              <uri>model://black_pawn/meshes/black_pawn.dae</uri>
+            </mesh>
+          </geometry>
+          <surface>
+            <contact>
+              <ode/>
+            </contact>
+            <friction>
+              <ode>
+                <mu>1</mu>
+                <mu2>1</mu2>
+              </ode>
+              <torsional>
+                <ode/>
+              </torsional>
+            </friction>
+            <bounce/>
+          </surface>
+          <max_contacts>10</max_contacts>
+        </collision>
+        <visual name='visual'>
+          <geometry>
+            <mesh>
+              <uri>model://black_pawn/meshes/black_pawn.dae</uri>
+            </mesh>
+          </geometry>
+        </visual>
+        <self_collide>0</self_collide>
+        <enable_wind>0</enable_wind>
+        <kinematic>0</kinematic>
+      </link>
+      <plugin name='ros2_objectpose_plugin' filename='libros2_objectpose_plugin.so'>
+        <ros>
+          <namespace>black_pawn_h7</namespace>
+        </ros>
+      </plugin>
+      <pose>-0.1134 0.2574 0.026 0 -0 0</pose>
+    </model>
+    <model name='white_pawn_h2'>
+      <static>0</static>
+      <link name='link'>
+        <inertial>
+          <mass>0.05</mass>
+          <inertia>
+            <ixx>1e-05</ixx>
+            <iyy>1e-05</iyy>
+            <izz>1e-05</izz>
+            <ixy>0</ixy>
+            <ixz>0</ixz>
+            <iyz>0</iyz>
+          </inertia>
+          <pose>0 0 0 0 -0 0</pose>
+        </inertial>
+        <collision name='collision'>
+          <geometry>
+            <mesh>
+              <uri>model://white_pawn/meshes/white_pawn.dae</uri>
+            </mesh>
+          </geometry>
+          <surface>
+            <contact>
+              <ode/>
+            </contact>
+            <friction>
+              <ode>
+                <mu>1</mu>
+                <mu2>1</mu2>
+              </ode>
+              <torsional>
+                <ode/>
+              </torsional>
+            </friction>
+            <bounce/>
+          </surface>
+          <max_contacts>10</max_contacts>
+        </collision>
+        <visual name='visual'>
+          <geometry>
+            <mesh>
+              <uri>model://white_pawn/meshes/white_pawn.dae</uri>
+            </mesh>
+          </geometry>
+        </visual>
+        <self_collide>0</self_collide>
+        <enable_wind>0</enable_wind>
+        <kinematic>0</kinematic>
+      </link>
+      <plugin name='ros2_objectpose_plugin' filename='libros2_objectpose_plugin.so'>
+        <ros>
+          <namespace>white_pawn_h2</namespace>
+        </ros>
+      </plugin>
+      <pose>-0.1134 0.4324 0.026 0 -0 0</pose>
+    </model>
+    <model name='black_rook_a8'>
+      <static>0</static>
+      <link name='link'>
+        <inertial>
+          <mass>0.05</mass>
+          <inertia>
+            <ixx>1e-05</ixx>
+            <iyy>1e-05</iyy>
+            <izz>1e-05</izz>
+            <ixy>0</ixy>
+            <ixz>0</ixz>
+            <iyz>0</iyz>
+          </inertia>
+          <pose>0 0 0 0 -0 0</pose>
+        </inertial>
+        <collision name='collision'>
+          <geometry>
+            <mesh>
+              <uri>model://black_rook/meshes/black_rook.dae</uri>
+            </mesh>
+          </geometry>
+          <surface>
+            <contact>
+              <ode/>
+            </contact>
+            <friction>
+              <ode>
+                <mu>1</mu>
+                <mu2>1</mu2>
+              </ode>
+              <torsional>
+                <ode/>
+              </torsional>
+            </friction>
+            <bounce/>
+          </surface>
+          <max_contacts>10</max_contacts>
+        </collision>
+        <visual name='visual'>
+          <geometry>
+            <mesh>
+              <uri>model://black_rook/meshes/black_rook.dae</uri>
+            </mesh>
+          </geometry>
+        </visual>
+        <self_collide>0</self_collide>
+        <enable_wind>0</enable_wind>
+        <kinematic>0</kinematic>
+      </link>
+      <plugin name='ros2_objectpose_plugin' filename='libros2_objectpose_plugin.so'>
+        <ros>
+          <namespace>black_rook_a8</namespace>
+        </ros>
+      </plugin>
+      <pose>0.1316 0.2224 0.026 0 -0 0</pose>
+    </model>
+    <model name='black_rook_h8'>
+      <static>0</static>
+      <link name='link'>
+        <inertial>
+          <mass>0.05</mass>
+          <inertia>
+            <ixx>1e-05</ixx>
+            <iyy>1e-05</iyy>
+            <izz>1e-05</izz>
+            <ixy>0</ixy>
+            <ixz>0</ixz>
+            <iyz>0</iyz>
+          </inertia>
+          <pose>0 0 0 0 -0 0</pose>
+        </inertial>
+        <collision name='collision'>
+          <geometry>
+            <mesh>
+              <uri>model://black_rook/meshes/black_rook.dae</uri>
+            </mesh>
+          </geometry>
+          <surface>
+            <contact>
+              <ode/>
+            </contact>
+            <friction>
+              <ode>
+                <mu>1</mu>
+                <mu2>1</mu2>
+              </ode>
+              <torsional>
+                <ode/>
+              </torsional>
+            </friction>
+            <bounce/>
+          </surface>
+          <max_contacts>10</max_contacts>
+        </collision>
+        <visual name='visual'>
+          <geometry>
+            <mesh>
+              <uri>model://black_rook/meshes/black_rook.dae</uri>
+            </mesh>
+          </geometry>
+        </visual>
+        <self_collide>0</self_collide>
+        <enable_wind>0</enable_wind>
+        <kinematic>0</kinematic>
+      </link>
+      <plugin name='ros2_objectpose_plugin' filename='libros2_objectpose_plugin.so'>
+        <ros>
+          <namespace>black_rook_h8</namespace>
+        </ros>
+      </plugin>
+      <pose>-0.1134 0.2224 0.026 0 -0 0</pose>
+    </model>
+    <model name='white_rook_a1'>
+      <static>0</static>
+      <link name='link'>
+        <inertial>
+          <mass>0.05</mass>
+          <inertia>
+            <ixx>1e-05</ixx>
+            <iyy>1e-05</iyy>
+            <izz>1e-05</izz>
+            <ixy>0</ixy>
+            <ixz>0</ixz>
+            <iyz>0</iyz>
+          </inertia>
+          <pose>0 0 0 0 -0 0</pose>
+        </inertial>
+        <collision name='collision'>
+          <geometry>
+            <mesh>
+              <uri>model://white_rook/meshes/white_rook.dae</uri>
+            </mesh>
+          </geometry>
+          <surface>
+            <contact>
+              <ode/>
+            </contact>
+            <friction>
+              <ode>
+                <mu>1</mu>
+                <mu2>1</mu2>
+              </ode>
+              <torsional>
+                <ode/>
+              </torsional>
+            </friction>
+            <bounce/>
+          </surface>
+          <max_contacts>10</max_contacts>
+        </collision>
+        <visual name='visual'>
+          <geometry>
+            <mesh>
+              <uri>model://white_rook/meshes/white_rook.dae</uri>
+            </mesh>
+          </geometry>
+        </visual>
+        <self_collide>0</self_collide>
+        <enable_wind>0</enable_wind>
+        <kinematic>0</kinematic>
+      </link>
+      <plugin name='ros2_objectpose_plugin' filename='libros2_objectpose_plugin.so'>
+        <ros>
+          <namespace>white_rook_a1</namespace>
+        </ros>
+      </plugin>
+      <pose>0.1316 0.4674 0.026 0 -0 0</pose>
+    </model>
+    <model name='white_rook_h1'>
+      <static>0</static>
+      <link name='link'>
+        <inertial>
+          <mass>0.05</mass>
+          <inertia>
+            <ixx>1e-05</ixx>
+            <iyy>1e-05</iyy>
+            <izz>1e-05</izz>
+            <ixy>0</ixy>
+            <ixz>0</ixz>
+            <iyz>0</iyz>
+          </inertia>
+          <pose>0 0 0 0 -0 0</pose>
+        </inertial>
+        <collision name='collision'>
+          <geometry>
+            <mesh>
+              <uri>model://white_rook/meshes/white_rook.dae</uri>
+            </mesh>
+          </geometry>
+          <surface>
+            <contact>
+              <ode/>
+            </contact>
+            <friction>
+              <ode>
+                <mu>1</mu>
+                <mu2>1</mu2>
+              </ode>
+              <torsional>
+                <ode/>
+              </torsional>
+            </friction>
+            <bounce/>
+          </surface>
+          <max_contacts>10</max_contacts>
+        </collision>
+        <visual name='visual'>
+          <geometry>
+            <mesh>
+              <uri>model://white_rook/meshes/white_rook.dae</uri>
+            </mesh>
+          </geometry>
+        </visual>
+        <self_collide>0</self_collide>
+        <enable_wind>0</enable_wind>
+        <kinematic>0</kinematic>
+      </link>
+      <plugin name='ros2_objectpose_plugin' filename='libros2_objectpose_plugin.so'>
+        <ros>
+          <namespace>white_rook_h1</namespace>
+        </ros>
+      </plugin>
+      <pose>-0.1134 0.4674 0.026 0 -0 0</pose>
+    </model>
+    <model name='black_knight_b8'>
+      <static>0</static>
+      <link name='link'>
+        <inertial>
+          <mass>0.05</mass>
+          <inertia>
+            <ixx>1e-05</ixx>
+            <iyy>1e-05</iyy>
+            <izz>1e-05</izz>
+            <ixy>0</ixy>
+            <ixz>0</ixz>
+            <iyz>0</iyz>
+          </inertia>
+          <pose>0 0 0 0 -0 0</pose>
+        </inertial>
+        <collision name='collision'>
+          <geometry>
+            <mesh>
+              <uri>model://black_knight/meshes/black_knight.dae</uri>
+            </mesh>
+          </geometry>
+          <surface>
+            <contact>
+              <ode/>
+            </contact>
+            <friction>
+              <ode>
+                <mu>1</mu>
+                <mu2>1</mu2>
+              </ode>
+              <torsional>
+                <ode/>
+              </torsional>
+            </friction>
+            <bounce/>
+          </surface>
+          <max_contacts>10</max_contacts>
+        </collision>
+        <visual name='visual'>
+          <geometry>
+            <mesh>
+              <uri>model://black_knight/meshes/black_knight.dae</uri>
+            </mesh>
+          </geometry>
+        </visual>
+        <self_collide>0</self_collide>
+        <enable_wind>0</enable_wind>
+        <kinematic>0</kinematic>
+      </link>
+      <plugin name='ros2_objectpose_plugin' filename='libros2_objectpose_plugin.so'>
+        <ros>
+          <namespace>black_knight_b8</namespace>
+        </ros>
+      </plugin>
+      <pose>0.0966 0.2224 0.026 0 -0 0</pose>
+    </model>
+    <model name='black_knight_g8'>
+      <static>0</static>
+      <link name='link'>
+        <inertial>
+          <mass>0.05</mass>
+          <inertia>
+            <ixx>1e-05</ixx>
+            <iyy>1e-05</iyy>
+            <izz>1e-05</izz>
+            <ixy>0</ixy>
+            <ixz>0</ixz>
+            <iyz>0</iyz>
+          </inertia>
+          <pose>0 0 0 0 -0 0</pose>
+        </inertial>
+        <collision name='collision'>
+          <geometry>
+            <mesh>
+              <uri>model://black_knight/meshes/black_knight.dae</uri>
+            </mesh>
+          </geometry>
+          <surface>
+            <contact>
+              <ode/>
+            </contact>
+            <friction>
+              <ode>
+                <mu>1</mu>
+                <mu2>1</mu2>
+              </ode>
+              <torsional>
+                <ode/>
+              </torsional>
+            </friction>
+            <bounce/>
+          </surface>
+          <max_contacts>10</max_contacts>
+        </collision>
+        <visual name='visual'>
+          <geometry>
+            <mesh>
+              <uri>model://black_knight/meshes/black_knight.dae</uri>
+            </mesh>
+          </geometry>
+        </visual>
+        <self_collide>0</self_collide>
+        <enable_wind>0</enable_wind>
+        <kinematic>0</kinematic>
+      </link>
+      <plugin name='ros2_objectpose_plugin' filename='libros2_objectpose_plugin.so'>
+        <ros>
+          <namespace>black_knight_g8</namespace>
+        </ros>
+      </plugin>
+      <pose>-0.0784 0.2224 0.026 0 -0 0</pose>
+    </model>
+    <model name='white_knight_b1'>
+      <static>0</static>
+      <link name='link'>
+        <inertial>
+          <mass>0.05</mass>
+          <inertia>
+            <ixx>1e-05</ixx>
+            <iyy>1e-05</iyy>
+            <izz>1e-05</izz>
+            <ixy>0</ixy>
+            <ixz>0</ixz>
+            <iyz>0</iyz>
+          </inertia>
+          <pose>0 0 0 0 -0 0</pose>
+        </inertial>
+        <collision name='collision'>
+          <geometry>
+            <mesh>
+              <uri>model://white_knight/meshes/white_knight.dae</uri>
+            </mesh>
+          </geometry>
+          <surface>
+            <contact>
+              <ode/>
+            </contact>
+            <friction>
+              <ode>
+                <mu>1</mu>
+                <mu2>1</mu2>
+              </ode>
+              <torsional>
+                <ode/>
+              </torsional>
+            </friction>
+            <bounce/>
+          </surface>
+          <max_contacts>10</max_contacts>
+        </collision>
+        <visual name='visual'>
+          <geometry>
+            <mesh>
+              <uri>model://white_knight/meshes/white_knight.dae</uri>
+            </mesh>
+          </geometry>
+        </visual>
+        <self_collide>0</self_collide>
+        <enable_wind>0</enable_wind>
+        <kinematic>0</kinematic>
+      </link>
+      <plugin name='ros2_objectpose_plugin' filename='libros2_objectpose_plugin.so'>
+        <ros>
+          <namespace>white_knight_b1</namespace>
+        </ros>
+      </plugin>
+      <pose>0.0966 0.4674 0.026 0 -0 0</pose>
+    </model>
+    <model name='white_knight_g1'>
+      <static>0</static>
+      <link name='link'>
+        <inertial>
+          <mass>0.05</mass>
+          <inertia>
+            <ixx>1e-05</ixx>
+            <iyy>1e-05</iyy>
+            <izz>1e-05</izz>
+            <ixy>0</ixy>
+            <ixz>0</ixz>
+            <iyz>0</iyz>
+          </inertia>
+          <pose>0 0 0 0 -0 0</pose>
+        </inertial>
+        <collision name='collision'>
+          <geometry>
+            <mesh>
+              <uri>model://white_knight/meshes/white_knight.dae</uri>
+            </mesh>
+          </geometry>
+          <surface>
+            <contact>
+              <ode/>
+            </contact>
+            <friction>
+              <ode>
+                <mu>1</mu>
+                <mu2>1</mu2>
+              </ode>
+              <torsional>
+                <ode/>
+              </torsional>
+            </friction>
+            <bounce/>
+          </surface>
+          <max_contacts>10</max_contacts>
+        </collision>
+        <visual name='visual'>
+          <geometry>
+            <mesh>
+              <uri>model://white_knight/meshes/white_knight.dae</uri>
+            </mesh>
+          </geometry>
+        </visual>
+        <self_collide>0</self_collide>
+        <enable_wind>0</enable_wind>
+        <kinematic>0</kinematic>
+      </link>
+      <plugin name='ros2_objectpose_plugin' filename='libros2_objectpose_plugin.so'>
+        <ros>
+          <namespace>white_knight_g1</namespace>
+        </ros>
+      </plugin>
+      <pose>-0.0784 0.4674 0.026 0 -0 0</pose>
+    </model>
+    <model name='black_bishop_c8'>
+      <static>0</static>
+      <link name='link'>
+        <inertial>
+          <mass>0.05</mass>
+          <inertia>
+            <ixx>1e-05</ixx>
+            <iyy>1e-05</iyy>
+            <izz>1e-05</izz>
+            <ixy>0</ixy>
+            <ixz>0</ixz>
+            <iyz>0</iyz>
+          </inertia>
+          <pose>0 0 0 0 -0 0</pose>
+        </inertial>
+        <collision name='collision'>
+          <geometry>
+            <mesh>
+              <uri>model://black_bishop/meshes/black_bishop.dae</uri>
+            </mesh>
+          </geometry>
+          <surface>
+            <contact>
+              <ode/>
+            </contact>
+            <friction>
+              <ode>
+                <mu>1</mu>
+                <mu2>1</mu2>
+              </ode>
+              <torsional>
+                <ode/>
+              </torsional>
+            </friction>
+            <bounce/>
+          </surface>
+          <max_contacts>10</max_contacts>
+        </collision>
+        <visual name='visual'>
+          <geometry>
+            <mesh>
+              <uri>model://black_bishop/meshes/black_bishop.dae</uri>
+            </mesh>
+          </geometry>
+        </visual>
+        <self_collide>0</self_collide>
+        <enable_wind>0</enable_wind>
+        <kinematic>0</kinematic>
+      </link>
+      <plugin name='ros2_objectpose_plugin' filename='libros2_objectpose_plugin.so'>
+        <ros>
+          <namespace>black_bishop_c8</namespace>
+        </ros>
+      </plugin>
+      <pose>0.0616 0.2224 0.026 0 -0 0</pose>
+    </model>
+    <model name='black_bishop_f8'>
+      <static>0</static>
+      <link name='link'>
+        <inertial>
+          <mass>0.05</mass>
+          <inertia>
+            <ixx>1e-05</ixx>
+            <iyy>1e-05</iyy>
+            <izz>1e-05</izz>
+            <ixy>0</ixy>
+            <ixz>0</ixz>
+            <iyz>0</iyz>
+          </inertia>
+          <pose>0 0 0 0 -0 0</pose>
+        </inertial>
+        <collision name='collision'>
+          <geometry>
+            <mesh>
+              <uri>model://black_bishop/meshes/black_bishop.dae</uri>
+            </mesh>
+          </geometry>
+          <surface>
+            <contact>
+              <ode/>
+            </contact>
+            <friction>
+              <ode>
+                <mu>1</mu>
+                <mu2>1</mu2>
+              </ode>
+              <torsional>
+                <ode/>
+              </torsional>
+            </friction>
+            <bounce/>
+          </surface>
+          <max_contacts>10</max_contacts>
+        </collision>
+        <visual name='visual'>
+          <geometry>
+            <mesh>
+              <uri>model://black_bishop/meshes/black_bishop.dae</uri>
+            </mesh>
+          </geometry>
+        </visual>
+        <self_collide>0</self_collide>
+        <enable_wind>0</enable_wind>
+        <kinematic>0</kinematic>
+      </link>
+      <plugin name='ros2_objectpose_plugin' filename='libros2_objectpose_plugin.so'>
+        <ros>
+          <namespace>black_bishop_f8</namespace>
+        </ros>
+      </plugin>
+      <pose>-0.0434 0.2224 0.026 0 -0 0</pose>
+    </model>
+    <model name='white_bishop_c1'>
+      <static>0</static>
+      <link name='link'>
+        <inertial>
+          <mass>0.05</mass>
+          <inertia>
+            <ixx>1e-05</ixx>
+            <iyy>1e-05</iyy>
+            <izz>1e-05</izz>
+            <ixy>0</ixy>
+            <ixz>0</ixz>
+            <iyz>0</iyz>
+          </inertia>
+          <pose>0 0 0 0 -0 0</pose>
+        </inertial>
+        <collision name='collision'>
+          <geometry>
+            <mesh>
+              <uri>model://white_bishop/meshes/white_bishop.dae</uri>
+            </mesh>
+          </geometry>
+          <surface>
+            <contact>
+              <ode/>
+            </contact>
+            <friction>
+              <ode>
+                <mu>1</mu>
+                <mu2>1</mu2>
+              </ode>
+              <torsional>
+                <ode/>
+              </torsional>
+            </friction>
+            <bounce/>
+          </surface>
+          <max_contacts>10</max_contacts>
+        </collision>
+        <visual name='visual'>
+          <geometry>
+            <mesh>
+              <uri>model://white_bishop/meshes/white_bishop.dae</uri>
+            </mesh>
+          </geometry>
+        </visual>
+        <self_collide>0</self_collide>
+        <enable_wind>0</enable_wind>
+        <kinematic>0</kinematic>
+      </link>
+      <plugin name='ros2_objectpose_plugin' filename='libros2_objectpose_plugin.so'>
+        <ros>
+          <namespace>white_bishop_c1</namespace>
+        </ros>
+      </plugin>
+      <pose>0.0616 0.4674 0.026 0 -0 0</pose>
+    </model>
+    <model name='white_bishop_f1'>
+      <static>0</static>
+      <link name='link'>
+        <inertial>
+          <mass>0.05</mass>
+          <inertia>
+            <ixx>1e-05</ixx>
+            <iyy>1e-05</iyy>
+            <izz>1e-05</izz>
+            <ixy>0</ixy>
+            <ixz>0</ixz>
+            <iyz>0</iyz>
+          </inertia>
+          <pose>0 0 0 0 -0 0</pose>
+        </inertial>
+        <collision name='collision'>
+          <geometry>
+            <mesh>
+              <uri>model://white_bishop/meshes/white_bishop.dae</uri>
+            </mesh>
+          </geometry>
+          <surface>
+            <contact>
+              <ode/>
+            </contact>
+            <friction>
+              <ode>
+                <mu>1</mu>
+                <mu2>1</mu2>
+              </ode>
+              <torsional>
+                <ode/>
+              </torsional>
+            </friction>
+            <bounce/>
+          </surface>
+          <max_contacts>10</max_contacts>
+        </collision>
+        <visual name='visual'>
+          <geometry>
+            <mesh>
+              <uri>model://white_bishop/meshes/white_bishop.dae</uri>
+            </mesh>
+          </geometry>
+        </visual>
+        <self_collide>0</self_collide>
+        <enable_wind>0</enable_wind>
+        <kinematic>0</kinematic>
+      </link>
+      <plugin name='ros2_objectpose_plugin' filename='libros2_objectpose_plugin.so'>
+        <ros>
+          <namespace>white_bishop_f1</namespace>
+        </ros>
+      </plugin>
+      <pose>-0.0434 0.4674 0.026 0 -0 0</pose>
+    </model>
+    <model name='black_queen_d8'>
+      <static>0</static>
+      <link name='link'>
+        <inertial>
+          <mass>0.05</mass>
+          <inertia>
+            <ixx>1e-05</ixx>
+            <iyy>1e-05</iyy>
+            <izz>1e-05</izz>
+            <ixy>0</ixy>
+            <ixz>0</ixz>
+            <iyz>0</iyz>
+          </inertia>
+          <pose>0 0 0 0 -0 0</pose>
+        </inertial>
+        <collision name='collision'>
+          <geometry>
+            <mesh>
+              <uri>model://black_queen/meshes/black_queen.dae</uri>
+            </mesh>
+          </geometry>
+          <surface>
+            <contact>
+              <ode/>
+            </contact>
+            <friction>
+              <ode>
+                <mu>1</mu>
+                <mu2>1</mu2>
+              </ode>
+              <torsional>
+                <ode/>
+              </torsional>
+            </friction>
+            <bounce/>
+          </surface>
+          <max_contacts>10</max_contacts>
+        </collision>
+        <visual name='visual'>
+          <geometry>
+            <mesh>
+              <uri>model://black_queen/meshes/black_queen.dae</uri>
+            </mesh>
+          </geometry>
+        </visual>
+        <self_collide>0</self_collide>
+        <enable_wind>0</enable_wind>
+        <kinematic>0</kinematic>
+      </link>
+      <plugin name='ros2_objectpose_plugin' filename='libros2_objectpose_plugin.so'>
+        <ros>
+          <namespace>black_queen_d8</namespace>
+        </ros>
+      </plugin>
+      <pose>0.0266 0.2224 0.026 0 -0 0</pose>
+    </model>
+    <model name='white_queen_d1'>
+      <static>0</static>
+      <link name='link'>
+        <inertial>
+          <mass>0.05</mass>
+          <inertia>
+            <ixx>1e-05</ixx>
+            <iyy>1e-05</iyy>
+            <izz>1e-05</izz>
+            <ixy>0</ixy>
+            <ixz>0</ixz>
+            <iyz>0</iyz>
+          </inertia>
+          <pose>0 0 0 0 -0 0</pose>
+        </inertial>
+        <collision name='collision'>
+          <geometry>
+            <mesh>
+              <uri>model://white_queen/meshes/white_queen.dae</uri>
+            </mesh>
+          </geometry>
+          <surface>
+            <contact>
+              <ode/>
+            </contact>
+            <friction>
+              <ode>
+                <mu>1</mu>
+                <mu2>1</mu2>
+              </ode>
+              <torsional>
+                <ode/>
+              </torsional>
+            </friction>
+            <bounce/>
+          </surface>
+          <max_contacts>10</max_contacts>
+        </collision>
+        <visual name='visual'>
+          <geometry>
+            <mesh>
+              <uri>model://white_queen/meshes/white_queen.dae</uri>
+            </mesh>
+          </geometry>
+        </visual>
+        <self_collide>0</self_collide>
+        <enable_wind>0</enable_wind>
+        <kinematic>0</kinematic>
+      </link>
+      <plugin name='ros2_objectpose_plugin' filename='libros2_objectpose_plugin.so'>
+        <ros>
+          <namespace>white_queen_d1</namespace>
+        </ros>
+      </plugin>
+      <pose>0.0266 0.4674 0.026 0 -0 0</pose>
+    </model>
+    <model name='black_king_e8'>
+      <static>0</static>
+      <link name='link'>
+        <inertial>
+          <mass>0.05</mass>
+          <inertia>
+            <ixx>1e-05</ixx>
+            <iyy>1e-05</iyy>
+            <izz>1e-05</izz>
+            <ixy>0</ixy>
+            <ixz>0</ixz>
+            <iyz>0</iyz>
+          </inertia>
+          <pose>0 0 0 0 -0 0</pose>
+        </inertial>
+        <collision name='collision'>
+          <geometry>
+            <mesh>
+              <uri>model://black_king/meshes/black_king.dae</uri>
+            </mesh>
+          </geometry>
+          <surface>
+            <contact>
+              <ode/>
+            </contact>
+            <friction>
+              <ode>
+                <mu>1</mu>
+                <mu2>1</mu2>
+              </ode>
+              <torsional>
+                <ode/>
+              </torsional>
+            </friction>
+            <bounce/>
+          </surface>
+          <max_contacts>10</max_contacts>
+        </collision>
+        <visual name='visual'>
+          <geometry>
+            <mesh>
+              <uri>model://black_king/meshes/black_king.dae</uri>
+            </mesh>
+          </geometry>
+        </visual>
+        <self_collide>0</self_collide>
+        <enable_wind>0</enable_wind>
+        <kinematic>0</kinematic>
+      </link>
+      <plugin name='ros2_objectpose_plugin' filename='libros2_objectpose_plugin.so'>
+        <ros>
+          <namespace>black_king_e8</namespace>
+        </ros>
+      </plugin>
+      <pose>-0.0084 0.2224 0.026 0 -0 0</pose>
+    </model>
+    <model name='white_king_e1'>
+      <static>0</static>
+      <link name='link'>
+        <inertial>
+          <mass>0.05</mass>
+          <inertia>
+            <ixx>1e-05</ixx>
+            <iyy>1e-05</iyy>
+            <izz>1e-05</izz>
+            <ixy>0</ixy>
+            <ixz>0</ixz>
+            <iyz>0</iyz>
+          </inertia>
+          <pose>0 0 0 0 -0 0</pose>
+        </inertial>
+        <collision name='collision'>
+          <geometry>
+            <mesh>
+              <uri>model://white_king/meshes/white_king.dae</uri>
+            </mesh>
+          </geometry>
+          <surface>
+            <contact>
+              <ode/>
+            </contact>
+            <friction>
+              <ode>
+                <mu>1</mu>
+                <mu2>1</mu2>
+              </ode>
+              <torsional>
+                <ode/>
+              </torsional>
+            </friction>
+            <bounce/>
+          </surface>
+          <max_contacts>10</max_contacts>
+        </collision>
+        <visual name='visual'>
+          <geometry>
+            <mesh>
+              <uri>model://white_king/meshes/white_king.dae</uri>
+            </mesh>
+          </geometry>
+        </visual>
+        <self_collide>0</self_collide>
+        <enable_wind>0</enable_wind>
+        <kinematic>0</kinematic>
+      </link>
+      <plugin name='ros2_objectpose_plugin' filename='libros2_objectpose_plugin.so'>
+        <ros>
+          <namespace>white_king_e1</namespace>
+        </ros>
+      </plugin>
+      <pose>-0.0084 0.4674 0.026 0 -0 0</pose>
+    </model>
+    <model name='black_pawn_c7'>
+      <static>0</static>
+      <link name='link'>
+        <inertial>
+          <mass>0.05</mass>
+          <inertia>
+            <ixx>1e-05</ixx>
+            <iyy>1e-05</iyy>
+            <izz>1e-05</izz>
+            <ixy>0</ixy>
+            <ixz>0</ixz>
+            <iyz>0</iyz>
+          </inertia>
+          <pose>0 0 0 0 -0 0</pose>
+        </inertial>
+        <collision name='collision'>
+          <geometry>
+            <mesh>
+              <uri>model://black_pawn/meshes/black_pawn.dae</uri>
+            </mesh>
+          </geometry>
+          <surface>
+            <contact>
+              <ode/>
+            </contact>
+            <friction>
+              <ode>
+                <mu>1</mu>
+                <mu2>1</mu2>
+              </ode>
+              <torsional>
+                <ode/>
+              </torsional>
+            </friction>
+            <bounce/>
+          </surface>
+          <max_contacts>10</max_contacts>
+        </collision>
+        <visual name='visual'>
+          <geometry>
+            <mesh>
+              <uri>model://black_pawn/meshes/black_pawn.dae</uri>
+            </mesh>
+          </geometry>
+        </visual>
+        <self_collide>0</self_collide>
+        <enable_wind>0</enable_wind>
+        <kinematic>0</kinematic>
+      </link>
+      <plugin name='ros2_objectpose_plugin' filename='libros2_objectpose_plugin.so'>
+        <ros>
+          <namespace>black_pawn_c7</namespace>
+        </ros>
+      </plugin>
+      <pose>0.0616 0.2574 0.026 0 -0 0</pose>
+    </model>
+    <plugin name='gazebo_link_attacher' filename='libgazebo_link_attacher.so'/>
+    <model name='trolley'>
+      <static>1</static>
+      <link name='link'>
+        <visual name='visual'>
+          <geometry>
+            <mesh>
+              <uri>model://trolley/meshes/trolley.dae</uri>
+            </mesh>
+          </geometry>
+        </visual>
+        <collision name='collision'>
+          <geometry>
+            <mesh>
+              <uri>model://trolley/meshes/trolley.dae</uri>
+            </mesh>
+          </geometry>
+          <max_contacts>10</max_contacts>
+          <surface>
+            <contact>
+              <ode/>
+            </contact>
+            <bounce/>
+            <friction>
+              <torsional>
+                <ode/>
+              </torsional>
+              <ode/>
+            </friction>
+          </surface>
+        </collision>
+        <self_collide>0</self_collide>
+        <enable_wind>0</enable_wind>
+        <kinematic>0</kinematic>
+      </link>
+      <pose>0.894452 -0.292005 0 0 -0 0</pose>
+    </model>
+    <model name='chess_clock'>
+      <static>1</static>
+      <link name='link'>
+        <visual name='visual'>
+          <geometry>
+            <mesh>
+              <uri>model://chess_clock/meshes/chess_clock.dae</uri>
+            </mesh>
+          </geometry>
+        </visual>
+        <collision name='collision'>
+          <geometry>
+            <mesh>
+              <uri>model://chess_clock/meshes/chess_clock.dae</uri>
+            </mesh>
+          </geometry>
+          <max_contacts>10</max_contacts>
+          <surface>
+            <contact>
+              <ode/>
+            </contact>
+            <bounce/>
+            <friction>
+              <torsional>
+                <ode/>
+              </torsional>
+              <ode/>
+            </friction>
+          </surface>
+        </collision>
+        <self_collide>0</self_collide>
+        <enable_wind>0</enable_wind>
+        <kinematic>0</kinematic>
+      </link>
+      <pose>-0.272486 -0.056756 0 0 -0 0</pose>
+    </model>
+    <model name='chess_bin'>
+      <static>1</static>
+      <link name='link'>
+        <visual name='visual'>
+          <geometry>
+            <mesh>
+              <uri>model://chess_bin/meshes/chess_bin.dae</uri>
+            </mesh>
+          </geometry>
+        </visual>
+        <collision name='collision'>
+          <geometry>
+            <mesh>
+              <uri>model://chess_bin/meshes/chess_bin.dae</uri>
+            </mesh>
+          </geometry>
+          <max_contacts>10</max_contacts>
+          <surface>
+            <contact>
+              <ode/>
+            </contact>
+            <bounce/>
+            <friction>
+              <torsional>
+                <ode/>
+              </torsional>
+              <ode/>
+            </friction>
+          </surface>
+        </collision>
+        <self_collide>0</self_collide>
+        <enable_wind>0</enable_wind>
+        <kinematic>0</kinematic>
+      </link>
+      <pose>0.294975 0.020013 0 0 -0 0</pose>
+    </model>
+    <model name='chess_bin_lid'>
+      <static>0</static>
+      <link name='link'>
+        <inertial>
+          <mass>0.2</mass>
+          <inertia>
+            <ixx>1e-05</ixx>
+            <iyy>1e-05</iyy>
+            <izz>1e-05</izz>
+            <ixy>0</ixy>
+            <ixz>0</ixz>
+            <iyz>0</iyz>
+          </inertia>
+          <pose>0 0 0 0 -0 0</pose>
+        </inertial>
+        <collision name='collision'>
+          <geometry>
+            <mesh>
+              <uri>model://chess_bin_lid/meshes/chess_bin_lid.dae</uri>
+            </mesh>
+          </geometry>
+          <surface>
+            <contact>
+              <ode/>
+            </contact>
+            <friction>
+              <ode>
+                <mu>1</mu>
+                <mu2>1</mu2>
+              </ode>
+              <torsional>
+                <ode/>
+              </torsional>
+            </friction>
+            <bounce/>
+          </surface>
+          <max_contacts>10</max_contacts>
+        </collision>
+        <visual name='visual'>
+          <geometry>
+            <mesh>
+              <uri>model://chess_bin_lid/meshes/chess_bin_lid.dae</uri>
+            </mesh>
+          </geometry>
+        </visual>
+        <self_collide>0</self_collide>
+        <enable_wind>0</enable_wind>
+        <kinematic>0</kinematic>
+      </link>
+      <pose>0.294925 0.019714 0 0 -0 0</pose>
+    </model>
+  </world>
+</sdf>

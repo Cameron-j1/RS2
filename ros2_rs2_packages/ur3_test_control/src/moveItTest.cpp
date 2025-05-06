@@ -16,6 +16,7 @@
 #include <moveit/planning_scene_interface/planning_scene_interface.h>
 #include <moveit_msgs/msg/collision_object.hpp>
 #include <shape_msgs/msg/solid_primitive.hpp>
+
 #include <Eigen/Geometry>
 
 //for joint state
@@ -29,6 +30,15 @@
 #include <unordered_map>
 
 #define SQUARE_SIZE 35.0
+
+//speed variables
+#define MAX_VEL_CARTESIAN 0.05
+#define MAX_ACCEL_CARTESIAN 0.02
+
+#define MAX_VEL_JOINT_TARGET 0.15
+#define MAX_ACCEL_JOINT_TARGET 0.06
+
+
 // Initial joint pose: 0, -90, 90, -90, -90, 0
 
 class RobotKinematics : public rclcpp::Node {
@@ -86,6 +96,9 @@ class RobotKinematics : public rclcpp::Node {
                 RCLCPP_ERROR(this->get_logger(), "MoveGroup pointer is not initialized");
                 return;
             }
+
+            move_group_ptr->setMaxVelocityScalingFactor(MAX_VEL_JOINT_TARGET);
+            move_group_ptr->setMaxAccelerationScalingFactor(MAX_ACCEL_JOINT_TARGET);
             
             // Set the joint target values
             std::vector<double> joint_positions = {j1, j2, j3, j4, j5, j6};
@@ -111,6 +124,9 @@ class RobotKinematics : public rclcpp::Node {
             } else {
                 RCLCPP_ERROR(this->get_logger(), "Failed to plan joint motion");
             }
+
+            move_group_ptr->setMaxVelocityScalingFactor(MAX_VEL_CARTESIAN);
+            move_group_ptr->setMaxAccelerationScalingFactor(MAX_ACCEL_CARTESIAN);
         }
 
     private:
@@ -419,8 +435,8 @@ int main(int argc, char * argv[])
     // Give the planning scene some time to update
     rclcpp::sleep_for(std::chrono::seconds(1));
     
-    move_group.setMaxVelocityScalingFactor(0.05);  // 20% of maximum velocity
-    move_group.setMaxAccelerationScalingFactor(0.02);  // 20% of maximum acceleration
+    move_group.setMaxVelocityScalingFactor(MAX_VEL_JOINT_TARGET);  // 20% of maximum velocity
+    move_group.setMaxAccelerationScalingFactor(MAX_ACCEL_JOINT_TARGET);  // 20% of maximum acceleration
     move_group.setPlanningTime(10.0);  // Give the planner 10 seconds
     // Initial pose of the robot
     move_group.setJointValueTarget({M_PI/2, -M_PI/2, M_PI/2, -M_PI/2, -M_PI/2, 0});
@@ -442,6 +458,12 @@ int main(int argc, char * argv[])
             RCLCPP_ERROR(node->get_logger(), "Failed to execute joint space plan");
         }
     }
+<<<<<<< HEAD
+=======
+
+    move_group.setMaxVelocityScalingFactor(MAX_VEL_CARTESIAN);  // 20% of maximum velocity
+    move_group.setMaxAccelerationScalingFactor(MAX_ACCEL_CARTESIAN); 
+>>>>>>> 095d255f3aa5d184c2229efc251fd28f60ea51b8
             
     while (rclcpp::ok()) {
         rclcpp::spin(node); // Process any pending callbacks
