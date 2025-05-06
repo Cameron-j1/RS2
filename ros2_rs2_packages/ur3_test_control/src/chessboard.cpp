@@ -22,6 +22,10 @@ bp::ipstream stockfish_out; // Capture Stockfish output
 bp::opstream stockfish_in;  // Send commands to Stockfish
 bp::child stockfish("stockfish", bp::std_out > stockfish_out, bp::std_in < stockfish_in);
 
+int stockfishDifficulty = 1800; // Default ELO
+int stockfishDepth = 10;        // Default search depth
+bool stockfishUseElo = true;    // Whether to use ELO-based or depth-based settings
+
 const int BOARD_SIZE = 8;
 const int SQUARE_SIZE = 80;  // Adjust as needed
 std::string chessPiecesPath = ament_index_cpp::get_package_share_directory("ur3_test_control") + "/images/pieces.png";
@@ -48,6 +52,66 @@ std::unordered_map<int, bool> isCastling;
 int halfmoveClock = 0, fullmoveNumer = 1;
 
 std::string castlingAvail = "KQkq";
+
+
+
+
+void setStockfishDifficulty(int elo) {
+    stockfishDifficulty = elo;
+    
+    // Determine appropriate depth based on ELO
+    if (elo < 800) {
+        stockfishDepth = 1;
+    } else if (elo < 1200) {
+        stockfishDepth = 2;
+    } else if (elo < 1600) {
+        stockfishDepth = 4;
+    } else if (elo < 2000) {
+        stockfishDepth = 8;
+    } else if (elo < 2400) {
+        stockfishDepth = 12;
+    } else {
+        stockfishDepth = 15;
+    }
+    
+    stockfishUseElo = (elo >= 1000); // For very low ELOs, we'll use depth only
+    
+    // Send settings to Stockfish
+    stockfish_in << "setoption name Skill Level value " << std::min(20, std::max(0, (elo - 1000) / 100)) << std::endl;
+    
+    if (elo >= 1800) {
+        // Higher ELO uses more threads and hash
+        stockfish_in << "setoption name Threads value 2" << std::endl;
+        stockfish_in << "setoption name Hash value 128" << std::endl;
+    } else {
+        // Lower ELO uses minimal resources
+        stockfish_in << "setoption name Threads value 1" << std::endl;
+        stockfish_in << "setoption name Hash value 16" << std::endl;
+    }
+    
+    // Set other parameters for lower ELO ranges
+    if (elo < 1400) {
+        // Make more mistakes for lower ELO
+        stockfish_in << "setoption name Skill Level Maximum Error value " << (120 - elo/20) << std::endl;
+        stockfish_in << "setoption name Skill Level Probability value " << (80 - elo/25) << std::endl;
+    }
+    
+    stockfish_in << "isready" << std::endl << std::flush;
+    
+    // Wait for readyok
+    std::string line;
+    while (std::getline(stockfish_out, line)) {
+        if (line == "readyok") {
+            break;
+        }
+    }
+}
+
+
+
+
+
+
 
 bool isValid(int row, int col) {
     return row >= 0 && row < 8 && col >= 0 && col < 8;
@@ -433,6 +497,30 @@ int main(int argc, char * argv[]) {
 
     auto msg = std_msgs::msg::String();
 
+//Difficulty Subscriber
+
+    auto difficulty_subscriber = node->create_subscription<std_msgs::msg::String>(
+        "/difficulty_setting", 10,
+        [node, &stockfishDifficulty](const std_msgs::msg::String::SharedPtr msg) {
+            std::string command = msg->data;
+            if (command.substr(0, 11) == "DIFFICULTY_") {
+                std::string level = command.substr(11);
+                int elo = 1800; // Default
+                
+                if (level == "EASY") {
+                    elo = 400;
+                } else if (level == "MEDIUM") {
+                    elo = 1200;
+                } else if (level == "HARD"){
+                    elo = 2800;
+
+                
+                RCLCPP_INFO(node->get_logger(), "Setting Stockfish difficulty to ELO %d", elo);
+                setStockfishDifficulty(elo);
+            }
+        });
+
+
     // Initialising stockfish communication via boost
     stockfish_in << "uci\n" << std::flush;
     std::string line;
@@ -674,7 +762,12 @@ int main(int argc, char * argv[]) {
             
             // Stockfish move logic...
             stockfish_in << fen << std::flush;
-            stockfish_in << "go depth 10\n" << std::flush;
+            if (stockfishUseElo) {
+                // Use ELO-based settings
+                stockfish_in << "go depth " << stockfishDepth << " nodes " << (stockfishDifficulty * 50) << "\n" << std::flush;
+            } else {
+                // For very low ELOs, just use minimal depth
+                stockfish_in << "go depth " << stockfishDepth << "\n" << std::flush;
             char piecePlayed = ' ', pieceCaptured = ' ';
             char moveType = 'n';
             std::string stockfishMove; // Declare stockfishMove variable
