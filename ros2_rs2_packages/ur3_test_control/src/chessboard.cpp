@@ -30,6 +30,29 @@ std::string chessPiecesPath = ament_index_cpp::get_package_share_directory("ur3_
 sf::Color cream(240, 217, 181);
 sf::Color brown(181, 136, 99);
 
+// Difficulty settings for Stockfish
+enum class Difficulty {
+    EASY,
+    MEDIUM,
+    HARD
+};
+
+// Default difficulty
+Difficulty currentDifficulty = Difficulty::MEDIUM;
+
+// Stockfish parameters for each difficulty level
+struct StockfishParams {
+    int searchDepth;
+    int skill;  // Stockfish skill level (0-20)
+    int moveTime; // Max time in milliseconds
+};
+
+std::unordered_map<Difficulty, StockfishParams> difficultyParams = {
+    {Difficulty::EASY, {5, 5, 500}},      // Shallow depth, low skill, quick moves
+    {Difficulty::MEDIUM, {10, 10, 1000}}, // Medium depth and skill
+    {Difficulty::HARD, {15, 20, 2000}}    // Deep search, max skill, longer think time
+};
+
 unsigned char board[8][8] = {
     {'-', '-', '-', '-', '-', '-', '-', '-'},
     {'-', '-', '-', '-', '-', '-', '-', '-'},
@@ -48,6 +71,108 @@ std::unordered_map<int, bool> isCastling;
 int halfmoveClock = 0, fullmoveNumer = 1;
 
 std::string castlingAvail = "KQkq";
+
+// Dropdown UI for difficulty selection
+class DropdownMenu {
+public:
+    sf::RectangleShape mainButton;
+    sf::Text mainLabel;
+    std::vector<sf::RectangleShape> optionButtons;
+    std::vector<sf::Text> optionLabels;
+    std::vector<std::string> optionNames;
+    bool isOpen;
+    int selectedIndex;
+    sf::Font font;
+
+    DropdownMenu(float x, float y, float width, float height, 
+                 const sf::Font& font, const std::vector<std::string>& options) {
+        this->font = font;
+        this->optionNames = options;
+        this->isOpen = false;
+        this->selectedIndex = 1; // Default to MEDIUM
+
+        // Setup main button
+        mainButton.setSize(sf::Vector2f(width, height));
+        mainButton.setPosition(x, y);
+        mainButton.setFillColor(sf::Color(100, 100, 100));
+        mainButton.setOutlineThickness(2);
+        mainButton.setOutlineColor(sf::Color::Black);
+
+        // Setup main label
+        mainLabel.setFont(font);
+        mainLabel.setString("Difficulty: " + options[selectedIndex]);
+        mainLabel.setCharacterSize(18);
+        mainLabel.setFillColor(sf::Color::White);
+        sf::FloatRect textBounds = mainLabel.getLocalBounds();
+        float labelX = x + 10;
+        float labelY = y + (height - textBounds.height) / 2.0f - textBounds.top;
+        mainLabel.setPosition(labelX, labelY);
+
+        // Setup option buttons and labels
+        for (int i = 0; i < options.size(); i++) {
+            sf::RectangleShape optionButton;
+            optionButton.setSize(sf::Vector2f(width, height));
+            optionButton.setPosition(x, y + (i + 1) * height);
+            optionButton.setFillColor(sf::Color(80, 80, 80));
+            optionButton.setOutlineThickness(1);
+            optionButton.setOutlineColor(sf::Color::Black);
+            optionButtons.push_back(optionButton);
+
+            sf::Text optionLabel;
+            optionLabel.setFont(font);
+            optionLabel.setString(options[i]);
+            optionLabel.setCharacterSize(18);
+            optionLabel.setFillColor(sf::Color::White);
+            textBounds = optionLabel.getLocalBounds();
+            labelX = x + 10;
+            labelY = y + (i + 1) * height + (height - textBounds.height) / 2.0f - textBounds.top;
+            optionLabel.setPosition(labelX, labelY);
+            optionLabels.push_back(optionLabel);
+        }
+    }
+
+    void draw(sf::RenderWindow& window) {
+        window.draw(mainButton);
+        window.draw(mainLabel);
+
+        if (isOpen) {
+            for (int i = 0; i < optionButtons.size(); i++) {
+                window.draw(optionButtons[i]);
+                window.draw(optionLabels[i]);
+            }
+        }
+    }
+
+    bool handleClick(sf::Vector2f mousePos) {
+        if (mainButton.getGlobalBounds().contains(mousePos)) {
+            isOpen = !isOpen;
+            return true;
+        }
+
+        if (isOpen) {
+            for (int i = 0; i < optionButtons.size(); i++) {
+                if (optionButtons[i].getGlobalBounds().contains(mousePos)) {
+                    selectedIndex = i;
+                    mainLabel.setString("Difficulty: " + optionNames[i]);
+                    isOpen = false;
+                    sf::FloatRect textBounds = mainLabel.getLocalBounds();
+                    float x = mainButton.getPosition().x + 10;
+                    float y = mainButton.getPosition().y +
+                              (mainButton.getSize().y - textBounds.height) / 2.0f - textBounds.top;
+                    mainLabel.setPosition(x, y);
+                    
+                    // Update current difficulty
+                    if (optionNames[i] == "EASY") currentDifficulty = Difficulty::EASY;
+                    else if (optionNames[i] == "MEDIUM") currentDifficulty = Difficulty::MEDIUM;
+                    else if (optionNames[i] == "HARD") currentDifficulty = Difficulty::HARD;
+                    
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+};
 
 bool isValid(int row, int col) {
     return row >= 0 && row < 8 && col >= 0 && col < 8;
@@ -320,7 +445,6 @@ std::vector<sf::Sprite> makePieces(const sf::Texture& texture, std::string fen) 
             break;
 
         case 'R':
-            // std::cout << "found RRR \n";
             piece.setTextureRect(sf::IntRect(128, 64, 64, 64));
             break;
 
@@ -408,27 +532,60 @@ void publishFEN(
     RCLCPP_INFO(node->get_logger(), "Published FEN: %s", msg.data.c_str());
 }
 
-int main(int argc, char * argv[]) {
+void configureStockfish() {
+    // Get parameters for current difficulty level
+    StockfishParams params = difficultyParams[currentDifficulty];
+    
+    // Configure Stockfish with the appropriate parameters
+    stockfish_in << "setoption name Skill Level value " << params.skill << "\n" << std::flush;
+    
+    // Additional options can be set here based on difficulty
+    if (currentDifficulty == Difficulty::EASY) {
+        // For easy mode, we can limit Stockfish's abilities
+        stockfish_in << "setoption name Contempt value -50\n" << std::flush; // Makes Stockfish play more conservatively
+    } else if (currentDifficulty == Difficulty::MEDIUM) {
+        stockfish_in << "setoption name Contempt value 0\n" << std::flush;   // Neutral play
+    } else if (currentDifficulty == Difficulty::HARD) {
+        stockfish_in << "setoption name Contempt value 15\n" << std::flush;  // More aggressive play
+    }
+}
 
+int main(int argc, char * argv[]) {
     rclcpp::init(argc, argv);
     std::string msgFromCamera;
     bool newMove = false;
     auto node = rclcpp::Node::make_shared("chessGUI",
         rclcpp::NodeOptions().automatically_declare_parameters_from_overrides(true));
 
-
-
     RCLCPP_INFO(node->get_logger(), "Starting chess GUI node...");
     auto publisher = node->create_publisher<std_msgs::msg::String>("/chess_moves", 10);
 
     auto subscriber = node->create_subscription<std_msgs::msg::String>(
         "/player_move", 10,
-        [node, &msgFromCamera, &newMove](const std_msgs::msg::String::SharedPtr msg) {  // Capture 'a' by reference
+        [node, &msgFromCamera, &newMove](const std_msgs::msg::String::SharedPtr msg) {
             if (!newMove) {
-                msgFromCamera = msg->data;  // Copy the message data to 'a'
+                msgFromCamera = msg->data;
                 newMove = true;
                 RCLCPP_INFO(node->get_logger(), "Received from Camera: %s", msgFromCamera.c_str());
             }
+        });
+
+    // Subscribe to difficulty change requests
+    auto difficultySubscriber = node->create_subscription<std_msgs::msg::String>(
+        "/chess_difficulty", 10,
+        [node](const std_msgs::msg::String::SharedPtr msg) {
+            std::string difficultyStr = msg->data;
+            if (difficultyStr == "DIFFICULTY_EASY") {
+                currentDifficulty = Difficulty::EASY;
+                RCLCPP_INFO(node->get_logger(), "Difficulty set to EASY");
+            } else if (difficultyStr == "DIFFICULTY_MEDIUM") {
+                currentDifficulty = Difficulty::MEDIUM;
+                RCLCPP_INFO(node->get_logger(), "Difficulty set to MEDIUM");
+            } else if (difficultyStr == "DIFFICULTY_HARD") {
+                currentDifficulty = Difficulty::HARD;
+                RCLCPP_INFO(node->get_logger(), "Difficulty set to HARD");
+            }
+            configureStockfish();
         });
 
     auto msg = std_msgs::msg::String();
@@ -438,23 +595,42 @@ int main(int argc, char * argv[]) {
     std::string line;
     while (std::getline(stockfish_out, line)) {
         if (line == "uciok") {
-            RCLCPP_INFO(node->get_logger(), "Stockfish gud af!");
+            RCLCPP_INFO(node->get_logger(), "Stockfish initialized successfully!");
             break; // UCI initialization completed
         }
     }
+    
+    // Initial configuration of Stockfish based on default difficulty
+    configureStockfish();
 
-    sf::RenderWindow window(sf::VideoMode(BOARD_SIZE * SQUARE_SIZE, BOARD_SIZE * SQUARE_SIZE), "Chessy", sf::Style::Titlebar | sf::Style::Close);
+    sf::RenderWindow window(sf::VideoMode(BOARD_SIZE * SQUARE_SIZE, BOARD_SIZE * SQUARE_SIZE + 50), "Chess Game", sf::Style::Titlebar | sf::Style::Close);
     sf::Texture texture;
     texture.loadFromFile(chessPiecesPath);
 
+    // Load font for the dropdown and status text
+    sf::Font font;
+    // Load your preferred font - replace with an appropriate path
+    if (!font.loadFromFile("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf")) {
+        RCLCPP_ERROR(node->get_logger(), "Failed to load font!");
+    }
+
+    // Create difficulty dropdown menu
+    DropdownMenu difficultyDropdown(10, BOARD_SIZE * SQUARE_SIZE + 10, 150, 30, font, {"EASY", "MEDIUM", "HARD"});
+    
+    // Status text for game information
+    sf::Text statusText;
+    statusText.setFont(font);
+    statusText.setCharacterSize(16);
+    statusText.setFillColor(sf::Color::White);
+    statusText.setPosition(180, BOARD_SIZE * SQUARE_SIZE + 15);
+    std::string status = "Game started. White to move.";
+
     // Change the fen string to set a different piece placement
     std::string fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR";
-    // Setting a random board position for testing, have to uncomment if not in debug
-    //fen = "rn1qkb1r/pp2pppp/2p1bn2/3p4/4P3/3P1N2/PPP1BPPP/RNBQK2R";
-    // fen = "r2qkb1r/pppb1ppp/4pn2/3p4/1n2P3/2NPBN2/PPPQ1PPP/R3KB1R";
     window.setVerticalSyncEnabled(false);
     std::vector<std::string> pieceName;
     std::vector<sf::Sprite> pieces = makePieces(texture, fen);
+    
     // publish the initial state of the chess board to the camera node for initialisation
     for (int i = 0; i < 8; i++) {
         for (int y = 0; y < 8; y++) {
@@ -474,7 +650,7 @@ int main(int argc, char * argv[]) {
     // Service: Reset Chessboard
     auto reset_service = node->create_service<std_srvs::srv::Trigger>(
         "/reset_chessboard",
-        [&pieces, &texture, &fen, &publisher, &msgFromCamera, &newMove, &blackTurn, &lastClickedPiece, &fen_pub, node]
+        [&pieces, &texture, &fen, &publisher, &msgFromCamera, &newMove, &blackTurn, &lastClickedPiece, &fen_pub, &status, node]
         (const std::shared_ptr<std_srvs::srv::Trigger::Request> request,
         std::shared_ptr<std_srvs::srv::Trigger::Response> response) {
             
@@ -496,6 +672,7 @@ int main(int argc, char * argv[]) {
             isCastling.clear();
             potentialMove.clear();
             isPotentialMove.clear();
+            status = "Game reset. White to move.";
     
             // Publish new board state
             std_msgs::msg::String msg;

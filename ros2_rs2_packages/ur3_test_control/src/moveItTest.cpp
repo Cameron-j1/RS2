@@ -458,12 +458,9 @@ int main(int argc, char * argv[])
             RCLCPP_ERROR(node->get_logger(), "Failed to execute joint space plan");
         }
     }
-<<<<<<< HEAD
-=======
 
     move_group.setMaxVelocityScalingFactor(MAX_VEL_CARTESIAN);  // 20% of maximum velocity
     move_group.setMaxAccelerationScalingFactor(MAX_ACCEL_CARTESIAN); 
->>>>>>> 095d255f3aa5d184c2229efc251fd28f60ea51b8
             
     while (rclcpp::ok()) {
         rclcpp::spin(node); // Process any pending callbacks
