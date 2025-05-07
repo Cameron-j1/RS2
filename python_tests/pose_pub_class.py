@@ -132,7 +132,7 @@ class CameraPosePublisher:
         else:
             marker.id = pose_data['id']
 
-        print(f'publishing ID: {marker.id}')
+        # print(f'publishing ID: {marker.id}')
         marker.type = Marker.ARROW
         marker.action = Marker.ADD
         
