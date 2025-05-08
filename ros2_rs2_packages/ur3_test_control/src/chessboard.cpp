@@ -852,9 +852,10 @@ int main(int argc, char * argv[]) {
             // Stockfish move logic...
             stockfish_in << fen << std::flush;
             stockfish_in << "go depth 10\n" << std::flush;
-            char piecePlayed = ' ', pieceCaptured = ' ';
+            char piecePlayed = ' ', piecePlayed2 = ' ', pieceCaptured = ' '; //peice played 2 exclusively for castling
             char moveType = 'n';
             std::string stockfishMove; // Declare stockfishMove variable
+            std::string stockfishMove2; // Declare 2nd stockfishMove variable
             
             while (std::getline(stockfish_out, line)) {
                 if (line.rfind("bestmove", 0) == 0) {
@@ -892,7 +893,17 @@ int main(int argc, char * argv[]) {
                             // Castling check and move the correct rooks
                             if (board[row][col] == 'k' && abs(fishMoves[0][1] - fishMoves[1][1]) > 1) {
                                 moveType = 'c';
+                                // Convert rook's move to algebraic notation (same format as stockfishMove)
+                                // For black castling:
+                                // Kingside: rook moves from 'h8' (0,7) to 'f8' (0,5)
+                                // Queenside: rook moves from 'a8' (0,0) to 'd8' (0,3)
                                 int rookNextCol = fishMoves[1][1] == 2 ? 3 : 5, rookCurCol = fishMoves[1][1] == 2 ? 0 : 7;
+                                char start_file = rookCurCol == 0 ? 'a' : 'h';  // 'a' for queenside, 'h' for kingside
+                                char end_file = rookCurCol == 0 ? 'd' : 'f';    // 'd' for queenside, 'f' for kingside
+                                
+                                // For black pieces, the rank is '8'
+                                stockfishMove2 = start_file + std::string("8") + end_file + std::string("8");
+                                piecePlayed2 = 'r';  // The rook
                                 // Move rooks and update the board
                                 for (int y = 0; y < pieces.size(); y++) {
                                     if ((int(pieces[y].getPosition().y)-8)/SQUARE_SIZE == row && (int(pieces[y].getPosition().x)-8)/SQUARE_SIZE == rookCurCol) {
@@ -913,7 +924,18 @@ int main(int argc, char * argv[]) {
                     }
                     if (capture || pawn) halfmoveClock = 0; else halfmoveClock++; 
                     fullmoveNumer++;
-                    msg.data = stockfishMove + moveType + piecePlayed; // Using stockfishMove instead of undefined move
+
+                    //logic for adding data for castling move
+                    if (moveType == 'c') {
+                        msg.data = stockfishMove       // king LAN, e.g. "e8g8"
+                                 + stockfishMove2      // rook LAN, e.g. "h8f8"
+                                 + moveType            // 'c'
+                                 + piecePlayed         // 'k'
+                                 + piecePlayed2;       // 'r'
+                    } else {
+                        msg.data = stockfishMove + moveType + piecePlayed;
+                        if (capture) msg.data += pieceCaptured;
+                    }
                     if (capture) msg.data += pieceCaptured;
                     break;
                 }

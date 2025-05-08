@@ -71,6 +71,10 @@ class RobotKinematics : public rclcpp::Node {
             pickup_dropoff_wait_ = 1.5; //seconds
             H1_transform_ = Eigen::Matrix4d::Identity();
 
+            //intialise to default values for operation without arucos
+            H1_X = 0.11436;
+            H1_Y = -0.469443135;
+
             moveToJointAngles(camera_view_jangle.at(0), camera_view_jangle.at(1),camera_view_jangle.at(2),camera_view_jangle.at(3),camera_view_jangle.at(4),camera_view_jangle.at(5));
         }
 
@@ -137,13 +141,22 @@ class RobotKinematics : public rclcpp::Node {
     private:
         void chess_topic_callback(const std_msgs::msg::String::SharedPtr msg) {
             std::string msgData = msg->data;
-            if (msgData.length() < 9) { // if greater than 9 means it's the fen string for the camera node
+            if (msgData.length() < 12) { // if greater than 9 means it's the fen string for the camera node
                 std::pair<double, double> currentPiece = chessToGridCenter(msgData[0], msgData[1]), goal = chessToGridCenter(msgData[2], msgData[3]);
                 RCLCPP_INFO(this->get_logger(), "Stockfish move: '%s'", msgData.c_str());
-                if (msgData.length() == 6) // normal move
+                if (msgData.length() == 6){ // normal move
                     maneuver(currentPiece, goal, msgData[4], pieceHeight[msgData[5]], 0);
-                else if (msgData.length() == 7)
+                }
+                else if (msgData.length() == 7){ // capture move
                     maneuver(currentPiece, goal, msgData[4], pieceHeight[msgData[5]], pieceHeight[msgData[6]]);
+                }
+                else if (msgData.length() == 11){ //castling
+                    //example castling string e8g8h8f8ckr. first move 'e8g8' second move 'h8f8' move type 'c' first move peice 'k' second move peice 'r'
+                    maneuver(currentPiece, goal, msgData[8], pieceHeight[msgData[9]], 0);
+                    currentPiece = chessToGridCenter(msgData[4], msgData[5]);
+                    goal = chessToGridCenter(msgData[6], msgData[7]);
+                    maneuver(currentPiece, goal, msgData[8], pieceHeight[msgData[10]], 0);
+                }
             }
         }
 
@@ -178,7 +191,7 @@ class RobotKinematics : public rclcpp::Node {
                 std::this_thread::sleep_for(std::chrono::seconds(pickup_dropoff_wait_));
             }   
             // Here, we play the damn piece
-            if (moveType == 'n' || moveType == 'x') {
+            if (moveType == 'n' || moveType == 'x' || moveType == 'c'){
                 tempPosition.position.x = cur.first;
                 tempPosition.position.y = cur.second;
                 RCLCPP_INFO(this->get_logger(), "xStart: %.3f%% and yStart: %.3f%% and zPickUp: %.3f%%", cur.first, cur.second, pickupHeight);
@@ -227,90 +240,6 @@ class RobotKinematics : public rclcpp::Node {
             }
         }
 
-        // std::pair<double, double> chessToGridCenter(char file, char rank) {
-        //     // Convert file to column index (0-based: 'a' = 0, 'h' = 7)
-        //     double col = file - 'a';
-        //     if (col < 0 || col > 7) {
-        //         throw std::invalid_argument("File must be between 'a' and 'h'");
-        //     }
-        //     //'h' = 0 'a' = 7
-        //     col = abs(col-7);
-        
-        //     // Convert rank to row index (0-based: '1' = 0, '8' = 7)
-        //     double row = rank - '1';
-        //     if (row < 0 || row > 7) {
-        //         throw std::invalid_argument("Rank must be between '1' and '8'");
-        //     }
-
-        //     //measured from board
-        //     // H1_X = 0.11436;
-        //     // H1_Y = -0.469443135;
-
-        //     // double dx = -col * (SQUARE_SIZE / 1000.0);
-        //     // double dy =  row * (SQUARE_SIZE / 1000.0);
-
-        //     // // Apply 2D rotation to account for yaw
-        //     // double x_rotated = dx * cos(board_yaw) - dy * sin(board_yaw);
-        //     // double y_rotated = dx * sin(board_yaw) + dy * cos(board_yaw);
-
-        //     // // Final global position
-        //     // double x_final = H1_X + x_rotated;
-        //     // double y_final = H1_Y + y_rotated;
-
-        //     double x_final_non_rot = + col*(SQUARE_SIZE/1000); //H1_transform_(0, 3)
-        //     double y_final_non_rot = - row*(SQUARE_SIZE/1000); //H1_transform_(1, 3)
-        //     // 
-        //     // Eigen::Matrix4d H1_to_target_square = Eigen::Matrix4d::Identity();
-        //     // H1_to_target_square(1, 3) = y_final_non_rot;
-        //     // H1_to_target_square(2, 3) = -x_final_non_rot;
-
-        //     // Eigen::Matrix4d Rz = Eigen::Matrix4d::Identity();
-        //     // Rz(0, 0) =  std::cos(board_yaw);
-        //     // Rz(0, 1) = -std::sin(board_yaw);
-        //     // Rz(1, 0) =  std::sin(board_yaw);
-        //     // Rz(1, 1) =  std::cos(board_yaw);
-
-        //     // Apply the rotation to H1_to_target_square
-        //     // H1_to_target_square = Rz * H1_to_target_square;
-
-        //     // Eigen::Matrix4d target_square_T = H1_transform_ * H1_to_target_square;
-
-        //     double s = SQUARE_SIZE / 1000.0;
-        //     double x_final = H1_transform_(0, 3) + col*s*std::cos(board_yaw*()) - row*s*std::sin(board_yaw);
-        //     double y_final = H1_transform_(1, 3) - col*s*std::sin(board_yaw) - row*s*std::cos(board_yaw);
-
-        //     double x_final_no_yaw = H1_transform_(0, 3) + col*s - row*s;
-        //     double y_final_no_yaw = H1_transform_(1, 3) - col*s - row*s;
-
-        //     RCLCPP_INFO(this->get_logger(), "YAW!!!: %.5f", board_yaw);
-        //     RCLCPP_INFO(this->get_logger(), "x_final_no_yaw: %.5f ", x_final_no_yaw);
-        //     RCLCPP_INFO(this->get_logger(), "y_final_no_yaw: %.5f ", y_final_no_yaw);
-        //     RCLCPP_INFO(this->get_logger(), "x_final: %.5f ", x_final);
-        //     RCLCPP_INFO(this->get_logger(), "y_final: %.5f ", y_final);
-
-        //     // double x_final = target_square_T(0, 3);
-        //     // double y_final = target_square_T(1, 3);
-
-        //     double yaw = std::atan2(H1_transform_(1, 0), H1_transform_(0, 0));
-
-        //     // RCLCPP_INFO(
-        //     //     this->get_logger(),
-        //     //     "Non-rotated: x = %.5f, y = %.5f | Transformed: x = %.5f, y = %.5f | Yaw from H1 = %.3f rad (%.2f deg)",
-        //     //     x_final_non_rot, y_final_non_rot,
-        //     //     x_final, y_final,
-        //     //     yaw, yaw * 180.0 / M_PI
-        //     // );
-
-        //     // logMatrix("H1_transform_", H1_transform_);
-        //     // logMatrix("H1_to_target_square", H1_to_target_square);
-        //     // logMatrix("target_square_T", target_square_T);
-
-
-        //     std::this_thread::sleep_for(std::chrono::seconds(2));
-
-        //     return {x_final, y_final}; //reordered here for transform
-        // }
-
         std::pair<double, double> chessToGridCenter(char file, char rank) {
             // Convert file to column index (0-based: 'a' = 0, 'h' = 7)
             double col = file - 'a';
@@ -337,15 +266,16 @@ class RobotKinematics : public rclcpp::Node {
             double x_final = H1_X + x_rotated;
             double y_final = H1_Y + y_rotated;
 
-            RCLCPP_INFO(this->get_logger(), "YAW!!!: %.5f", board_yaw);
-            RCLCPP_INFO(this->get_logger(), "x_rotated: %.5f ", x_rotated);
-            RCLCPP_INFO(this->get_logger(), "y_rotated: %.5f ", y_rotated);
-            RCLCPP_INFO(this->get_logger(), "x_final: %.5f ", x_final);
-            RCLCPP_INFO(this->get_logger(), "y_final: %.5f ", y_final);
-            RCLCPP_INFO(this->get_logger(), "dx: %.5f ", dx);
-            RCLCPP_INFO(this->get_logger(), "dy: %.5f ", dy);
+            //yaw debug messages
+            // RCLCPP_INFO(this->get_logger(), "YAW!!!: %.5f", board_yaw);
+            // RCLCPP_INFO(this->get_logger(), "x_rotated: %.5f ", x_rotated);
+            // RCLCPP_INFO(this->get_logger(), "y_rotated: %.5f ", y_rotated);
+            // RCLCPP_INFO(this->get_logger(), "x_final: %.5f ", x_final);
+            // RCLCPP_INFO(this->get_logger(), "y_final: %.5f ", y_final);
+            // RCLCPP_INFO(this->get_logger(), "dx: %.5f ", dx);
+            // RCLCPP_INFO(this->get_logger(), "dy: %.5f ", dy);
 
-            std::this_thread::sleep_for(std::chrono::seconds(2));
+            // std::this_thread::sleep_for(std::chrono::seconds(2));
 
             return robotReadToControlFrame({x_final, y_final}); //reordered here for transform
         }
@@ -434,8 +364,8 @@ class RobotKinematics : public rclcpp::Node {
         std::unique_ptr<tf2_ros::Buffer> tf_buffer_;
         std::shared_ptr<tf2_ros::TransformListener> tf_listener_;
         std::map<int, geometry_msgs::msg::TransformStamped> marker_transforms_;
-        double H1_X = 0.11436;
-        double H1_Y = -0.469443135;
+        double H1_X;
+        double H1_Y;
         Eigen::Matrix4d H1_transform_;
         double board_yaw = 0;
 
