@@ -16,14 +16,14 @@ from pose_sub_class import FrameListener  # Adjust if needed
 
 #global variables
 #distances from H1
-aruco_board_span = 281/1000 #long distance
-aruco_square_span = 36/1000 #short distance
+aruco_board_span = 281/1000 + 22.75/1000 - 5/1000#long distance 22.75
+aruco_square_span = 36/1000 + 22.75/1000 + 5/1000#short distance 22.75
 H1_marker_ID = 5
 aruco_to_H1 = {
     #aruco id: [x to H1 (m), y to H1 (m), rot z (rad)]
     # 1: [-aruco_board_span, -aruco_square_span, 0],
     2: [aruco_square_span, aruco_board_span, 0],
-    3: [-aruco_board_span+30/1000, aruco_board_span, 0],
+    3: [-aruco_board_span, aruco_board_span, 0],
     # 4: [aruco_square_span, - aruco_square_span, 0]
 }
 
@@ -96,7 +96,7 @@ def average_T_pos(Transforms):
 
 
 
-def get_aruco_transforms(image, marker_size_mm=250):
+def get_aruco_transforms(image, marker_size_mm=250.0):
     """
     Detect 6x6 ArUco markers in an image and return the 4x4 transformation matrices
     from camera to each detected marker.
@@ -119,7 +119,7 @@ def get_aruco_transforms(image, marker_size_mm=250):
         gray = image
     
     # Define the ArUco dictionary (6x6 markers)
-    aruco_dict = aruco.getPredefinedDictionary(aruco.DICT_4X4_250)
+    aruco_dict = aruco.getPredefinedDictionary(aruco.DICT_5X5_100)
     
     # Create ArUco parameters
     parameters = aruco.DetectorParameters()
@@ -276,7 +276,8 @@ def calculate_transforms(img, publisher, T_base_to_ee):
     T_cam = T_base_to_ee @ (T_cam_to_ee)
     
     aruco_transforms = None
-    aruco_transforms, ids = get_aruco_transforms(image, 33)
+    aruco_transforms, ids = get_aruco_transforms(image, 77.8)
+    # aruco_transforms, ids = get_aruco_transforms(image, 22.5)
     print(ids)
     # print(aruco_transforms)
 
@@ -292,11 +293,11 @@ def calculate_transforms(img, publisher, T_base_to_ee):
 
             T_base_to_marker = T_cam @ T_cam_to_marker
             pos_in_base = T_base_to_marker[:3, 3]
-            if pos_in_base[2] < 0.1 and pos_in_base[2] > -0.05:
-                publisher.add_pose(T_base_to_marker, ids[i]) 
-                print("ArUco marker position in robot base frame:", np.round(pos_in_base, 5))
-                temp_aruco_data_inner = [ids[i], T_base_to_marker]
-                arucos_found.append(temp_aruco_data_inner)
+            # if pos_in_base[2] < 0.1: #and pos_in_base[2] > -0.05:
+            publisher.add_pose(T_base_to_marker, ids[i]) 
+            print("ArUco marker position in robot base frame:", np.round(pos_in_base, 5))
+            temp_aruco_data_inner = [ids[i], T_base_to_marker]
+            arucos_found.append(temp_aruco_data_inner)
 
             print(f"IDs pre filter: {ids}")
                 

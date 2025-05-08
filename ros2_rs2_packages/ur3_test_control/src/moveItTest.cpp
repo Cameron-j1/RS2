@@ -22,6 +22,10 @@
 //for joint state
 #include <sensor_msgs/msg/joint_state.hpp>
 
+//for transformation matrices
+#include <Eigen/Dense>
+#include <Eigen/Geometry>
+
 
 #include <utility>
 #include <string>
@@ -65,6 +69,7 @@ class RobotKinematics : public rclcpp::Node {
 
             robot_stationary_ = false;
             pickup_dropoff_wait_ = 1.5; //seconds
+            H1_transform_ = Eigen::Matrix4d::Identity();
 
             moveToJointAngles(camera_view_jangle.at(0), camera_view_jangle.at(1),camera_view_jangle.at(2),camera_view_jangle.at(3),camera_view_jangle.at(4),camera_view_jangle.at(5));
         }
@@ -150,6 +155,8 @@ class RobotKinematics : public rclcpp::Node {
             tempPosition.orientation.y = 0.0;
             tempPosition.orientation.w = 0.0;
 
+            moveToJointAngles(-1.525+M_PI, -1.647, 0.291, -0.390, -1.549, 6.215);
+
             // remove the captured piece from the board
             if (moveType == 'x') {
                 tempPosition.position.x = goal.first;
@@ -197,7 +204,9 @@ class RobotKinematics : public rclcpp::Node {
             }
 
             // moveToJointAngles(camera_view_jangle.at(0), camera_view_jangle.at(1),camera_view_jangle.at(2),camera_view_jangle.at(3),camera_view_jangle.at(4),camera_view_jangle.at(5));
-            moveToJointAngles(-1.525+M_PI, -1.647, 0.291, -0.390, -1.549, 6.215);
+            // moveToJointAngles(-1.525+M_PI, -1.647, 0.291, -0.390, -1.549, 6.215);
+            moveToJointAngles(1.544, -2.060, 0.372, -0.108, -1.651, -6.233); 
+
 
         }
 
@@ -218,40 +227,150 @@ class RobotKinematics : public rclcpp::Node {
             }
         }
 
+        // std::pair<double, double> chessToGridCenter(char file, char rank) {
+        //     // Convert file to column index (0-based: 'a' = 0, 'h' = 7)
+        //     double col = file - 'a';
+        //     if (col < 0 || col > 7) {
+        //         throw std::invalid_argument("File must be between 'a' and 'h'");
+        //     }
+        //     //'h' = 0 'a' = 7
+        //     col = abs(col-7);
+        
+        //     // Convert rank to row index (0-based: '1' = 0, '8' = 7)
+        //     double row = rank - '1';
+        //     if (row < 0 || row > 7) {
+        //         throw std::invalid_argument("Rank must be between '1' and '8'");
+        //     }
+
+        //     //measured from board
+        //     // H1_X = 0.11436;
+        //     // H1_Y = -0.469443135;
+
+        //     // double dx = -col * (SQUARE_SIZE / 1000.0);
+        //     // double dy =  row * (SQUARE_SIZE / 1000.0);
+
+        //     // // Apply 2D rotation to account for yaw
+        //     // double x_rotated = dx * cos(board_yaw) - dy * sin(board_yaw);
+        //     // double y_rotated = dx * sin(board_yaw) + dy * cos(board_yaw);
+
+        //     // // Final global position
+        //     // double x_final = H1_X + x_rotated;
+        //     // double y_final = H1_Y + y_rotated;
+
+        //     double x_final_non_rot = + col*(SQUARE_SIZE/1000); //H1_transform_(0, 3)
+        //     double y_final_non_rot = - row*(SQUARE_SIZE/1000); //H1_transform_(1, 3)
+        //     // 
+        //     // Eigen::Matrix4d H1_to_target_square = Eigen::Matrix4d::Identity();
+        //     // H1_to_target_square(1, 3) = y_final_non_rot;
+        //     // H1_to_target_square(2, 3) = -x_final_non_rot;
+
+        //     // Eigen::Matrix4d Rz = Eigen::Matrix4d::Identity();
+        //     // Rz(0, 0) =  std::cos(board_yaw);
+        //     // Rz(0, 1) = -std::sin(board_yaw);
+        //     // Rz(1, 0) =  std::sin(board_yaw);
+        //     // Rz(1, 1) =  std::cos(board_yaw);
+
+        //     // Apply the rotation to H1_to_target_square
+        //     // H1_to_target_square = Rz * H1_to_target_square;
+
+        //     // Eigen::Matrix4d target_square_T = H1_transform_ * H1_to_target_square;
+
+        //     double s = SQUARE_SIZE / 1000.0;
+        //     double x_final = H1_transform_(0, 3) + col*s*std::cos(board_yaw*()) - row*s*std::sin(board_yaw);
+        //     double y_final = H1_transform_(1, 3) - col*s*std::sin(board_yaw) - row*s*std::cos(board_yaw);
+
+        //     double x_final_no_yaw = H1_transform_(0, 3) + col*s - row*s;
+        //     double y_final_no_yaw = H1_transform_(1, 3) - col*s - row*s;
+
+        //     RCLCPP_INFO(this->get_logger(), "YAW!!!: %.5f", board_yaw);
+        //     RCLCPP_INFO(this->get_logger(), "x_final_no_yaw: %.5f ", x_final_no_yaw);
+        //     RCLCPP_INFO(this->get_logger(), "y_final_no_yaw: %.5f ", y_final_no_yaw);
+        //     RCLCPP_INFO(this->get_logger(), "x_final: %.5f ", x_final);
+        //     RCLCPP_INFO(this->get_logger(), "y_final: %.5f ", y_final);
+
+        //     // double x_final = target_square_T(0, 3);
+        //     // double y_final = target_square_T(1, 3);
+
+        //     double yaw = std::atan2(H1_transform_(1, 0), H1_transform_(0, 0));
+
+        //     // RCLCPP_INFO(
+        //     //     this->get_logger(),
+        //     //     "Non-rotated: x = %.5f, y = %.5f | Transformed: x = %.5f, y = %.5f | Yaw from H1 = %.3f rad (%.2f deg)",
+        //     //     x_final_non_rot, y_final_non_rot,
+        //     //     x_final, y_final,
+        //     //     yaw, yaw * 180.0 / M_PI
+        //     // );
+
+        //     // logMatrix("H1_transform_", H1_transform_);
+        //     // logMatrix("H1_to_target_square", H1_to_target_square);
+        //     // logMatrix("target_square_T", target_square_T);
+
+
+        //     std::this_thread::sleep_for(std::chrono::seconds(2));
+
+        //     return {x_final, y_final}; //reordered here for transform
+        // }
+
         std::pair<double, double> chessToGridCenter(char file, char rank) {
             // Convert file to column index (0-based: 'a' = 0, 'h' = 7)
             double col = file - 'a';
             if (col < 0 || col > 7) {
                 throw std::invalid_argument("File must be between 'a' and 'h'");
             }
+            //'h' = 0 'a' = 7
             col = abs(col-7);
-        
+
             // Convert rank to row index (0-based: '1' = 0, '8' = 7)
             double row = rank - '1';
             if (row < 0 || row > 7) {
                 throw std::invalid_argument("Rank must be between '1' and '8'");
             }
 
-            //measured from board
-            // H1_X = 0.11436;
-            // H1_Y = -0.469443135;
+            double dx = -col * (SQUARE_SIZE / 1000.0);
+            double dy =  row * (SQUARE_SIZE / 1000.0);
 
-            // double dx = -col * (SQUARE_SIZE / 1000.0);
-            // double dy =  row * (SQUARE_SIZE / 1000.0);
+            // Apply 2D rotation to account for yaw
+            double x_rotated = dx * cos(board_yaw) - dy * sin(board_yaw);
+            double y_rotated = dx * sin(board_yaw) + dy * cos(board_yaw);
 
-            // // Apply 2D rotation to account for yaw
-            // double x_rotated = dx * cos(board_yaw) - dy * sin(board_yaw);
-            // double y_rotated = dx * sin(board_yaw) + dy * cos(board_yaw);
+            // Final global position
+            double x_final = H1_X + x_rotated;
+            double y_final = H1_Y + y_rotated;
 
-            // // Final global position
-            // double x_final = H1_X + x_rotated;
-            // double y_final = H1_Y + y_rotated;
+            RCLCPP_INFO(this->get_logger(), "YAW!!!: %.5f", board_yaw);
+            RCLCPP_INFO(this->get_logger(), "x_rotated: %.5f ", x_rotated);
+            RCLCPP_INFO(this->get_logger(), "y_rotated: %.5f ", y_rotated);
+            RCLCPP_INFO(this->get_logger(), "x_final: %.5f ", x_final);
+            RCLCPP_INFO(this->get_logger(), "y_final: %.5f ", y_final);
+            RCLCPP_INFO(this->get_logger(), "dx: %.5f ", dx);
+            RCLCPP_INFO(this->get_logger(), "dy: %.5f ", dy);
 
-            double x_final = H1_X - col*(SQUARE_SIZE/1000);
-
-            double y_final = H1_Y + row*(SQUARE_SIZE/1000);
+            std::this_thread::sleep_for(std::chrono::seconds(2));
 
             return robotReadToControlFrame({x_final, y_final}); //reordered here for transform
+        }
+
+
+
+        Eigen::Matrix4d multiplyMatrix4d(const Eigen::Matrix4d& A, const Eigen::Matrix4d& B) {
+            Eigen::Matrix4d result = Eigen::Matrix4d::Zero();
+
+            for (int i = 0; i < 4; ++i) {           // row of A
+                for (int j = 0; j < 4; ++j) {       // column of B
+                    for (int k = 0; k < 4; ++k) {   // element index
+                        result(i, j) += A(i, k) * B(k, j);
+                    }
+                }
+            }
+
+            return result;
+        }
+
+
+        void logMatrix(const std::string& name, const Eigen::Matrix4d& mat) {
+            std::ostringstream oss;
+            oss << "\n" << mat;
+            RCLCPP_INFO(this->get_logger(), "%s: %s", name.c_str(), oss.str().c_str());
         }
 
         std::pair<double, double> robotReadToControlFrame(std::pair<double, double> in){
@@ -305,9 +424,9 @@ class RobotKinematics : public rclcpp::Node {
 
         std::unordered_map<char, double> pieceHeight = {
             {'p', 0.165-20/1000}, {'r', ((0.1783-0.005) + (0.165-20/1000))/2 }, {'n', 0.1793},
-            {'b', 0.1783-0.005}, {'q', 0.1848-50/1000 }, {'k', 0.1877},
+            {'b', 0.1848-50/1000}, {'q', 0.1848-50/1000 }, {'k', 0.1877},
             {'P', 0.165-20/1000}, {'R', ((0.1783-0.005) + (0.165-20/1000))/2}, {'N', 0.1793},
-            {'B', 0.1783-0.005}, {'Q', 0.1848-50/1000}, {'K', 0.1877}
+            {'B', 0.1848-50/1000}, {'Q', 0.1848-50/1000}, {'K', 0.1877}
         };
 
         //bring in markers for aruco positions
@@ -317,45 +436,70 @@ class RobotKinematics : public rclcpp::Node {
         std::map<int, geometry_msgs::msg::TransformStamped> marker_transforms_;
         double H1_X = 0.11436;
         double H1_Y = -0.469443135;
+        Eigen::Matrix4d H1_transform_;
         double board_yaw = 0;
+
+        Eigen::Matrix4d quaternionToTransformMatrix(const Eigen::Quaterniond& q, const Eigen::Vector3d& translation){
+            Eigen::Matrix4d transform = Eigen::Matrix4d::Identity();
+        
+            // Convert quaternion to rotation matrix
+            Eigen::Matrix3d rotation = q.normalized().toRotationMatrix();
+        
+            // Insert rotation and translation into 4x4 matrix
+            transform.block<3,3>(0,0) = rotation;
+            transform.block<3,1>(0,3) = translation;
+        
+            return transform;
+        }
         
 
         void marker_callback(const visualization_msgs::msg::MarkerArray::SharedPtr msg){
-            RCLCPP_INFO(this->get_logger(), "Received marker array with %zu markers", msg->markers.size());
+            // RCLCPP_INFO(this->get_logger(), "Received marker array with %zu markers", msg->markers.size());
             
             for (const auto& marker : msg->markers) {
                 int marker_id = marker.id;
 
-                RCLCPP_INFO(this->get_logger(), "MARKER!! ID: %d", marker_id);
-
-                if (marker_id == 51 && robot_stationary_) { //only read the markers if the robot is currently stationary
-                    std::string frame_id = marker.header.frame_id;
-                    
-                    RCLCPP_INFO(this->get_logger(), "Marker ID: %d, Frame ID: %s", marker_id, frame_id.c_str());
-                    
-                    // Try to get the transform for this marker
-                    RCLCPP_INFO(this->get_logger(), 
-                    "READ MARKER POSE %d: [%f, %f, %f] [%f, %f, %f, %f]",
-                    marker_id,
-                    marker.pose.position.x,
-                    marker.pose.position.y,
-                    marker.pose.position.z,
-                    marker.pose.orientation.x,
-                    marker.pose.orientation.y,
-                    marker.pose.orientation.z,
-                    marker.pose.orientation.w);
-                
+                // RCLCPP_INFO(this->get_logger(), "MARKER!! ID: %d", marker_id);
+                if(marker_id == 51 && robot_stationary_){
                     board_yaw = getYawFromQuaternion(
                         marker.pose.orientation.x,
                         marker.pose.orientation.y,
                         marker.pose.orientation.z,
                         marker.pose.orientation.w);
-                    
+                }
+
+                if (marker_id == 53 && robot_stationary_) { //only read the markers if the robot is currently stationary
+                    std::string frame_id = marker.header.frame_id;             
+
+                    auto q_msg = marker.pose.orientation;
+                    Eigen::Quaterniond q(q_msg.w, q_msg.x, q_msg.y, q_msg.z);
+                    Eigen::Vector3d t(marker.pose.position.x,
+                        marker.pose.position.y,
+                        marker.pose.position.z);
+                    // Eigen::Matrix4d H1_transform_ = quaternionToTransformMatrix(q, t);
+                    H1_transform_ = quaternionToTransformMatrix(q, t);
+
+                    RCLCPP_INFO(this->get_logger(), "MARKER!! ID: %d", marker_id);
+                    RCLCPP_INFO(this->get_logger(), "YAW!!! X: %.6f m", board_yaw);
+
                     H1_X = -marker.pose.position.x;
                     H1_Y = -marker.pose.position.y;
+                    double yaw = std::atan2(H1_transform_(1, 0), H1_transform_(0, 0));
+
+                    std::ostringstream oss;
+                    oss << "H1_transform_:\n" << H1_transform_;
+                    RCLCPP_INFO(this->get_logger(), "%s", oss.str().c_str());
+
+                    RCLCPP_INFO(
+                        this->get_logger(),
+                        "Yaw from H1 = %.3f rad (%.2f deg)",
+                        yaw, yaw * 180.0 / M_PI
+                    );
+
+                    
                 }
             }
-        }
+        }        
 
         //to detect the robot moving
         void jointStateCallback(const sensor_msgs::msg::JointState::SharedPtr msg) {
@@ -369,9 +513,9 @@ class RobotKinematics : public rclcpp::Node {
             }
         
             if (robot_stationary_) {
-                RCLCPP_INFO(this->get_logger(), "Robot is stationary.");
+                // RCLCPP_INFO(this->get_logger(), "Robot is stationary.");
             } else {
-                RCLCPP_INFO(this->get_logger(), "Robot is moving.");
+                // RCLCPP_INFO(this->get_logger(), "Robot is moving.");
             }
         }
         //joint state sub obj
@@ -449,7 +593,11 @@ int main(int argc, char * argv[])
             RCLCPP_ERROR(node->get_logger(), "Failed to execute joint space plan");
         }
     }
-    move_group.setJointValueTarget({-1.525+M_PI, -1.647, 0.291, -0.390, -1.549, 6.215});
+    // move_group.setJointValueTarget({-1.525+M_PI, -1.647, 0.291, -0.390, -1.549, 6.215});
+    move_group.setJointValueTarget({1.544, -2.060, 0.372, -0.108, -1.651, -6.233}); 
+
+
+    // move_group.setJointValueTarget({-2.0948268375792445, 0.21491748491396123, -0.019584493046142626, -1.6386211554156702, -0.06730491319765264, 1.5663700103759766});
     planning_result = move_group.plan(plan);
     if (planning_result == moveit::core::MoveItErrorCode::SUCCESS) {
         if (move_group.execute(plan) == moveit::core::MoveItErrorCode::SUCCESS) {
