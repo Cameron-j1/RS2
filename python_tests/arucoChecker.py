@@ -22,13 +22,13 @@ H1_marker_ID = 5
 aruco_to_H1 = {
     #aruco id: [x to H1 (m), y to H1 (m), rot z (rad)]
     # 1: [-aruco_board_span, -aruco_square_span, 0],
-    2: [aruco_square_span, aruco_board_span, 0],
-    3: [-aruco_board_span, aruco_board_span, 0],
+    2: [-0.2594, 0.2961, 0],
+    3: [0.0144+0.006, 0.2961, 0],
     # 4: [aruco_square_span, - aruco_square_span, 0]
 }
 
 chess_board_side_ID_pairs = [
-    (2, 3),
+    (3, 2),
     #untested pairs only testing 2,3 for now
     # (3, 1),
     # (4, 1),
@@ -153,20 +153,36 @@ def get_aruco_transforms(image, marker_size_mm=250.0):
         ], dtype=np.float32)
         dist_coeffs = np.zeros((5, 1), dtype=np.float32)
 
-        #1280x720 intrinics
+        #1280x720 intrinics pre 9/05/25
+        # camera_matrix = np.array([
+        #     [904.31097901,   0.        , 641.57999223],
+        #     [  0.        , 903.36941042, 362.54800006],
+        #     [  0.        ,   0.        ,   1.        ]
+        # ])
+
+        # dist_coeffs = np.array([
+        #     [ 4.44499317e-02],
+        #     [ 5.56966659e-01],
+        #     [ 2.99253301e-04],
+        #     [-1.49486083e-03],
+        #     [-2.25401697e+00]
+        # ])
+
+        #1280x720 intrinics post 9/05/25
         camera_matrix = np.array([
-            [904.31097901,   0.        , 641.57999223],
-            [  0.        , 903.36941042, 362.54800006],
-            [  0.        ,   0.        ,   1.        ]
-        ])
+            [905.85707232, 0.0, 644.68513826],
+            [0.0, 905.26944593, 357.56503199],
+            [0.0, 0.0, 1.0]
+        ], dtype=np.float64)
 
         dist_coeffs = np.array([
-            [ 4.44499317e-02],
-            [ 5.56966659e-01],
-            [ 2.99253301e-04],
-            [-1.49486083e-03],
-            [-2.25401697e+00]
-        ])
+            [0.11422684],
+            [-0.17355504],
+            [-0.00203388],
+            [0.00122792],
+            [-0.17927661]
+        ], dtype=np.float64)
+
         
         # For each detected marker
         for i in range(len(ids)):
@@ -276,8 +292,9 @@ def calculate_transforms(img, publisher, T_base_to_ee):
     T_cam = T_base_to_ee @ (T_cam_to_ee)
     
     aruco_transforms = None
-    aruco_transforms, ids = get_aruco_transforms(image, 77.8)
+    # aruco_transforms, ids = get_aruco_transforms(image, 77.8)
     # aruco_transforms, ids = get_aruco_transforms(image, 22.5)
+    aruco_transforms, ids = get_aruco_transforms(image, 47.9)
     print(ids)
     # print(aruco_transforms)
 
@@ -353,7 +370,7 @@ def calculate_transforms(img, publisher, T_base_to_ee):
                     aruco[1][:3, :3] = board_rot_matrix
                     #calculate the H1 position with aruco transform, id
                     try:
-                        if(aruco[0] == 2):
+                        if(aruco[0] == 3):
                             H1_T = calculate_H1_T(aruco[1], aruco[0])
                             H1_transforms.append(H1_T)
                     except:

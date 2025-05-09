@@ -26,6 +26,10 @@
 #include <Eigen/Dense>
 #include <Eigen/Geometry>
 
+//for button press control with blocking button
+#include <thread>
+#include <atomic>
+#include <mutex>
 
 #include <utility>
 #include <string>
@@ -67,6 +71,11 @@ class RobotKinematics : public rclcpp::Node {
                 "/joint_states", 10,
                 std::bind(&RobotKinematics::jointStateCallback, this, std::placeholders::_1));    
 
+            button_sub_ = this->create_subscription<std_msgs::msg::Bool>(
+                "button_state", 10,
+                std::bind(&RobotKinematics::button_callback, this, std::placeholders::_1));
+
+
             robot_stationary_ = false;
             pickup_dropoff_wait_ = 1.5; //seconds
             H1_transform_ = Eigen::Matrix4d::Identity();
@@ -92,6 +101,7 @@ class RobotKinematics : public rclcpp::Node {
         }        
 
         void setMoveGroup(moveit::planning_interface::MoveGroupInterface* mg) {
+            std::lock_guard<std::mutex> lock(moveit_mutex);
             move_group_ptr = mg;
         }
 
@@ -100,11 +110,19 @@ class RobotKinematics : public rclcpp::Node {
             moveToJointAngles(camera_view_jangle.at(0), camera_view_jangle.at(1), camera_view_jangle.at(2), camera_view_jangle.at(3), camera_view_jangle.at(4), camera_view_jangle.at(5));
         }
 
+        // void moveToJointAngles(double j1, double j2, double j3, double j4, double j5, double j6){
+        //     std::thread([this, cur, goal, moveType, pickupHeight, pickupHeightCap]() {
+        //         this->moveToJointAnglesInThread(j1, j2, j3, j4, j5, j6)
+        //     }).detach();
+        // }
+
         void moveToJointAngles(double j1, double j2, double j3, double j4, double j5, double j6) {
             if (move_group_ptr == nullptr) {
                 RCLCPP_ERROR(this->get_logger(), "MoveGroup pointer is not initialized");
                 return;
             }
+
+            std::lock_guard<std::mutex> lock(moveit_mutex);
 
             move_group_ptr->setMaxVelocityScalingFactor(MAX_VEL_JOINT_TARGET);
             move_group_ptr->setMaxAccelerationScalingFactor(MAX_ACCEL_JOINT_TARGET);
@@ -144,13 +162,13 @@ class RobotKinematics : public rclcpp::Node {
             if (msgData.length() < 12) { // if greater than 9 means it's the fen string for the camera node
                 std::pair<double, double> currentPiece = chessToGridCenter(msgData[0], msgData[1]), goal = chessToGridCenter(msgData[2], msgData[3]);
                 RCLCPP_INFO(this->get_logger(), "Stockfish move: '%s'", msgData.c_str());
-                if (msgData.length() == 6){ // normal move
+                if(msgData.length() == 6){ // normal move
                     maneuver(currentPiece, goal, msgData[4], pieceHeight[msgData[5]], 0);
                 }
-                else if (msgData.length() == 7){ // capture move
+                if(msgData.length() == 7 || msgData.length() == 8){ // capture move
                     maneuver(currentPiece, goal, msgData[4], pieceHeight[msgData[5]], pieceHeight[msgData[6]]);
                 }
-                else if (msgData.length() == 11){ //castling
+                if(msgData.length() == 11){ //castling
                     //example castling string e8g8h8f8ckr. first move 'e8g8' second move 'h8f8' move type 'c' first move peice 'k' second move peice 'r'
                     maneuver(currentPiece, goal, msgData[8], pieceHeight[msgData[9]], 0);
                     currentPiece = chessToGridCenter(msgData[4], msgData[5]);
@@ -160,7 +178,13 @@ class RobotKinematics : public rclcpp::Node {
             }
         }
 
-        void maneuver(std::pair<double, double> cur, std::pair<double, double> goal, char moveType, double pickupHeight, double pickupHeightCap) {
+        void maneuver(std::pair<double, double> cur, std::pair<double, double> goal, char moveType, double pickupHeight, double pickupHeightCap){
+            std::thread([this, cur, goal, moveType, pickupHeight, pickupHeightCap]() {
+                this->maneuverInThread(cur, goal, moveType, pickupHeight, pickupHeightCap);
+            }).detach();
+        }
+
+        void maneuverInThread(std::pair<double, double> cur, std::pair<double, double> goal, char moveType, double pickupHeight, double pickupHeightCap) {
             std::vector<geometry_msgs::msg::Pose> points = {};
             geometry_msgs::msg::Pose tempPosition;
             tempPosition.position.z = operation_height;
@@ -219,11 +243,27 @@ class RobotKinematics : public rclcpp::Node {
             // moveToJointAngles(camera_view_jangle.at(0), camera_view_jangle.at(1),camera_view_jangle.at(2),camera_view_jangle.at(3),camera_view_jangle.at(4),camera_view_jangle.at(5));
             // moveToJointAngles(-1.525+M_PI, -1.647, 0.291, -0.390, -1.549, 6.215);
             moveToJointAngles(1.544, -2.060, 0.372, -0.108, -1.651, -6.233); 
-
-
         }
 
+        // bool moveStraightToPoint(std::vector<geometry_msgs::msg::Pose> tempPosition, double vel, double acc) {
+        //     move_group_ptr->setMaxVelocityScalingFactor(vel);  // 20% of maximum velocity
+        //     move_group_ptr->setMaxAccelerationScalingFactor(acc);  // 20% of maximum acceleration
+        //     moveit_msgs::msg::RobotTrajectory trajectory;
+        //     double fraction = move_group_ptr->computeCartesianPath(tempPosition, 0.01, 0.0, trajectory);
+        //     if (fraction >= 0.95) {
+        //         moveit::planning_interface::MoveGroupInterface::Plan plan;
+        //         plan.trajectory_ = trajectory;
+        //         move_group_ptr->execute(plan);
+        //         RCLCPP_INFO(this->get_logger(), "chess move successful");
+        //         return true;
+        //     } else {
+        //         RCLCPP_WARN(this->get_logger(), "Path only %.2f%% complete", fraction * 100.0);
+        //         return false;
+        //     }
+        // }
+
         bool moveStraightToPoint(std::vector<geometry_msgs::msg::Pose> tempPosition, double vel, double acc) {
+            std::unique_lock<std::mutex> lock(moveit_mutex);
             move_group_ptr->setMaxVelocityScalingFactor(vel);  // 20% of maximum velocity
             move_group_ptr->setMaxAccelerationScalingFactor(acc);  // 20% of maximum acceleration
             moveit_msgs::msg::RobotTrajectory trajectory;
@@ -231,14 +271,35 @@ class RobotKinematics : public rclcpp::Node {
             if (fraction >= 0.95) {
                 moveit::planning_interface::MoveGroupInterface::Plan plan;
                 plan.trajectory_ = trajectory;
-                move_group_ptr->execute(plan);
+                rclcpp::Rate rate(10);
+                while (!button_state && rclcpp::ok()) {
+                    RCLCPP_INFO(this->get_logger(), "Button state false waiting for buton to be pressed");
+                    std::this_thread::sleep_for(std::chrono::milliseconds(25));
+                }
+                move_group_ptr->asyncExecute(plan);
+                std::this_thread::sleep_for(std::chrono::milliseconds(300));
+                while (!robot_stationary_) {
+                    // Check if the dead man's switch is released
+                    if (!button_state){
+                        RCLCPP_INFO(this->get_logger(), "Dead man's switch released, stopping movement");
+                        move_group_ptr->stop();
+                        
+                        lock.unlock();
+                        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+                        // Wait for the button to be pressed again
+                        moveStraightToPoint(tempPosition, vel, acc);
+                    }
+                    std::this_thread::sleep_for(std::chrono::milliseconds(25));
+                }
                 RCLCPP_INFO(this->get_logger(), "chess move successful");
                 return true;
-            } else {
+            }
+            else {
                 RCLCPP_WARN(this->get_logger(), "Path only %.2f%% complete", fraction * 100.0);
                 return false;
             }
         }
+
 
         std::pair<double, double> chessToGridCenter(char file, char rank) {
             // Convert file to column index (0-based: 'a' = 0, 'h' = 7)
@@ -255,8 +316,14 @@ class RobotKinematics : public rclcpp::Node {
                 throw std::invalid_argument("Rank must be between '1' and '8'");
             }
 
-            double dx = -col * (SQUARE_SIZE / 1000.0);
-            double dy =  row * (SQUARE_SIZE / 1000.0);
+            //i had to flip this for some reason on friday - watch might be temperamental
+            double dx = col * (SQUARE_SIZE / 1000.0);
+            double dy =  -row * (SQUARE_SIZE / 1000.0);
+
+            if(board_yaw < 1.57){
+                dx = -col * (SQUARE_SIZE / 1000.0);
+                dy =  row * (SQUARE_SIZE / 1000.0);
+            }
 
             // Apply 2D rotation to account for yaw
             double x_rotated = dx * cos(board_yaw) - dy * sin(board_yaw);
@@ -354,9 +421,9 @@ class RobotKinematics : public rclcpp::Node {
 
         std::unordered_map<char, double> pieceHeight = {
             {'p', 0.165-20/1000}, {'r', ((0.1783-0.005) + (0.165-20/1000))/2 }, {'n', 0.1793},
-            {'b', 0.1848-50/1000}, {'q', 0.1848-50/1000 }, {'k', 0.1877},
+            {'b', 0.181}, {'q', 0.1848-50/1000 }, {'k', 0.1877},
             {'P', 0.165-20/1000}, {'R', ((0.1783-0.005) + (0.165-20/1000))/2}, {'N', 0.1793},
-            {'B', 0.1848-50/1000}, {'Q', 0.1848-50/1000}, {'K', 0.1877}
+            {'B', 0.181}, {'Q', 0.1848-50/1000}, {'K', 0.1877}
         };
 
         //bring in markers for aruco positions
@@ -409,22 +476,22 @@ class RobotKinematics : public rclcpp::Node {
                     // Eigen::Matrix4d H1_transform_ = quaternionToTransformMatrix(q, t);
                     H1_transform_ = quaternionToTransformMatrix(q, t);
 
-                    RCLCPP_INFO(this->get_logger(), "MARKER!! ID: %d", marker_id);
-                    RCLCPP_INFO(this->get_logger(), "YAW!!! X: %.6f m", board_yaw);
+                    // RCLCPP_INFO(this->get_logger(), "MARKER!! ID: %d", marker_id);
+                    // RCLCPP_INFO(this->get_logger(), "YAW!!! X: %.6f m", board_yaw);
 
                     H1_X = -marker.pose.position.x;
                     H1_Y = -marker.pose.position.y;
                     double yaw = std::atan2(H1_transform_(1, 0), H1_transform_(0, 0));
 
-                    std::ostringstream oss;
-                    oss << "H1_transform_:\n" << H1_transform_;
-                    RCLCPP_INFO(this->get_logger(), "%s", oss.str().c_str());
+                    // std::ostringstream oss;
+                    // oss << "H1_transform_:\n" << H1_transform_;
+                    // RCLCPP_INFO(this->get_logger(), "%s", oss.str().c_str());
 
-                    RCLCPP_INFO(
-                        this->get_logger(),
-                        "Yaw from H1 = %.3f rad (%.2f deg)",
-                        yaw, yaw * 180.0 / M_PI
-                    );
+                    // RCLCPP_INFO(
+                        // this->get_logger(),
+                        // "Yaw from H1 = %.3f rad (%.2f deg)",
+                        // yaw, yaw * 180.0 / M_PI
+                    // );
 
                     
                 }
@@ -450,9 +517,29 @@ class RobotKinematics : public rclcpp::Node {
         }
         //joint state sub obj
         rclcpp::Subscription<sensor_msgs::msg::JointState>::SharedPtr joint_state_sub_;
-        bool robot_stationary_;
+        // bool robot_stationary_;
         int pickup_dropoff_wait_;
+
+        //button state variables
+        rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr button_sub_;
+        // bool button_state;
+        std::atomic<bool> button_state;
+        std::atomic<bool> robot_stationary_;
+        std::mutex moveit_mutex;
+
+        void button_callback(const std_msgs::msg::Bool::SharedPtr msg){
+            if(msg->data) {
+                RCLCPP_WARN(this->get_logger(), "E-stop engaged (button_state == true)!");
+                button_state = true;
+            }
+            else{
+                button_state = false;
+                RCLCPP_WARN(this->get_logger(), "E-stop engaged (button_state == false)!");
+            }
+        }
+
 };
+
 
 int main(int argc, char * argv[])
 {
@@ -473,7 +560,7 @@ int main(int argc, char * argv[])
     
     // Wait a bit for ROS to be fully initialized
     rclcpp::sleep_for(std::chrono::seconds(2));
-   
+
     // Add a large cube directly under the robot base
     moveit_msgs::msg::CollisionObject collision_object;
     collision_object.header.frame_id = move_group.getPlanningFrame(); // Use the planning frame
@@ -540,9 +627,14 @@ int main(int argc, char * argv[])
     move_group.setMaxVelocityScalingFactor(MAX_VEL_CARTESIAN);  // 20% of maximum velocity
     move_group.setMaxAccelerationScalingFactor(MAX_ACCEL_CARTESIAN); 
             
-    while (rclcpp::ok()) {
-        rclcpp::spin(node); // Process any pending callbacks
-    }
+    const size_t num_threads = 3;  // Set the number of threads you want
+    rclcpp::executors::MultiThreadedExecutor executor(rclcpp::ExecutorOptions(), num_threads);
+    executor.add_node(node);
+    executor.spin();
+
+    // while (rclcpp::ok()) {
+    //     rclcpp::spin(node); // Process any pending callbacks
+    // }
 
     //remove the objects
     RCLCPP_INFO(node->get_logger(), "Removing objects from the scene");

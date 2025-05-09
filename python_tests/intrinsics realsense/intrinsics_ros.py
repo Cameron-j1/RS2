@@ -179,9 +179,9 @@ def main(args=None):
         print("\nStarting camera calibration...")
         camera_matrix, dist_coeffs, rms_error = calibrate_camera(
             camera_node=camera_node,
-            num_images=15,  # Adjust as needed
+            num_images=50,  # Adjust as needed
             pattern_size=(7, 5),
-            square_size=24.95,
+            square_size=25.1,
             display_results=True
         )
         
