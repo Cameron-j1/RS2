@@ -105,32 +105,32 @@ class RobotKinematics : public rclcpp::Node {
             move_group_ptr = mg;
         }
 
+    private:
         void moveToCameraViewJ(){
             RCLCPP_INFO(this->get_logger(), "Attempting to move to camera view position...");
             moveToJointAngles(camera_view_jangle.at(0), camera_view_jangle.at(1), camera_view_jangle.at(2), camera_view_jangle.at(3), camera_view_jangle.at(4), camera_view_jangle.at(5));
         }
 
-        // void moveToJointAngles(double j1, double j2, double j3, double j4, double j5, double j6){
-        //     std::thread([this, cur, goal, moveType, pickupHeight, pickupHeightCap]() {
-        //         this->moveToJointAnglesInThread(j1, j2, j3, j4, j5, j6)
-        //     }).detach();
-        // }
+        void moveToJointAngles(double j1, double j2, double j3, double j4, double j5, double j6){
+            std::thread([this, j1, j2, j3, j4, j5, j6]() {
+                this->moveToJointAnglesInThread(j1, j2, j3, j4, j5, j6);
+            }).detach();
+        }
 
-        void moveToJointAngles(double j1, double j2, double j3, double j4, double j5, double j6) {
+        bool moveToJointAnglesInThread(double j1, double j2, double j3, double j4, double j5, double j6) {
             if (move_group_ptr == nullptr) {
                 RCLCPP_ERROR(this->get_logger(), "MoveGroup pointer is not initialized");
-                return;
+                return false;
             }
-
-            std::lock_guard<std::mutex> lock(moveit_mutex);
-
+            std::unique_lock<std::mutex> lock(moveit_mutex);
             move_group_ptr->setMaxVelocityScalingFactor(MAX_VEL_JOINT_TARGET);
             move_group_ptr->setMaxAccelerationScalingFactor(MAX_ACCEL_JOINT_TARGET);
             
             // Set the joint target values
             std::vector<double> joint_positions = {j1, j2, j3, j4, j5, j6};
             move_group_ptr->setJointValueTarget(joint_positions);
-            
+            std::this_thread::sleep_for(std::chrono::milliseconds(100));
+
             // Plan the motion
             RCLCPP_INFO(this->get_logger(), "Planning motion to joint angles [%.2f, %.2f, %.2f, %.2f, %.2f, %.2f]",
                         j1, j2, j3, j4, j5, j6);
@@ -140,23 +140,32 @@ class RobotKinematics : public rclcpp::Node {
             
             // Execute if planning was successful
             if (planning_result == moveit::core::MoveItErrorCode::SUCCESS) {
-                RCLCPP_INFO(this->get_logger(), "Planning successful, executing motion...");
-                
-                auto execution_result = move_group_ptr->execute(plan);
-                if (execution_result == moveit::core::MoveItErrorCode::SUCCESS) {
-                    RCLCPP_INFO(this->get_logger(), "Joint motion executed successfully");
-                } else {
-                    RCLCPP_ERROR(this->get_logger(), "Failed to execute joint motion plan");
+                while(!button_state && rclcpp::ok()){
+                    RCLCPP_INFO(this->get_logger(), "Button state false waiting for buton to be pressed");
+                    std::this_thread::sleep_for(std::chrono::milliseconds(25));
                 }
-            } else {
-                RCLCPP_ERROR(this->get_logger(), "Failed to plan joint motion");
+                move_group_ptr->asyncExecute(plan);
+                std::this_thread::sleep_for(std::chrono::milliseconds(300));
+                while (!robot_stationary_) {
+                    // Check if the dead man's switch is released
+                    if (!button_state){
+                        RCLCPP_INFO(this->get_logger(), "Dead man's switch released, stopping movement");
+                        move_group_ptr->stop();
+                        lock.unlock();
+                        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+                        moveToJointAnglesInThread(j1, j2, j3, j4, j5, j6);
+                    }
+                    std::this_thread::sleep_for(std::chrono::milliseconds(25));
+                }
+                RCLCPP_INFO(this->get_logger(), "chess move successful");
+                return true;
             }
-
-            move_group_ptr->setMaxVelocityScalingFactor(MAX_VEL_CARTESIAN);
-            move_group_ptr->setMaxAccelerationScalingFactor(MAX_ACCEL_CARTESIAN);
+            else {
+                RCLCPP_WARN(this->get_logger(), "Path planning for joint angles move failed");
+                return false;
+            }
         }
 
-    private:
         void chess_topic_callback(const std_msgs::msg::String::SharedPtr msg) {
             std::string msgData = msg->data;
             if (msgData.length() < 12) { // if greater than 9 means it's the fen string for the camera node
@@ -278,7 +287,7 @@ class RobotKinematics : public rclcpp::Node {
                 }
                 move_group_ptr->asyncExecute(plan);
                 std::this_thread::sleep_for(std::chrono::milliseconds(300));
-                while (!robot_stationary_) {
+                while (!robot_stationary_){
                     // Check if the dead man's switch is released
                     if (!button_state){
                         RCLCPP_INFO(this->get_logger(), "Dead man's switch released, stopping movement");
