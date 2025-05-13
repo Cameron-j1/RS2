@@ -250,27 +250,46 @@ public:
             RCLCPP_WARN(this->get_logger(), "Reset service not available.");
             return;
         }
-
+    
         auto request = std::make_shared<std_srvs::srv::Trigger::Request>();
-        auto future = reset_client_->async_send_request(request);
-
-        try
-        {
-            auto response = future.get();
-            if (response->success)
-            {
-                RCLCPP_INFO(this->get_logger(), "Reset successful: %s", response->message.c_str());
-            }
-            else
-            {
-                RCLCPP_WARN(this->get_logger(), "Reset failed: %s", response->message.c_str());
-            }
-        }
-        catch (const std::exception &e)
-        {
-            RCLCPP_ERROR(this->get_logger(), "Service call failed: %s", e.what());
-        }
+        auto future = reset_client_->async_send_request(request,
+            [this](rclcpp::Client<std_srvs::srv::Trigger>::SharedFuture response) {
+                auto result = response.get();
+                if (result->success) {
+                    RCLCPP_INFO(this->get_logger(), "Reset successful: %s", result->message.c_str());
+                } else {
+                    RCLCPP_WARN(this->get_logger(), "Reset failed: %s", result->message.c_str());
+                }
+            });
     }
+
+
+
+        
+        // std::string fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR";
+//////////////////////////////////// IT HANGS HERE!!!!!
+        // auto response = future.get();
+        // RCLCPP_INFO(this->get_logger(), "Reset successful: %s", response->message.c_str());
+
+
+
+        // try
+        // {
+        //     auto response = future.get();
+        //     if (response->success)
+        //     {
+        //         RCLCPP_INFO(this->get_logger(), "Reset successful: %s", response->message.c_str());
+        //     }
+        //     else
+        //     {
+        //         RCLCPP_WARN(this->get_logger(), "Reset failed: %s", response->message.c_str());
+        //     }
+        // }
+        // catch (const std::exception &e)
+        // {
+        //     RCLCPP_ERROR(this->get_logger(), "Service call failed: %s", e.what());
+        // }
+    
 
     void publishControl(const std::string &command)
     {
@@ -303,6 +322,9 @@ int main(int argc, char **argv)
 {
     rclcpp::init(argc, argv);
     auto node = std::make_shared<ChessSubscriber>();
+
+    std::string lastFenRendered;
+
     std::string fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR";
     std::string status = "Ready to play";
 
@@ -433,6 +455,16 @@ int main(int argc, char **argv)
                 }
             }
         }
+
+    std::string currentFen = node->getLastMove();
+    if (!currentFen.empty() && currentFen != lastFenRendered)
+    {
+        pieces = makePieces(texture, currentFen);  // Rebuild piece sprites from FEN
+        lastFenRendered = currentFen;
+        status = "Updated board from FEN";
+        std::cout << "Board updated with new FEN: " << currentFen << std::endl;
+    }
+
 
         window.clear(sf::Color(250, 250, 250));
         drawTitle(window, font);

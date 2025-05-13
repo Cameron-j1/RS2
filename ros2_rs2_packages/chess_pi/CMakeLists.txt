@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.5)
-project(ur3_test_control)
+project(chess_pi)
 
 
 find_package(ament_cmake REQUIRED)
