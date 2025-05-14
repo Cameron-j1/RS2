@@ -77,6 +77,12 @@ class RobotKinematics : public rclcpp::Node {
 
             takeImage = this->create_publisher<std_msgs::msg::Bool>("/take_image", 10);
 
+            player_turn_pub = this->create_publisher<std_msgs::msg::Bool>("/player_turn_bool", 10);
+
+            estop_engaged_pub = this->create_publisher<std_msgs::msg::Bool>("/estop_flag", 10);
+
+            board_oor_pub = this->create_publisher<std_msgs::msg::Bool>("/board_oor", 10);
+
             robot_stationary_ = false;
             pickup_dropoff_wait_ = 1.5; //seconds
             H1_transform_ = Eigen::Matrix4d::Identity();
@@ -219,6 +225,9 @@ class RobotKinematics : public rclcpp::Node {
             tempPosition.orientation.w = 0.0;
 
             isTakeImage = false;
+            auto msg = std_msgs::msg::Bool();
+            msg.data = false;    // or false, depending on your logic
+            player_turn_pub->publish(msg);
 
             RCLCPP_INFO(this->get_logger(), "[maneuver] angle move to viewing position");
             moveToJointAngles(-1.525+M_PI, -1.647, 0.291, -0.390, -1.549, 6.215);
@@ -282,6 +291,9 @@ class RobotKinematics : public rclcpp::Node {
             RCLCPP_INFO(this->get_logger(), "[maneuver] angle move to viewing position");
             moveToJointAngles(1.544, -2.060, 0.372, -0.108, -1.651, -6.233); 
             isTakeImage = true;
+            auto msg = std_msgs::msg::Bool();
+            msg.data = true;    // or false, depending on your logic
+            player_turn_pub->publish(msg);
 
         }
 
@@ -293,6 +305,9 @@ class RobotKinematics : public rclcpp::Node {
                 // ─── Wait for Deadman ─────────────────────────────────────────────
                 while (!button_state && rclcpp::ok()) {
                     count++;
+                    auto msg = std_msgs::msg::Bool();
+                    msg.data = true;    // or false, depending on your logic
+                    estop_engaged_pub->publish(msg);
                     if (count % print_freq == 0) {
                         RCLCPP_INFO(this->get_logger(), "[moveStraightToPoint] Waiting for deadman switch...");
                     }
@@ -320,6 +335,9 @@ class RobotKinematics : public rclcpp::Node {
 
                     plan.trajectory_ = trajectory;
                 }
+                auto msg = std_msgs::msg::Bool();
+                msg.data = false;    // or false, depending on your logic
+                estop_engaged_pub->publish(msg);
 
                 // ─── Execute ──────────────────────────────────────────────────────
                 move_group_ptr->asyncExecute(plan);
@@ -328,6 +346,7 @@ class RobotKinematics : public rclcpp::Node {
                 while (rclcpp::ok()) {
                     if (!button_state) {
                         RCLCPP_WARN(this->get_logger(), "[moveStraightToPoint] Deadman switch released, stopping...");
+                        
                         move_group_ptr->stop();
                         std::this_thread::sleep_for(std::chrono::milliseconds(100));
                         break;  // Retry from outer loop
@@ -383,6 +402,8 @@ class RobotKinematics : public rclcpp::Node {
             // Final global position
             double x_final = H1_X + x_rotated;
             double y_final = H1_Y + y_rotated;
+
+
 
             //yaw debug messages
             // RCLCPP_INFO(this->get_logger(), "YAW!!!: %.5f", board_yaw);
@@ -529,6 +550,15 @@ class RobotKinematics : public rclcpp::Node {
 
                     H1_X = -marker.pose.position.x;
                     H1_Y = -marker.pose.position.y;
+                    auto msg = std_msgs::msg::Bool();
+                    if(H1_X > std::abs(0.15) || H1_Y > 0.37 || std::abs(board_yaw) > 0.13){
+                        msg.data = true;
+                        board_oor_pub->publish(msg);
+                    }
+                    else{
+                        msg.data = false;
+                        board_oor_pub->publish(msg);
+                    }
 
                     double dx = 3.5 * (SQUARE_SIZE / 1000.0);
                     double dy = -3.5 * (SQUARE_SIZE / 1000.0);
@@ -542,10 +572,15 @@ class RobotKinematics : public rclcpp::Node {
                     double x_final = -(H1_X + (dx * cos(board_yaw) - dy * sin(board_yaw)));
                     double y_final = -(H1_Y + (dx * sin(board_yaw) + dy * cos(board_yaw)));
 
-                    camPosition.orientation.x = 1.0;
-                    camPosition.orientation.y = 0.0;
-                    camPosition.orientation.w = 0.0;
-                    camPosition.orientation.z = 0.0;
+                    // camPosition.orientation.x = 1.0;
+                    // camPosition.orientation.y = 0.0;
+                    // camPosition.orientation.w = 0.0;
+                    // camPosition.orientation.z = 0.0;
+                    camPosition.orientation.x = marker.pose.orientation.x;
+                    camPosition.orientation.y = marker.pose.orientation.y;
+                    camPosition.orientation.z = marker.pose.orientation.z;
+                    camPosition.orientation.w = marker.pose.orientation.w;
+                    
                     camPosition.position.x = x_final + 0.037143913668;//matCamPos(0, 3);
                     camPosition.position.y = y_final - 0.068065853878;//matCamPos(1, 3);
                     camPosition.position.z = 0.40406;
@@ -595,6 +630,16 @@ class RobotKinematics : public rclcpp::Node {
         rclcpp::Subscription<sensor_msgs::msg::JointState>::SharedPtr joint_state_sub_;
         int pickup_dropoff_wait_;
 
+        // player turn pub for pi variables
+        rclcpp::Publisher<std_msgs::msg::Bool>::SharedPtr player_turn_pub;
+
+        //e-stop state pub for pi variables
+        rclcpp::Publisher<std_msgs::msg::Bool>::SharedPtr estop_engaged_pub;
+
+        rclcpp::Publisher<std_msgs::msg::Bool>::SharedPtr board_oor_pub;
+
+
+
         //button state variables
         rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr button_sub_;
         // bool button_state;
@@ -605,7 +650,7 @@ class RobotKinematics : public rclcpp::Node {
         void button_callback(const std_msgs::msg::Bool::SharedPtr msg){
             if(msg->data) {
                 RCLCPP_WARN(this->get_logger(), "E-stop engaged (button_state == true)!");
-                button_state = true;
+                auto msg = std_msgs::msg::Bool();
                 rclcpp::sleep_for(std::chrono::milliseconds(50));
                 if (robot_stationary_ && isTakeImage) {
                     geometry_msgs::msg::Pose camPositionReal = camPosition;
@@ -630,7 +675,7 @@ class RobotKinematics : public rclcpp::Node {
             }
             else{
                 button_state = false;
-                RCLCPP_WARN(this->get_logger(), "E-stop engaged (button_state == false)!");
+                RCLCPP_WARN(this->get_logger(), "E-stop dis-engaged (button_state == false)!");
             }
         }
 
