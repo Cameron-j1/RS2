@@ -28,6 +28,10 @@ sf::Color dropdownText(50, 50, 50);
 // Texture path
 std::string chessPiecesPath = ament_index_cpp::get_package_share_directory("ur3_test_control") + "/images/pieces.png";
 
+
+
+#pragma region GUI Structs and Classes
+
 // Button and Dropdown structs
 struct Button
 {
@@ -224,6 +228,9 @@ void drawStatus(sf::RenderWindow &window, sf::Font &font, const std::string &sta
     window.draw(statusText);
 }
 
+#pragma endregion GUI
+
+#pragma region ROS2 Topic Subs and Services
 class ChessSubscriber : public rclcpp::Node
 {
 public:
@@ -263,33 +270,6 @@ public:
             });
     }
 
-
-
-        
-        // std::string fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR";
-//////////////////////////////////// IT HANGS HERE!!!!!
-        // auto response = future.get();
-        // RCLCPP_INFO(this->get_logger(), "Reset successful: %s", response->message.c_str());
-
-
-
-        // try
-        // {
-        //     auto response = future.get();
-        //     if (response->success)
-        //     {
-        //         RCLCPP_INFO(this->get_logger(), "Reset successful: %s", response->message.c_str());
-        //     }
-        //     else
-        //     {
-        //         RCLCPP_WARN(this->get_logger(), "Reset failed: %s", response->message.c_str());
-        //     }
-        // }
-        // catch (const std::exception &e)
-        // {
-        //     RCLCPP_ERROR(this->get_logger(), "Service call failed: %s", e.what());
-        // }
-    
 
     std::string trimFenToBoard(const std::string& fenString) {
         // Find the position of the first whitespace
@@ -339,6 +319,8 @@ private:
     std::string lastMove;
     bool buttonState = false;
 };
+#pragma endregion ROS
+
 
 
 int main(int argc, char **argv)
