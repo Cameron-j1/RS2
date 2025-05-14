@@ -75,6 +75,7 @@ class RobotKinematics : public rclcpp::Node {
                 "button_state", 10,
                 std::bind(&RobotKinematics::button_callback, this, std::placeholders::_1));
 
+            takeImage = this->create_publisher<std_msgs::msg::Bool>("/take_image", 10);
 
             robot_stationary_ = false;
             pickup_dropoff_wait_ = 1.5; //seconds
@@ -217,6 +218,8 @@ class RobotKinematics : public rclcpp::Node {
             tempPosition.orientation.y = 0.0;
             tempPosition.orientation.w = 0.0;
 
+            isTakeImage = false;
+
             RCLCPP_INFO(this->get_logger(), "[maneuver] angle move to viewing position");
             moveToJointAngles(-1.525+M_PI, -1.647, 0.291, -0.390, -1.549, 6.215);
 
@@ -278,6 +281,8 @@ class RobotKinematics : public rclcpp::Node {
 
             RCLCPP_INFO(this->get_logger(), "[maneuver] angle move to viewing position");
             moveToJointAngles(1.544, -2.060, 0.372, -0.108, -1.651, -6.233); 
+            isTakeImage = true;
+
         }
 
         bool moveStraightToPoint(std::vector<geometry_msgs::msg::Pose> tempPosition, double vel, double acc) {
@@ -449,11 +454,13 @@ class RobotKinematics : public rclcpp::Node {
         // Private variables and objects
         rclcpp::Subscription<std_msgs::msg::String>::SharedPtr chess_sub;
         rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr marker_pub;
+        rclcpp::Publisher<std_msgs::msg::Bool>::SharedPtr takeImage;
         moveit::planning_interface::MoveGroupInterface* move_group_ptr;
 
         // calculate the height of other pieces based on the height of the pawn
         double operation_height = 0.15 + 0.1;//, pickupHeight = 0.05 + 0.1+0.015;
         int markerNum = 50;
+        bool isTakeImage = true;
         rclcpp::Publisher<std_msgs::msg::Bool>::SharedPtr servo_publisher_;
         std::vector<double> camera_view_jangle = {
             58.92*(M_PI/180),
@@ -478,6 +485,7 @@ class RobotKinematics : public rclcpp::Node {
         std::map<int, geometry_msgs::msg::TransformStamped> marker_transforms_;
         double H1_X;
         double H1_Y;
+        geometry_msgs::msg::Pose camPosition;
         Eigen::Matrix4d H1_transform_;
         double board_yaw = 0;
 
@@ -518,27 +526,30 @@ class RobotKinematics : public rclcpp::Node {
                     Eigen::Vector3d t(marker.pose.position.x,
                         marker.pose.position.y,
                         marker.pose.position.z);
-                    // Eigen::Matrix4d H1_transform_ = quaternionToTransformMatrix(q, t);
-                    H1_transform_ = quaternionToTransformMatrix(q, t);
-
-                    // RCLCPP_INFO(this->get_logger(), "MARKER!! ID: %d", marker_id);
-                    // RCLCPP_INFO(this->get_logger(), "YAW!!! X: %.6f m", board_yaw);
 
                     H1_X = -marker.pose.position.x;
                     H1_Y = -marker.pose.position.y;
-                    double yaw = std::atan2(H1_transform_(1, 0), H1_transform_(0, 0));
 
-                    // std::ostringstream oss;
-                    // oss << "H1_transform_:\n" << H1_transform_;
-                    // RCLCPP_INFO(this->get_logger(), "%s", oss.str().c_str());
+                    double dx = 3.5 * (SQUARE_SIZE / 1000.0);
+                    double dy = -3.5 * (SQUARE_SIZE / 1000.0);
 
-                    // RCLCPP_INFO(
-                        // this->get_logger(),
-                        // "Yaw from H1 = %.3f rad (%.2f deg)",
-                        // yaw, yaw * 180.0 / M_PI
-                    // );
+                    if(board_yaw < 1.57){
+                        dx = -3.5 * (SQUARE_SIZE / 1000.0);
+                        dy =  3.5 * (SQUARE_SIZE / 1000.0);
+                    }
 
-                    
+                    // Apply 2D rotation to account for yaw
+                    double x_final = -(H1_X + (dx * cos(board_yaw) - dy * sin(board_yaw)));
+                    double y_final = -(H1_Y + (dx * sin(board_yaw) + dy * cos(board_yaw)));
+
+                    camPosition.orientation.x = 1.0;
+                    camPosition.orientation.y = 0.0;
+                    camPosition.orientation.w = 0.0;
+                    camPosition.orientation.z = 0.0;
+                    camPosition.position.x = x_final + 0.037143913668;//matCamPos(0, 3);
+                    camPosition.position.y = y_final - 0.068065853878;//matCamPos(1, 3);
+                    camPosition.position.z = 0.40406;
+
                 }
             }
         }        
@@ -595,6 +606,27 @@ class RobotKinematics : public rclcpp::Node {
             if(msg->data) {
                 RCLCPP_WARN(this->get_logger(), "E-stop engaged (button_state == true)!");
                 button_state = true;
+                rclcpp::sleep_for(std::chrono::milliseconds(50));
+                if (robot_stationary_ && isTakeImage) {
+                    geometry_msgs::msg::Pose camPositionReal = camPosition;
+                    RCLCPP_INFO(this->get_logger(), "Button pressed, movinnnnn");
+                    moveToJointAngles(M_PI/2, -M_PI/2, M_PI/2, -M_PI/2, -M_PI/2, 0);
+
+                    RCLCPP_INFO(this->get_logger(), 
+                    "Camera Goal Position and Orientation:\n"
+                    "Orientation: x=%.4f, y=%.4f, w=%.4f\n"
+                    "Position: x=%.4f, y=%.4f, z=%.4f",
+                    camPositionReal.orientation.x,
+                    camPositionReal.orientation.y,
+                    camPositionReal.orientation.w,
+                    camPositionReal.position.x,
+                    camPositionReal.position.y,
+                    camPositionReal.position.z);
+
+                    moveStraightToPoint({camPositionReal}, 0.05, 0.05);
+                    takeImage->publish(std_msgs::msg::Bool().set__data(true));
+                    isTakeImage = false;
+                }
             }
             else{
                 button_state = false;
