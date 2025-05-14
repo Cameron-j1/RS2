@@ -20,6 +20,7 @@ find_package(OpenCV REQUIRED)
 find_package(tf2_ros REQUIRED)
 find_package(visualization_msgs REQUIRED)
 find_package(std_srvs REQUIRED)
+find_package(Eigen3 REQUIRED)
 
 include_directories(${Boost_INCLUDE_DIRS})
 

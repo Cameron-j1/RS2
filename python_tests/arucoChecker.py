@@ -2,6 +2,7 @@ import cv2
 from cv2 import aruco
 import numpy as np
 from scipy.spatial.transform import Rotation as R
+import math
 
 from pose_pub_class import CameraPosePublisher
 import rclpy
@@ -15,40 +16,56 @@ from pose_sub_class import FrameListener  # Adjust if needed
 
 #global variables
 #distances from H1
-aruco_board_span = 281/1000 #long distance
-aruco_square_span = 36/1000 #short distance
+aruco_board_span = 281/1000 + 22.75/1000 - 5/1000#long distance 22.75
+aruco_square_span = 36/1000 + 22.75/1000 + 5/1000#short distance 22.75
 H1_marker_ID = 5
 aruco_to_H1 = {
     #aruco id: [x to H1 (m), y to H1 (m), rot z (rad)]
-    1: [-aruco_board_span, -aruco_square_span, 0],
-    2: [aruco_square_span, aruco_board_span, 0],
-    3: [-aruco_board_span+30/1000, aruco_board_span, 0],
-    4: [aruco_square_span, - aruco_square_span, 0]
+    # 1: [-aruco_board_span, -aruco_square_span, 0],
+    2: [-0.2594, 0.2961, 0],
+    3: [0.0144+0.006, 0.2961, 0],
+    # 4: [aruco_square_span, - aruco_square_span, 0]
 }
 
 chess_board_side_ID_pairs = [
-    (2, 3),
-    (3, 1),
-    (4, 1),
-    (4, 2)
+    (3, 2),
+    #untested pairs only testing 2,3 for now
+    # (3, 1),
+    # (4, 1),
+    # (2, 4)
 ]
+
+# side_Req_rot = {
+#     (2, 3): 0
+#     (3, 1): (3/2)*math.pi
+#     (4, 1): 0
+#     (4, 2): (3/2)*math.pi
+# }
 
 def calculate_H1_T(T_base_to_marker, marker_ID):
     # print(f"ID using to calc H1: {marker_ID}")
     T_H1 = np.copy(T_base_to_marker)
-    T_H1[0, 3] = T_H1[0, 3] + aruco_to_H1[marker_ID][0] #x position
-    T_H1[1, 3] = T_H1[1, 3] + aruco_to_H1[marker_ID][1] #y position
+
+    T_mod = np.eye(4)
+    T_mod[0][3] = aruco_to_H1[marker_ID][0]
+    T_mod[1][3] = aruco_to_H1[marker_ID][1]
+
+    T_H1 = T_H1 @ T_mod
+
     pos_in_base = T_H1[:3, 3]
-    # print("H1 marker position in robot base frame:", np.round(pos_in_base, 5))
+    print("H1 marker position in robot base frame:", np.round(pos_in_base, 5))
     return T_H1
 
-def transform_add_yaw_from_points(input_transform, yaw_calc_T1, yaw_calc_T2):
+def transform_calc_rot_matrix(yaw_calc_T1, yaw_calc_T2):
     # Extract X-Y positions from yaw_calc_T1 and yaw_calc_T2
-    x1, y1 = yaw_calc_T1[0, 3], yaw_calc_T1[1, 3]
-    x2, y2 = yaw_calc_T2[0, 3], yaw_calc_T2[1, 3]
+    x1, y1 = yaw_calc_T1[0][3], yaw_calc_T1[1][3]
+    x2, y2 = yaw_calc_T2[0][3], yaw_calc_T2[1][3]
 
     # Compute yaw angle in radians
     yaw = np.arctan2(y2 - y1, x2 - x1)
+
+    yaw_deg = yaw * (180/math.pi)
+    print(f"Z rotation of the chessboard in the global frame: {yaw_deg} (0 degrees for standard chessboard position)")
 
     # Construct a yaw-only rotation matrix (Z-axis rotation)
     cos_yaw = np.cos(yaw)
@@ -59,14 +76,7 @@ def transform_add_yaw_from_points(input_transform, yaw_calc_T1, yaw_calc_T2):
         [0,        0,       1]
     ])
 
-    # Create new transform with original translation and yaw-only rotation
-    new_transform = np.eye(4)
-    new_transform[:3, :3] = R_yaw
-    new_transform[:3, 3] = input_transform[:3, 3]
-
-    return new_transform
-
-
+    return R_yaw
 
 def average_T_pos(Transforms):
     #calculate the average position transformation matrix with 0 rotation
@@ -79,12 +89,14 @@ def average_T_pos(Transforms):
         avg_z = avg_z + transform[2][3]
     
     avg_T = np.eye(4)
-    avg_T[0][3] = avg_x
-    avg_T[1][3] = avg_y
-    avg_T[2][3] = avg_z
+    avg_T[0][3] = avg_x/max(1, len(Transforms))
+    avg_T[1][3] = avg_y/max(1, len(Transforms))
+    avg_T[2][3] = avg_z/max(1, len(Transforms))
     return avg_T
 
-def get_aruco_transforms(image, marker_size_mm=250):
+
+
+def get_aruco_transforms(image, marker_size_mm=250.0):
     """
     Detect 6x6 ArUco markers in an image and return the 4x4 transformation matrices
     from camera to each detected marker.
@@ -107,7 +119,7 @@ def get_aruco_transforms(image, marker_size_mm=250):
         gray = image
     
     # Define the ArUco dictionary (6x6 markers)
-    aruco_dict = aruco.getPredefinedDictionary(aruco.DICT_4X4_250)
+    aruco_dict = aruco.getPredefinedDictionary(aruco.DICT_5X5_100)
     
     # Create ArUco parameters
     parameters = aruco.DetectorParameters()
@@ -141,20 +153,36 @@ def get_aruco_transforms(image, marker_size_mm=250):
         ], dtype=np.float32)
         dist_coeffs = np.zeros((5, 1), dtype=np.float32)
 
-        #1280x720 intrinics
+        #1280x720 intrinics pre 9/05/25
+        # camera_matrix = np.array([
+        #     [904.31097901,   0.        , 641.57999223],
+        #     [  0.        , 903.36941042, 362.54800006],
+        #     [  0.        ,   0.        ,   1.        ]
+        # ])
+
+        # dist_coeffs = np.array([
+        #     [ 4.44499317e-02],
+        #     [ 5.56966659e-01],
+        #     [ 2.99253301e-04],
+        #     [-1.49486083e-03],
+        #     [-2.25401697e+00]
+        # ])
+
+        #1280x720 intrinics post 9/05/25
         camera_matrix = np.array([
-            [904.31097901,   0.        , 641.57999223],
-            [  0.        , 903.36941042, 362.54800006],
-            [  0.        ,   0.        ,   1.        ]
-        ])
+            [905.85707232, 0.0, 644.68513826],
+            [0.0, 905.26944593, 357.56503199],
+            [0.0, 0.0, 1.0]
+        ], dtype=np.float64)
 
         dist_coeffs = np.array([
-            [ 4.44499317e-02],
-            [ 5.56966659e-01],
-            [ 2.99253301e-04],
-            [-1.49486083e-03],
-            [-2.25401697e+00]
-        ])
+            [0.11422684],
+            [-0.17355504],
+            [-0.00203388],
+            [0.00122792],
+            [-0.17927661]
+        ], dtype=np.float64)
+
         
         # For each detected marker
         for i in range(len(ids)):
@@ -245,6 +273,14 @@ def calculate_transforms(img, publisher, T_base_to_ee):
     #     [ 0.001278926362, -0.000328268593,  0.999999125353,  0.015976452427],
     #     [ 0.000000000000,  0.000000000000,  0.000000000000,  1.000000000000],
     # ])) 
+    # #from eye in hand calibration
+    #480p extrinsics
+    # T_cam_to_ee = (np.array([
+    #     [ 0.000338072668,  0.999999801432,  0.000329791286,  -0.037143913668-0.015],
+    #     [-0.999998857238,  0.000411703512,  0.001278763264, -0.060065853878-0.008],
+    #     [ 0.001278926362, -0.000328268593,  0.999999125353,  0.015976452427],
+    #     [ 0.000000000000,  0.000000000000,  0.000000000000,  1.000000000000],
+    # ])) 
 
     tempRot = R.from_euler('z', 90, degrees=True).as_matrix()
     T_frame_adjust_z = np.eye(4)
@@ -256,8 +292,11 @@ def calculate_transforms(img, publisher, T_base_to_ee):
     T_cam = T_base_to_ee @ (T_cam_to_ee)
     
     aruco_transforms = None
-    aruco_transforms, ids = get_aruco_transforms(image, 33)
+    # aruco_transforms, ids = get_aruco_transforms(image, 77.8)
+    # aruco_transforms, ids = get_aruco_transforms(image, 22.5)
+    aruco_transforms, ids = get_aruco_transforms(image, 47.9)
     print(ids)
+    # print(aruco_transforms)
 
     arucos_found = []
     H1_transforms = []
@@ -271,53 +310,51 @@ def calculate_transforms(img, publisher, T_base_to_ee):
 
             T_base_to_marker = T_cam @ T_cam_to_marker
             pos_in_base = T_base_to_marker[:3, 3]
-            if pos_in_base[2] < 0.1:
-                publisher.add_pose(T_base_to_marker, ids[i]) 
-                print("ArUco marker position in robot base frame:", np.round(pos_in_base, 5))
-                temp_aruco_data_inner = [ids[i], T_base_to_marker]
-                arucos_found.append(temp_aruco_data_inner)
-                try:
-                    H1_T = calculate_H1_T(T_base_to_marker, ids[i])
-                    H1_transforms.append(H1_T)
-                    H1_published = True
-                except:
-                    print('No saved transform between aruco and H1') 
+            # if pos_in_base[2] < 0.1: #and pos_in_base[2] > -0.05:
+            publisher.add_pose(T_base_to_marker, ids[i]) 
+            print("ArUco marker position in robot base frame:", np.round(pos_in_base, 5))
+            temp_aruco_data_inner = [ids[i], T_base_to_marker]
+            arucos_found.append(temp_aruco_data_inner)
 
-        # Calculate Euclidean distance in X-Y plane between all pairs of ArUco markers
-        print("\nEuclidean distances between markers (X-Y plane only):")
-        for i in range(len(arucos_found)):
-            for j in range(i+1, len(arucos_found)):
+            print(f"IDs pre filter: {ids}")
+                
+
+        # Calculate Euclidean distance in X-Y plane between all pairs of ArUco markers for debug purposes
+        # print("\nEuclidean distances between markers (X-Y plane only):")
+        # for i in range(len(arucos_found)):
+            # for j in range(i+1, len(arucos_found)):
                 # Extract X and Y coordinates from transformation matrices
-                x1, y1 = arucos_found[i][1][0, 3], arucos_found[i][1][1, 3]
-                x2, y2 = arucos_found[j][1][0, 3], arucos_found[j][1][1, 3]
+                # x1, y1 = arucos_found[i][1][0, 3], arucos_found[i][1][1, 3]
+                # x2, y2 = arucos_found[j][1][0, 3], arucos_found[j][1][1, 3]
                 
                 # Calculate Euclidean distance in X-Y plane only
-                distance_xy = np.sqrt((x2 - x1)**2 + (y2 - y1)**2)
-                print(f"Distance between marker {arucos_found[i][0]} and marker {arucos_found[j][0]}: {distance_xy:.5f} units")
-
-
-        #calculate the yaw of the transform
-        H1_T_final = average_T_pos(H1_transforms)
+                # distance_xy = np.sqrt((x2 - x1)**2 + (y2 - y1)**2)
+                # print(f"Distance between marker {arucos_found[i][0]} and marker {arucos_found[j][0]}: {distance_xy:.5f} units")
 
         #calculate the yaw of the chessboard
         yaw_calc_ID_pair = [0,0]
         ID_pair_exists = False
         for ID_pair in chess_board_side_ID_pairs:
             ID_pair_detected = [False, False]
+            #loop through ids within the pair
             for i, marker_id in enumerate(ID_pair):
+                #loop through all the ids of found arucos to see if they match the pair
                 for aruco in arucos_found:
                     if aruco[0] == marker_id:
                         ID_pair_detected[i] = True
 
+            #if you get a true for both of the pair you have a pair
             if ID_pair_detected == [True, True]:
                 yaw_calc_ID_pair = ID_pair
                 ID_pair_exists = True
+                print("ID PAIR DETECTED")
                 break #leave as we have found a pair
         
         if(ID_pair_exists):
             #find the indexes of the relevant aruco transforms
             yaw_t1_idx = -1
             yaw_t2_idx = -1
+            #find the index's of the aruco you need for the side of the chessboard
             for i, aruco in enumerate(arucos_found):
                 if aruco[0] == yaw_calc_ID_pair[0]:
                     yaw_t1_idx = i
@@ -325,8 +362,27 @@ def calculate_transforms(img, publisher, T_base_to_ee):
                     yaw_t2_idx = i         
     
             if yaw_t1_idx != -1 and yaw_t2_idx != -1:
-                H1_T_final = transform_add_yaw_from_points(H1_T_final, aruco_transforms[yaw_t1_idx][1], aruco_transforms[yaw_t2_idx][1])
-                #publish the finalised H1 transform because it is here it is not published unless the camera can see 2 transforms
+                #with the transforms you have (order inportant) calculate the rotation matrix of the board
+                board_rot_matrix = transform_calc_rot_matrix(arucos_found[yaw_t1_idx][1], arucos_found[yaw_t2_idx][1])
+                
+                #calculate the aruco transforms with calculated rotation matrix
+                for aruco in arucos_found:
+                    aruco[1][:3, :3] = board_rot_matrix
+                    #calculate the H1 position with aruco transform, id
+                    try:
+                        if(aruco[0] == 3):
+                            H1_T = calculate_H1_T(aruco[1], aruco[0])
+                            H1_transforms.append(H1_T)
+                    except:
+                        print(f'No saved transform between aruco ID: {aruco[0]} and H1')
+                
+                #contruct the final H1 position using the average position of all the calculated H1 position and the board rotation
+                H1_T_xyz = average_T_pos(H1_transforms)
+                H1_T_final = np.eye(4)
+                H1_T_final[:3, :3] = board_rot_matrix
+                H1_T_final[:3, 3] = H1_T_xyz[:3, 3]
+                
+                #publish the finalised H1 transform
                 publisher.add_pose(H1_T_final, H1_marker_ID)
 
 #start ROS crap

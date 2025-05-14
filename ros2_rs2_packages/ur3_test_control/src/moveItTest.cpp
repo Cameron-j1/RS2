@@ -16,11 +16,20 @@
 #include <moveit/planning_scene_interface/planning_scene_interface.h>
 #include <moveit_msgs/msg/collision_object.hpp>
 #include <shape_msgs/msg/solid_primitive.hpp>
+
 #include <Eigen/Geometry>
 
 //for joint state
 #include <sensor_msgs/msg/joint_state.hpp>
 
+//for transformation matrices
+#include <Eigen/Dense>
+#include <Eigen/Geometry>
+
+//for button press control with blocking button
+#include <thread>
+#include <atomic>
+#include <mutex>
 
 #include <utility>
 #include <string>
@@ -62,8 +71,18 @@ class RobotKinematics : public rclcpp::Node {
                 "/joint_states", 10,
                 std::bind(&RobotKinematics::jointStateCallback, this, std::placeholders::_1));    
 
+            button_sub_ = this->create_subscription<std_msgs::msg::Bool>(
+                "button_state", 10,
+                std::bind(&RobotKinematics::button_callback, this, std::placeholders::_1));
+
+
             robot_stationary_ = false;
             pickup_dropoff_wait_ = 1.5; //seconds
+            H1_transform_ = Eigen::Matrix4d::Identity();
+
+            //intialise to default values for operation without arucos
+            H1_X = 0.11436;
+            H1_Y = -0.469443135;
 
             moveToJointAngles(camera_view_jangle.at(0), camera_view_jangle.at(1),camera_view_jangle.at(2),camera_view_jangle.at(3),camera_view_jangle.at(4),camera_view_jangle.at(5));
         }
@@ -82,27 +101,36 @@ class RobotKinematics : public rclcpp::Node {
         }        
 
         void setMoveGroup(moveit::planning_interface::MoveGroupInterface* mg) {
+            std::lock_guard<std::mutex> lock(moveit_mutex);
             move_group_ptr = mg;
         }
 
+    private:
         void moveToCameraViewJ(){
             RCLCPP_INFO(this->get_logger(), "Attempting to move to camera view position...");
             moveToJointAngles(camera_view_jangle.at(0), camera_view_jangle.at(1), camera_view_jangle.at(2), camera_view_jangle.at(3), camera_view_jangle.at(4), camera_view_jangle.at(5));
         }
 
-        void moveToJointAngles(double j1, double j2, double j3, double j4, double j5, double j6) {
+        void moveToJointAngles(double j1, double j2, double j3, double j4, double j5, double j6){
+            std::thread([this, j1, j2, j3, j4, j5, j6]() {
+                this->moveToJointAnglesInThread(j1, j2, j3, j4, j5, j6);
+            }).detach();
+        }
+
+        bool moveToJointAnglesInThread(double j1, double j2, double j3, double j4, double j5, double j6) {
             if (move_group_ptr == nullptr) {
                 RCLCPP_ERROR(this->get_logger(), "MoveGroup pointer is not initialized");
-                return;
+                return false;
             }
-
+            std::unique_lock<std::mutex> lock(moveit_mutex);
             move_group_ptr->setMaxVelocityScalingFactor(MAX_VEL_JOINT_TARGET);
             move_group_ptr->setMaxAccelerationScalingFactor(MAX_ACCEL_JOINT_TARGET);
             
             // Set the joint target values
             std::vector<double> joint_positions = {j1, j2, j3, j4, j5, j6};
             move_group_ptr->setJointValueTarget(joint_positions);
-            
+            std::this_thread::sleep_for(std::chrono::milliseconds(100));
+
             // Plan the motion
             RCLCPP_INFO(this->get_logger(), "Planning motion to joint angles [%.2f, %.2f, %.2f, %.2f, %.2f, %.2f]",
                         j1, j2, j3, j4, j5, j6);
@@ -112,42 +140,68 @@ class RobotKinematics : public rclcpp::Node {
             
             // Execute if planning was successful
             if (planning_result == moveit::core::MoveItErrorCode::SUCCESS) {
-                RCLCPP_INFO(this->get_logger(), "Planning successful, executing motion...");
-                
-                auto execution_result = move_group_ptr->execute(plan);
-                if (execution_result == moveit::core::MoveItErrorCode::SUCCESS) {
-                    RCLCPP_INFO(this->get_logger(), "Joint motion executed successfully");
-                } else {
-                    RCLCPP_ERROR(this->get_logger(), "Failed to execute joint motion plan");
+                while(!button_state && rclcpp::ok()){
+                    RCLCPP_INFO(this->get_logger(), "Button state false waiting for buton to be pressed");
+                    std::this_thread::sleep_for(std::chrono::milliseconds(25));
                 }
-            } else {
-                RCLCPP_ERROR(this->get_logger(), "Failed to plan joint motion");
+                move_group_ptr->asyncExecute(plan);
+                std::this_thread::sleep_for(std::chrono::milliseconds(300));
+                while (!robot_stationary_) {
+                    // Check if the dead man's switch is released
+                    if (!button_state){
+                        RCLCPP_INFO(this->get_logger(), "Dead man's switch released, stopping movement");
+                        move_group_ptr->stop();
+                        lock.unlock();
+                        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+                        moveToJointAnglesInThread(j1, j2, j3, j4, j5, j6);
+                    }
+                    std::this_thread::sleep_for(std::chrono::milliseconds(25));
+                }
+                RCLCPP_INFO(this->get_logger(), "chess move successful");
+                return true;
             }
-
-            move_group_ptr->setMaxVelocityScalingFactor(MAX_VEL_CARTESIAN);
-            move_group_ptr->setMaxAccelerationScalingFactor(MAX_ACCEL_CARTESIAN);
+            else {
+                RCLCPP_WARN(this->get_logger(), "Path planning for joint angles move failed");
+                return false;
+            }
         }
 
-    private:
         void chess_topic_callback(const std_msgs::msg::String::SharedPtr msg) {
             std::string msgData = msg->data;
-            if (msgData.length() < 9) { // if greater than 9 means it's the fen string for the camera node
+            if (msgData.length() < 12) { // if greater than 9 means it's the fen string for the camera node
                 std::pair<double, double> currentPiece = chessToGridCenter(msgData[0], msgData[1]), goal = chessToGridCenter(msgData[2], msgData[3]);
                 RCLCPP_INFO(this->get_logger(), "Stockfish move: '%s'", msgData.c_str());
-                if (msgData.length() == 6) // normal move
+                if(msgData.length() == 6){ // normal move
                     maneuver(currentPiece, goal, msgData[4], pieceHeight[msgData[5]], 0);
-                else if (msgData.length() == 7)
+                }
+                if(msgData.length() == 7 || msgData.length() == 8){ // capture move
                     maneuver(currentPiece, goal, msgData[4], pieceHeight[msgData[5]], pieceHeight[msgData[6]]);
+                }
+                if(msgData.length() == 11){ //castling
+                    //example castling string e8g8h8f8ckr. first move 'e8g8' second move 'h8f8' move type 'c' first move peice 'k' second move peice 'r'
+                    maneuver(currentPiece, goal, msgData[8], pieceHeight[msgData[9]], 0);
+                    currentPiece = chessToGridCenter(msgData[4], msgData[5]);
+                    goal = chessToGridCenter(msgData[6], msgData[7]);
+                    maneuver(currentPiece, goal, msgData[8], pieceHeight[msgData[10]], 0);
+                }
             }
         }
 
-        void maneuver(std::pair<double, double> cur, std::pair<double, double> goal, char moveType, double pickupHeight, double pickupHeightCap) {
+        void maneuver(std::pair<double, double> cur, std::pair<double, double> goal, char moveType, double pickupHeight, double pickupHeightCap){
+            std::thread([this, cur, goal, moveType, pickupHeight, pickupHeightCap]() {
+                this->maneuverInThread(cur, goal, moveType, pickupHeight, pickupHeightCap);
+            }).detach();
+        }
+
+        void maneuverInThread(std::pair<double, double> cur, std::pair<double, double> goal, char moveType, double pickupHeight, double pickupHeightCap) {
             std::vector<geometry_msgs::msg::Pose> points = {};
             geometry_msgs::msg::Pose tempPosition;
             tempPosition.position.z = operation_height;
             tempPosition.orientation.x = 1.0;
             tempPosition.orientation.y = 0.0;
             tempPosition.orientation.w = 0.0;
+
+            moveToJointAngles(-1.525+M_PI, -1.647, 0.291, -0.390, -1.549, 6.215);
 
             // remove the captured piece from the board
             if (moveType == 'x') {
@@ -170,7 +224,7 @@ class RobotKinematics : public rclcpp::Node {
                 std::this_thread::sleep_for(std::chrono::seconds(pickup_dropoff_wait_));
             }   
             // Here, we play the damn piece
-            if (moveType == 'n' || moveType == 'x') {
+            if (moveType == 'n' || moveType == 'x' || moveType == 'c'){
                 tempPosition.position.x = cur.first;
                 tempPosition.position.y = cur.second;
                 RCLCPP_INFO(this->get_logger(), "xStart: %.3f%% and yStart: %.3f%% and zPickUp: %.3f%%", cur.first, cur.second, pickupHeight);
@@ -196,11 +250,29 @@ class RobotKinematics : public rclcpp::Node {
             }
 
             // moveToJointAngles(camera_view_jangle.at(0), camera_view_jangle.at(1),camera_view_jangle.at(2),camera_view_jangle.at(3),camera_view_jangle.at(4),camera_view_jangle.at(5));
-            moveToJointAngles(-1.525+M_PI, -1.647, 0.291, -0.390, -1.549, 6.215);
-
+            // moveToJointAngles(-1.525+M_PI, -1.647, 0.291, -0.390, -1.549, 6.215);
+            moveToJointAngles(1.544, -2.060, 0.372, -0.108, -1.651, -6.233); 
         }
 
+        // bool moveStraightToPoint(std::vector<geometry_msgs::msg::Pose> tempPosition, double vel, double acc) {
+        //     move_group_ptr->setMaxVelocityScalingFactor(vel);  // 20% of maximum velocity
+        //     move_group_ptr->setMaxAccelerationScalingFactor(acc);  // 20% of maximum acceleration
+        //     moveit_msgs::msg::RobotTrajectory trajectory;
+        //     double fraction = move_group_ptr->computeCartesianPath(tempPosition, 0.01, 0.0, trajectory);
+        //     if (fraction >= 0.95) {
+        //         moveit::planning_interface::MoveGroupInterface::Plan plan;
+        //         plan.trajectory_ = trajectory;
+        //         move_group_ptr->execute(plan);
+        //         RCLCPP_INFO(this->get_logger(), "chess move successful");
+        //         return true;
+        //     } else {
+        //         RCLCPP_WARN(this->get_logger(), "Path only %.2f%% complete", fraction * 100.0);
+        //         return false;
+        //     }
+        // }
+
         bool moveStraightToPoint(std::vector<geometry_msgs::msg::Pose> tempPosition, double vel, double acc) {
+            std::unique_lock<std::mutex> lock(moveit_mutex);
             move_group_ptr->setMaxVelocityScalingFactor(vel);  // 20% of maximum velocity
             move_group_ptr->setMaxAccelerationScalingFactor(acc);  // 20% of maximum acceleration
             moveit_msgs::msg::RobotTrajectory trajectory;
@@ -208,14 +280,35 @@ class RobotKinematics : public rclcpp::Node {
             if (fraction >= 0.95) {
                 moveit::planning_interface::MoveGroupInterface::Plan plan;
                 plan.trajectory_ = trajectory;
-                move_group_ptr->execute(plan);
+                rclcpp::Rate rate(10);
+                while (!button_state && rclcpp::ok()) {
+                    RCLCPP_INFO(this->get_logger(), "Button state false waiting for buton to be pressed");
+                    std::this_thread::sleep_for(std::chrono::milliseconds(25));
+                }
+                move_group_ptr->asyncExecute(plan);
+                std::this_thread::sleep_for(std::chrono::milliseconds(300));
+                while (!robot_stationary_){
+                    // Check if the dead man's switch is released
+                    if (!button_state){
+                        RCLCPP_INFO(this->get_logger(), "Dead man's switch released, stopping movement");
+                        move_group_ptr->stop();
+                        
+                        lock.unlock();
+                        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+                        // Wait for the button to be pressed again
+                        moveStraightToPoint(tempPosition, vel, acc);
+                    }
+                    std::this_thread::sleep_for(std::chrono::milliseconds(25));
+                }
                 RCLCPP_INFO(this->get_logger(), "chess move successful");
                 return true;
-            } else {
+            }
+            else {
                 RCLCPP_WARN(this->get_logger(), "Path only %.2f%% complete", fraction * 100.0);
                 return false;
             }
         }
+
 
         std::pair<double, double> chessToGridCenter(char file, char rank) {
             // Convert file to column index (0-based: 'a' = 0, 'h' = 7)
@@ -223,34 +316,67 @@ class RobotKinematics : public rclcpp::Node {
             if (col < 0 || col > 7) {
                 throw std::invalid_argument("File must be between 'a' and 'h'");
             }
+            //'h' = 0 'a' = 7
             col = abs(col-7);
-        
+
             // Convert rank to row index (0-based: '1' = 0, '8' = 7)
             double row = rank - '1';
             if (row < 0 || row > 7) {
                 throw std::invalid_argument("Rank must be between '1' and '8'");
             }
 
-            //measured from board
-            // H1_X = 0.11436;
-            // H1_Y = -0.469443135;
+            //i had to flip this for some reason on friday - watch might be temperamental
+            double dx = col * (SQUARE_SIZE / 1000.0);
+            double dy =  -row * (SQUARE_SIZE / 1000.0);
 
-            // double dx = -col * (SQUARE_SIZE / 1000.0);
-            // double dy =  row * (SQUARE_SIZE / 1000.0);
+            if(board_yaw < 1.57){
+                dx = -col * (SQUARE_SIZE / 1000.0);
+                dy =  row * (SQUARE_SIZE / 1000.0);
+            }
 
-            // // Apply 2D rotation to account for yaw
-            // double x_rotated = dx * cos(board_yaw) - dy * sin(board_yaw);
-            // double y_rotated = dx * sin(board_yaw) + dy * cos(board_yaw);
+            // Apply 2D rotation to account for yaw
+            double x_rotated = dx * cos(board_yaw) - dy * sin(board_yaw);
+            double y_rotated = dx * sin(board_yaw) + dy * cos(board_yaw);
 
-            // // Final global position
-            // double x_final = H1_X + x_rotated;
-            // double y_final = H1_Y + y_rotated;
+            // Final global position
+            double x_final = H1_X + x_rotated;
+            double y_final = H1_Y + y_rotated;
 
-            double x_final = H1_X - col*(SQUARE_SIZE/1000);
+            //yaw debug messages
+            // RCLCPP_INFO(this->get_logger(), "YAW!!!: %.5f", board_yaw);
+            // RCLCPP_INFO(this->get_logger(), "x_rotated: %.5f ", x_rotated);
+            // RCLCPP_INFO(this->get_logger(), "y_rotated: %.5f ", y_rotated);
+            // RCLCPP_INFO(this->get_logger(), "x_final: %.5f ", x_final);
+            // RCLCPP_INFO(this->get_logger(), "y_final: %.5f ", y_final);
+            // RCLCPP_INFO(this->get_logger(), "dx: %.5f ", dx);
+            // RCLCPP_INFO(this->get_logger(), "dy: %.5f ", dy);
 
-            double y_final = H1_Y + row*(SQUARE_SIZE/1000);
+            // std::this_thread::sleep_for(std::chrono::seconds(2));
 
             return robotReadToControlFrame({x_final, y_final}); //reordered here for transform
+        }
+
+
+
+        Eigen::Matrix4d multiplyMatrix4d(const Eigen::Matrix4d& A, const Eigen::Matrix4d& B) {
+            Eigen::Matrix4d result = Eigen::Matrix4d::Zero();
+
+            for (int i = 0; i < 4; ++i) {           // row of A
+                for (int j = 0; j < 4; ++j) {       // column of B
+                    for (int k = 0; k < 4; ++k) {   // element index
+                        result(i, j) += A(i, k) * B(k, j);
+                    }
+                }
+            }
+
+            return result;
+        }
+
+
+        void logMatrix(const std::string& name, const Eigen::Matrix4d& mat) {
+            std::ostringstream oss;
+            oss << "\n" << mat;
+            RCLCPP_INFO(this->get_logger(), "%s: %s", name.c_str(), oss.str().c_str());
         }
 
         std::pair<double, double> robotReadToControlFrame(std::pair<double, double> in){
@@ -304,9 +430,9 @@ class RobotKinematics : public rclcpp::Node {
 
         std::unordered_map<char, double> pieceHeight = {
             {'p', 0.165-20/1000}, {'r', ((0.1783-0.005) + (0.165-20/1000))/2 }, {'n', 0.1793},
-            {'b', 0.1783-0.005}, {'q', 0.1848-50/1000 }, {'k', 0.1877},
+            {'b', 0.181}, {'q', 0.1848-50/1000 }, {'k', 0.1877},
             {'P', 0.165-20/1000}, {'R', ((0.1783-0.005) + (0.165-20/1000))/2}, {'N', 0.1793},
-            {'B', 0.1783-0.005}, {'Q', 0.1848-50/1000}, {'K', 0.1877}
+            {'B', 0.181}, {'Q', 0.1848-50/1000}, {'K', 0.1877}
         };
 
         //bring in markers for aruco positions
@@ -314,47 +440,72 @@ class RobotKinematics : public rclcpp::Node {
         std::unique_ptr<tf2_ros::Buffer> tf_buffer_;
         std::shared_ptr<tf2_ros::TransformListener> tf_listener_;
         std::map<int, geometry_msgs::msg::TransformStamped> marker_transforms_;
-        double H1_X = 0.11436;
-        double H1_Y = -0.469443135;
+        double H1_X;
+        double H1_Y;
+        Eigen::Matrix4d H1_transform_;
         double board_yaw = 0;
+
+        Eigen::Matrix4d quaternionToTransformMatrix(const Eigen::Quaterniond& q, const Eigen::Vector3d& translation){
+            Eigen::Matrix4d transform = Eigen::Matrix4d::Identity();
+        
+            // Convert quaternion to rotation matrix
+            Eigen::Matrix3d rotation = q.normalized().toRotationMatrix();
+        
+            // Insert rotation and translation into 4x4 matrix
+            transform.block<3,3>(0,0) = rotation;
+            transform.block<3,1>(0,3) = translation;
+        
+            return transform;
+        }
         
 
         void marker_callback(const visualization_msgs::msg::MarkerArray::SharedPtr msg){
-            RCLCPP_INFO(this->get_logger(), "Received marker array with %zu markers", msg->markers.size());
+            // RCLCPP_INFO(this->get_logger(), "Received marker array with %zu markers", msg->markers.size());
             
             for (const auto& marker : msg->markers) {
                 int marker_id = marker.id;
 
-                RCLCPP_INFO(this->get_logger(), "MARKER!! ID: %d", marker_id);
-
-                if (marker_id == 51 && robot_stationary_) { //only read the markers if the robot is currently stationary
-                    std::string frame_id = marker.header.frame_id;
-                    
-                    RCLCPP_INFO(this->get_logger(), "Marker ID: %d, Frame ID: %s", marker_id, frame_id.c_str());
-                    
-                    // Try to get the transform for this marker
-                    RCLCPP_INFO(this->get_logger(), 
-                    "READ MARKER POSE %d: [%f, %f, %f] [%f, %f, %f, %f]",
-                    marker_id,
-                    marker.pose.position.x,
-                    marker.pose.position.y,
-                    marker.pose.position.z,
-                    marker.pose.orientation.x,
-                    marker.pose.orientation.y,
-                    marker.pose.orientation.z,
-                    marker.pose.orientation.w);
-                
+                // RCLCPP_INFO(this->get_logger(), "MARKER!! ID: %d", marker_id);
+                if(marker_id == 51 && robot_stationary_){
                     board_yaw = getYawFromQuaternion(
                         marker.pose.orientation.x,
                         marker.pose.orientation.y,
                         marker.pose.orientation.z,
                         marker.pose.orientation.w);
-                    
+                }
+
+                if (marker_id == 53 && robot_stationary_) { //only read the markers if the robot is currently stationary
+                    std::string frame_id = marker.header.frame_id;             
+
+                    auto q_msg = marker.pose.orientation;
+                    Eigen::Quaterniond q(q_msg.w, q_msg.x, q_msg.y, q_msg.z);
+                    Eigen::Vector3d t(marker.pose.position.x,
+                        marker.pose.position.y,
+                        marker.pose.position.z);
+                    // Eigen::Matrix4d H1_transform_ = quaternionToTransformMatrix(q, t);
+                    H1_transform_ = quaternionToTransformMatrix(q, t);
+
+                    // RCLCPP_INFO(this->get_logger(), "MARKER!! ID: %d", marker_id);
+                    // RCLCPP_INFO(this->get_logger(), "YAW!!! X: %.6f m", board_yaw);
+
                     H1_X = -marker.pose.position.x;
                     H1_Y = -marker.pose.position.y;
+                    double yaw = std::atan2(H1_transform_(1, 0), H1_transform_(0, 0));
+
+                    // std::ostringstream oss;
+                    // oss << "H1_transform_:\n" << H1_transform_;
+                    // RCLCPP_INFO(this->get_logger(), "%s", oss.str().c_str());
+
+                    // RCLCPP_INFO(
+                        // this->get_logger(),
+                        // "Yaw from H1 = %.3f rad (%.2f deg)",
+                        // yaw, yaw * 180.0 / M_PI
+                    // );
+
+                    
                 }
             }
-        }
+        }        
 
         //to detect the robot moving
         void jointStateCallback(const sensor_msgs::msg::JointState::SharedPtr msg) {
@@ -368,16 +519,36 @@ class RobotKinematics : public rclcpp::Node {
             }
         
             if (robot_stationary_) {
-                RCLCPP_INFO(this->get_logger(), "Robot is stationary.");
+                // RCLCPP_INFO(this->get_logger(), "Robot is stationary.");
             } else {
-                RCLCPP_INFO(this->get_logger(), "Robot is moving.");
+                // RCLCPP_INFO(this->get_logger(), "Robot is moving.");
             }
         }
         //joint state sub obj
         rclcpp::Subscription<sensor_msgs::msg::JointState>::SharedPtr joint_state_sub_;
-        bool robot_stationary_;
+        // bool robot_stationary_;
         int pickup_dropoff_wait_;
+
+        //button state variables
+        rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr button_sub_;
+        // bool button_state;
+        std::atomic<bool> button_state;
+        std::atomic<bool> robot_stationary_;
+        std::mutex moveit_mutex;
+
+        void button_callback(const std_msgs::msg::Bool::SharedPtr msg){
+            if(msg->data) {
+                RCLCPP_WARN(this->get_logger(), "E-stop engaged (button_state == true)!");
+                button_state = true;
+            }
+            else{
+                button_state = false;
+                RCLCPP_WARN(this->get_logger(), "E-stop engaged (button_state == false)!");
+            }
+        }
+
 };
+
 
 int main(int argc, char * argv[])
 {
@@ -398,7 +569,7 @@ int main(int argc, char * argv[])
     
     // Wait a bit for ROS to be fully initialized
     rclcpp::sleep_for(std::chrono::seconds(2));
-   
+
     // Add a large cube directly under the robot base
     moveit_msgs::msg::CollisionObject collision_object;
     collision_object.header.frame_id = move_group.getPlanningFrame(); // Use the planning frame
@@ -448,7 +619,11 @@ int main(int argc, char * argv[])
             RCLCPP_ERROR(node->get_logger(), "Failed to execute joint space plan");
         }
     }
-    move_group.setJointValueTarget({-1.525+M_PI, -1.647, 0.291, -0.390, -1.549, 6.215});
+    // move_group.setJointValueTarget({-1.525+M_PI, -1.647, 0.291, -0.390, -1.549, 6.215});
+    move_group.setJointValueTarget({1.544, -2.060, 0.372, -0.108, -1.651, -6.233}); 
+
+
+    // move_group.setJointValueTarget({-2.0948268375792445, 0.21491748491396123, -0.019584493046142626, -1.6386211554156702, -0.06730491319765264, 1.5663700103759766});
     planning_result = move_group.plan(plan);
     if (planning_result == moveit::core::MoveItErrorCode::SUCCESS) {
         if (move_group.execute(plan) == moveit::core::MoveItErrorCode::SUCCESS) {
@@ -461,9 +636,14 @@ int main(int argc, char * argv[])
     move_group.setMaxVelocityScalingFactor(MAX_VEL_CARTESIAN);  // 20% of maximum velocity
     move_group.setMaxAccelerationScalingFactor(MAX_ACCEL_CARTESIAN); 
             
-    while (rclcpp::ok()) {
-        rclcpp::spin(node); // Process any pending callbacks
-    }
+    const size_t num_threads = 3;  // Set the number of threads you want
+    rclcpp::executors::MultiThreadedExecutor executor(rclcpp::ExecutorOptions(), num_threads);
+    executor.add_node(node);
+    executor.spin();
+
+    // while (rclcpp::ok()) {
+    //     rclcpp::spin(node); // Process any pending callbacks
+    // }
 
     //remove the objects
     RCLCPP_INFO(node->get_logger(), "Removing objects from the scene");
