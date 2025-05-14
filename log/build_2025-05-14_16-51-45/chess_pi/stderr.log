@@ -1,0 +1,11 @@
+[01m[K/home/cameron/ros2_ws/src/RaspberryPi-RS2/RS2/ros2_rs2_packages/chess_pi/src/chessboard.cpp:[m[K In member function ‘[01m[Kvoid ChessSubscriber::moveCallback(std_msgs::msg::String_<std::allocator<void> >::SharedPtr)[m[K’:
+[01m[K/home/cameron/ros2_ws/src/RaspberryPi-RS2/RS2/ros2_rs2_packages/chess_pi/src/chessboard.cpp:309:33:[m[K [01;31m[Kerror: [m[K‘[01m[KtrimFenToBoard[m[K’ was not declared in this scope
+  309 |         std::string boardOnly = [01;31m[KtrimFenToBoard[m[K(fullFen);
+      |                                 [01;31m[K^~~~~~~~~~~~~~[m[K
+[01m[K/home/cameron/ros2_ws/src/RaspberryPi-RS2/RS2/ros2_rs2_packages/chess_pi/src/chessboard.cpp:315:9:[m[K [01;31m[Kerror: [m[K‘[01m[KlastMove_[m[K’ was not declared in this scope; did you mean ‘[01m[KlastMove[m[K’?
+  315 |         [01;31m[KlastMove_[m[K = boardOnly;
+      |         [01;31m[K^~~~~~~~~[m[K
+      |         [32m[KlastMove[m[K
+gmake[2]: *** [CMakeFiles/chess_node.dir/build.make:76: CMakeFiles/chess_node.dir/src/chessboard.cpp.o] Error 1
+gmake[1]: *** [CMakeFiles/Makefile2:140: CMakeFiles/chess_node.dir/all] Error 2
+gmake: *** [Makefile:146: all] Error 2

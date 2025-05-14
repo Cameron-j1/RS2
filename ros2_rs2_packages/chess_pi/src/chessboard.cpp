@@ -291,6 +291,22 @@ public:
         // }
     
 
+    std::string trimFenToBoard(const std::string& fenString) {
+        // Find the position of the first whitespace
+        size_t spacePos = fenString.find(' ');
+        
+        // If a space was found, return everything before it
+        if (spacePos != std::string::npos) {
+            return fenString.substr(0, spacePos);
+        }
+        
+        // If no space was found, return the entire string
+        return fenString;
+    }
+        
+        
+
+
     void publishControl(const std::string &command)
     {
         auto msg = std_msgs::msg::String();
@@ -305,8 +321,14 @@ public:
 private:
     void moveCallback(const std_msgs::msg::String::SharedPtr msg)
     {
-        lastMove = msg->data;
-        RCLCPP_INFO(this->get_logger(), "Received move: %s", lastMove.c_str());
+        std::string fullFen = msg->data;
+        std::string boardOnly = trimFenToBoard(fullFen);
+        
+        RCLCPP_INFO(this->get_logger(), "Received move: %s", fullFen.c_str());
+        RCLCPP_INFO(this->get_logger(), "Board state only: %s", boardOnly.c_str());
+        
+        // Store the trimmed version
+        lastMove = boardOnly;
     }
 
     rclcpp::Client<std_srvs::srv::Trigger>::SharedPtr reset_client_;
@@ -317,6 +339,7 @@ private:
     std::string lastMove;
     bool buttonState = false;
 };
+
 
 int main(int argc, char **argv)
 {
