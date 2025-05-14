@@ -359,7 +359,7 @@ class RobotKinematics : public rclcpp::Node {
         //to detect the robot moving
         void jointStateCallback(const sensor_msgs::msg::JointState::SharedPtr msg) {
             for (const auto& v : msg->velocity) {
-                if (std::abs(v) > 1e-3) { // small threshold for floating point noise
+                if (std::abs(v) > 0.09) { // small threshold for floating point noise
                     robot_stationary_ = false;
                     break;
                 }else{

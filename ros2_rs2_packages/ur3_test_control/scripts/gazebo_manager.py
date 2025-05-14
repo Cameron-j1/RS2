@@ -105,11 +105,11 @@ class ChessBoardTracker(Node):
 
     def servo_control_callback(self, msg: Bool):
         if msg.data:
-            self.get_logger().info("Servo control: RELEASE")
-            self.detach_piece(self.closest_piece)
-        else:
             self.get_logger().info("Servo control: GRIP")
             self.attach_piece(self.closest_piece)
+        else:
+            self.get_logger().info("Servo control: RELEASE")
+            self.detach_piece(self.closest_piece)
             
     def loop_callback(self):
         try:
@@ -121,13 +121,13 @@ class ChessBoardTracker(Node):
             self.robotX = trans.transform.translation.x
             self.robotY = trans.transform.translation.y
     
-            print(f"Tool0 relative to Base Link: x={self.robotX:.3f}, y={self.robotY:.3f}")
+            # print(f"Tool0 relative to Base Link: x={self.robotX:.3f}, y={self.robotY:.3f}")
     
         except Exception as e:
             print(f"Could not transform base_link -> tool0: {str(e)}")
 
         self.closest_piece = self.calculate_distances(self.robotX, self.robotY)
-        print(self.closest_piece)
+        # print(self.closest_piece)
 
         # for piece, (x, y) in self.positions.items():
             # self.get_logger().info(f"{piece}: x={x:.3f}, y={y:.3f}")
