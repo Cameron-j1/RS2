@@ -120,7 +120,7 @@ class RobotKinematics : public rclcpp::Node {
 
             std::vector<double> joint_positions = {j1, j2, j3, j4, j5, j6};
             int count = 0;
-            int print_freq = 15;
+            int print_freq = 50;
 
             while (rclcpp::ok()) {
                 // ─── Wait for Deadman ─────────────────────────────────────────────
@@ -129,7 +129,7 @@ class RobotKinematics : public rclcpp::Node {
                     if (count % print_freq == 0) {
                         RCLCPP_INFO(this->get_logger(), "[moveToJointAnglesInThread] Waiting for deadman switch...");
                     }
-                    std::this_thread::sleep_for(std::chrono::milliseconds(25));
+                    std::this_thread::sleep_for(std::chrono::milliseconds(5));
                 }
 
                 // ─── Plan ─────────────────────────────────────────────────────────
@@ -143,7 +143,7 @@ class RobotKinematics : public rclcpp::Node {
                     move_group_ptr->setMaxAccelerationScalingFactor(MAX_ACCEL_JOINT_TARGET);
 
                     move_group_ptr->setJointValueTarget(joint_positions);
-                    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+                    // std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
                     RCLCPP_INFO(this->get_logger(), "[moveToJointAnglesInThread] Planning motion to joint angles [%.2f, %.2f, %.2f, %.2f, %.2f, %.2f]",
                                 j1, j2, j3, j4, j5, j6);
@@ -171,11 +171,11 @@ class RobotKinematics : public rclcpp::Node {
                         //condition met for move complete
                         RCLCPP_INFO(this->get_logger(), "[moveToJointAnglesInThread] SUCCESS move complete");
                         //delay for safety to ensure that the robot has actually stopped and planning for the next move won't fail
-                        std::this_thread::sleep_for(std::chrono::milliseconds(500));
+                        // std::this_thread::sleep_for(std::chrono::milliseconds(50));
                         return true;
                     }
 
-                    std::this_thread::sleep_for(std::chrono::milliseconds(25));
+                    std::this_thread::sleep_for(std::chrono::milliseconds(5));
                 }
                 RCLCPP_INFO(this->get_logger(), "[moveToJointAnglesInThread] Retrying motion after interruption...");
             }
@@ -287,7 +287,7 @@ class RobotKinematics : public rclcpp::Node {
 
         bool moveStraightToPoint(std::vector<geometry_msgs::msg::Pose> tempPosition, double vel, double acc) {
             int count = 0;
-            int print_freq = 15;
+            int print_freq = 50;
 
             while (rclcpp::ok()) {
                 // ─── Wait for Deadman ─────────────────────────────────────────────
@@ -296,7 +296,7 @@ class RobotKinematics : public rclcpp::Node {
                     if (count % print_freq == 0) {
                         RCLCPP_INFO(this->get_logger(), "[moveStraightToPoint] Waiting for deadman switch...");
                     }
-                    std::this_thread::sleep_for(std::chrono::milliseconds(25));
+                    std::this_thread::sleep_for(std::chrono::milliseconds(5));
                 }
 
                 // ─── Plan ─────────────────────────────────────────────────────────
@@ -338,11 +338,11 @@ class RobotKinematics : public rclcpp::Node {
                         //condition met for move complete
                         RCLCPP_INFO(this->get_logger(), "[moveToJointAnglesInThread] SUCCESS move complete");
                         //delay for safety to ensure that the robot has actually stopped and planning for the next move won't fail
-                        std::this_thread::sleep_for(std::chrono::milliseconds(500));
+                        // std::this_thread::sleep_for(std::chrono::milliseconds(50));
                         return true;
                     }
 
-                    std::this_thread::sleep_for(std::chrono::milliseconds(25));
+                    std::this_thread::sleep_for(std::chrono::milliseconds(5));
                 }
 
                 RCLCPP_INFO(this->get_logger(), "[moveStraightToPoint] Retrying motion after interruption...");
