@@ -111,60 +111,76 @@ class RobotKinematics : public rclcpp::Node {
             moveToJointAngles(camera_view_jangle.at(0), camera_view_jangle.at(1), camera_view_jangle.at(2), camera_view_jangle.at(3), camera_view_jangle.at(4), camera_view_jangle.at(5));
         }
 
-        void moveToJointAngles(double j1, double j2, double j3, double j4, double j5, double j6){
-            std::thread([this, j1, j2, j3, j4, j5, j6]() {
-                this->moveToJointAnglesInThread(j1, j2, j3, j4, j5, j6);
-            }).detach();
-        }
-
-        bool moveToJointAnglesInThread(double j1, double j2, double j3, double j4, double j5, double j6) {
+        bool moveToJointAngles(double j1, double j2, double j3, double j4, double j5, double j6) {
             if (move_group_ptr == nullptr) {
-                RCLCPP_ERROR(this->get_logger(), "MoveGroup pointer is not initialized");
+                RCLCPP_ERROR(this->get_logger(), "[moveToJointAnglesInThread] MoveGroup pointer is not initialized");
                 return false;
             }
-            std::unique_lock<std::mutex> lock(moveit_mutex);
-            move_group_ptr->setMaxVelocityScalingFactor(MAX_VEL_JOINT_TARGET);
-            move_group_ptr->setMaxAccelerationScalingFactor(MAX_ACCEL_JOINT_TARGET);
-            
-            // Set the joint target values
-            std::vector<double> joint_positions = {j1, j2, j3, j4, j5, j6};
-            move_group_ptr->setJointValueTarget(joint_positions);
-            std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
-            // Plan the motion
-            RCLCPP_INFO(this->get_logger(), "Planning motion to joint angles [%.2f, %.2f, %.2f, %.2f, %.2f, %.2f]",
-                        j1, j2, j3, j4, j5, j6);
-            
-            moveit::planning_interface::MoveGroupInterface::Plan plan;
-            auto planning_result = move_group_ptr->plan(plan);
-            
-            // Execute if planning was successful
-            if (planning_result == moveit::core::MoveItErrorCode::SUCCESS) {
-                while(!button_state && rclcpp::ok()){
-                    RCLCPP_INFO(this->get_logger(), "Button state false waiting for buton to be pressed");
-                    std::this_thread::sleep_for(std::chrono::milliseconds(25));
-                }
-                move_group_ptr->asyncExecute(plan);
-                std::this_thread::sleep_for(std::chrono::milliseconds(300));
-                while (!robot_stationary_) {
-                    // Check if the dead man's switch is released
-                    if (!button_state){
-                        RCLCPP_INFO(this->get_logger(), "Dead man's switch released, stopping movement");
-                        move_group_ptr->stop();
-                        lock.unlock();
-                        std::this_thread::sleep_for(std::chrono::milliseconds(100));
-                        moveToJointAnglesInThread(j1, j2, j3, j4, j5, j6);
+            std::vector<double> joint_positions = {j1, j2, j3, j4, j5, j6};
+            int count = 0;
+            int print_freq = 15;
+
+            while (rclcpp::ok()) {
+                // ─── Wait for Deadman ─────────────────────────────────────────────
+                while (!button_state && rclcpp::ok()) {
+                    count++;
+                    if (count % print_freq == 0) {
+                        RCLCPP_INFO(this->get_logger(), "[moveToJointAnglesInThread] Waiting for deadman switch...");
                     }
                     std::this_thread::sleep_for(std::chrono::milliseconds(25));
                 }
-                RCLCPP_INFO(this->get_logger(), "chess move successful");
-                return true;
+
+                // ─── Plan ─────────────────────────────────────────────────────────
+                moveit::planning_interface::MoveGroupInterface::Plan plan;
+                {
+                    std::unique_lock<std::mutex> lock(moveit_mutex);
+                    RCLCPP_INFO(this->get_logger(), "[moveToJointAnglesInThread] Mutex acquired, planning...");
+
+                    move_group_ptr->setStartStateToCurrentState();
+                    move_group_ptr->setMaxVelocityScalingFactor(MAX_VEL_JOINT_TARGET);
+                    move_group_ptr->setMaxAccelerationScalingFactor(MAX_ACCEL_JOINT_TARGET);
+
+                    move_group_ptr->setJointValueTarget(joint_positions);
+                    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+
+                    RCLCPP_INFO(this->get_logger(), "[moveToJointAnglesInThread] Planning motion to joint angles [%.2f, %.2f, %.2f, %.2f, %.2f, %.2f]",
+                                j1, j2, j3, j4, j5, j6);
+
+                    auto planning_result = move_group_ptr->plan(plan);
+                    if (planning_result != moveit::core::MoveItErrorCode::SUCCESS) {
+                        RCLCPP_WARN(this->get_logger(), "[moveToJointAnglesInThread] Planning failed.");
+                        return false;
+                    }
+                }
+
+                // ─── Execute ──────────────────────────────────────────────────────
+                move_group_ptr->asyncExecute(plan);
+                auto start = std::chrono::steady_clock::now();
+                while (rclcpp::ok()) {
+                    if (!button_state) {
+                        RCLCPP_WARN(this->get_logger(), "[moveToJointAnglesInThread] Deadman switch released, stopping...");
+                        move_group_ptr->stop();
+                        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+                        break;  // Retry planning and execution
+                    }
+
+                    //check if the robot has finished it's move
+                    if(robot_stationary_ && std::chrono::steady_clock::now() - start > std::chrono::seconds(2)){
+                        //condition met for move complete
+                        RCLCPP_INFO(this->get_logger(), "[moveToJointAnglesInThread] SUCCESS move complete");
+                        //delay for safety to ensure that the robot has actually stopped and planning for the next move won't fail
+                        std::this_thread::sleep_for(std::chrono::milliseconds(500));
+                        return true;
+                    }
+
+                    std::this_thread::sleep_for(std::chrono::milliseconds(25));
+                }
+                RCLCPP_INFO(this->get_logger(), "[moveToJointAnglesInThread] Retrying motion after interruption...");
             }
-            else {
-                RCLCPP_WARN(this->get_logger(), "Path planning for joint angles move failed");
-                return false;
-            }
+            return false;  // Should not be reached unless ROS is shutting down
         }
+
 
         void chess_topic_callback(const std_msgs::msg::String::SharedPtr msg) {
             std::string msgData = msg->data;
@@ -201,24 +217,29 @@ class RobotKinematics : public rclcpp::Node {
             tempPosition.orientation.y = 0.0;
             tempPosition.orientation.w = 0.0;
 
+            RCLCPP_INFO(this->get_logger(), "[maneuver] angle move to viewing position");
             moveToJointAngles(-1.525+M_PI, -1.647, 0.291, -0.390, -1.549, 6.215);
 
             // remove the captured piece from the board
             if (moveType == 'x') {
+                RCLCPP_INFO(this->get_logger(), "[maneuver] maneuver for capture move");
                 tempPosition.position.x = goal.first;
                 tempPosition.position.y = goal.second;
                 moveStraightToPoint({tempPosition}, 0.05, 0.05);
-                RCLCPP_INFO(this->get_logger(), "Remove captured: xStart: %.3f%% and yStart: %.3f%% and zPickUp: %.3f%%", cur.first, cur.second, pickupHeightCap);
+                RCLCPP_INFO(this->get_logger(), "[maneuver] Remove captured: xStart: %.3f%% and yStart: %.3f%% and zPickUp: %.3f%%", cur.first, cur.second, pickupHeightCap);
                 tempPosition.position.z = pickupHeightCap;
+                RCLCPP_INFO(this->get_logger(), "[maneuver] move straight down to pickup peice to be captured");
                 moveStraightToPoint({tempPosition}, 0.05, 0.05);
                 publishServoState(true);
                 std::this_thread::sleep_for(std::chrono::seconds(pickup_dropoff_wait_));
                 // Raise the shit up
                 tempPosition.position.z = operation_height;
+                RCLCPP_INFO(this->get_logger(), "[maneuver] move straight up to pickup peice being captured");
                 moveStraightToPoint({tempPosition}, 0.05, 0.05);
                 // WE HAVE TO FIND THE X AND Y OF THE DROPPING POSITION
                 tempPosition.position.x = -0.292;
                 tempPosition.position.y = 0.290;
+                RCLCPP_INFO(this->get_logger(), "[maneuver] move straight to drop off position");
                 moveStraightToPoint({tempPosition}, 0.05, 0.05);
                 publishServoState(false);
                 std::this_thread::sleep_for(std::chrono::seconds(pickup_dropoff_wait_));
@@ -230,83 +251,99 @@ class RobotKinematics : public rclcpp::Node {
                 RCLCPP_INFO(this->get_logger(), "xStart: %.3f%% and yStart: %.3f%% and zPickUp: %.3f%%", cur.first, cur.second, pickupHeight);
                 publish_point(cur.first, cur.second, pickupHeight, 1.0, 0.0, 0.0);
                 publish_point(goal.first, goal.second, pickupHeight, 0.0, 1.0, 0.0);
+                RCLCPP_INFO(this->get_logger(), "[maneuver] move straight to above target peice position");
                 moveStraightToPoint({tempPosition}, 0.05, 0.05);
                 tempPosition.position.z = pickupHeight;
+                RCLCPP_INFO(this->get_logger(), "[maneuver] move straight to above target peice height");
                 moveStraightToPoint({tempPosition}, 0.05, 0.05);
                 publishServoState(true);
                 std::this_thread::sleep_for(std::chrono::seconds(pickup_dropoff_wait_));
                 tempPosition.position.z = operation_height;
+                RCLCPP_INFO(this->get_logger(), "[maneuver] move straight to above target peice position");
                 moveStraightToPoint({tempPosition}, 0.05, 0.05);
                 tempPosition.position.x = goal.first;
                 tempPosition.position.y = goal.second;
                 RCLCPP_INFO(this->get_logger(), "xEnd: %.3f%% and yEnd: %.3f%%", goal.first, goal.second);
+                RCLCPP_INFO(this->get_logger(), "[maneuver] move straight to above target peice destination");
                 moveStraightToPoint({tempPosition}, 0.05, 0.05);
                 tempPosition.position.z = pickupHeight;
+                RCLCPP_INFO(this->get_logger(), "[maneuver] move straight to target peice destination height");
                 moveStraightToPoint({tempPosition}, 0.05, 0.05);
                 publishServoState(false);
                 std::this_thread::sleep_for(std::chrono::seconds(pickup_dropoff_wait_));
                 tempPosition.position.z = operation_height;
+                RCLCPP_INFO(this->get_logger(), "[maneuver] move straight back to operation height peice move done");
                 moveStraightToPoint({tempPosition}, 0.05, 0.05);
             }
 
-            // moveToJointAngles(camera_view_jangle.at(0), camera_view_jangle.at(1),camera_view_jangle.at(2),camera_view_jangle.at(3),camera_view_jangle.at(4),camera_view_jangle.at(5));
-            // moveToJointAngles(-1.525+M_PI, -1.647, 0.291, -0.390, -1.549, 6.215);
+            RCLCPP_INFO(this->get_logger(), "[maneuver] angle move to viewing position");
             moveToJointAngles(1.544, -2.060, 0.372, -0.108, -1.651, -6.233); 
         }
 
-        // bool moveStraightToPoint(std::vector<geometry_msgs::msg::Pose> tempPosition, double vel, double acc) {
-        //     move_group_ptr->setMaxVelocityScalingFactor(vel);  // 20% of maximum velocity
-        //     move_group_ptr->setMaxAccelerationScalingFactor(acc);  // 20% of maximum acceleration
-        //     moveit_msgs::msg::RobotTrajectory trajectory;
-        //     double fraction = move_group_ptr->computeCartesianPath(tempPosition, 0.01, 0.0, trajectory);
-        //     if (fraction >= 0.95) {
-        //         moveit::planning_interface::MoveGroupInterface::Plan plan;
-        //         plan.trajectory_ = trajectory;
-        //         move_group_ptr->execute(plan);
-        //         RCLCPP_INFO(this->get_logger(), "chess move successful");
-        //         return true;
-        //     } else {
-        //         RCLCPP_WARN(this->get_logger(), "Path only %.2f%% complete", fraction * 100.0);
-        //         return false;
-        //     }
-        // }
-
         bool moveStraightToPoint(std::vector<geometry_msgs::msg::Pose> tempPosition, double vel, double acc) {
-            std::unique_lock<std::mutex> lock(moveit_mutex);
-            move_group_ptr->setMaxVelocityScalingFactor(vel);  // 20% of maximum velocity
-            move_group_ptr->setMaxAccelerationScalingFactor(acc);  // 20% of maximum acceleration
-            moveit_msgs::msg::RobotTrajectory trajectory;
-            double fraction = move_group_ptr->computeCartesianPath(tempPosition, 0.01, 0.0, trajectory);
-            if (fraction >= 0.95) {
-                moveit::planning_interface::MoveGroupInterface::Plan plan;
-                plan.trajectory_ = trajectory;
-                rclcpp::Rate rate(10);
+            int count = 0;
+            int print_freq = 15;
+
+            while (rclcpp::ok()) {
+                // ─── Wait for Deadman ─────────────────────────────────────────────
                 while (!button_state && rclcpp::ok()) {
-                    RCLCPP_INFO(this->get_logger(), "Button state false waiting for buton to be pressed");
-                    std::this_thread::sleep_for(std::chrono::milliseconds(25));
-                }
-                move_group_ptr->asyncExecute(plan);
-                std::this_thread::sleep_for(std::chrono::milliseconds(300));
-                while (!robot_stationary_){
-                    // Check if the dead man's switch is released
-                    if (!button_state){
-                        RCLCPP_INFO(this->get_logger(), "Dead man's switch released, stopping movement");
-                        move_group_ptr->stop();
-                        
-                        lock.unlock();
-                        std::this_thread::sleep_for(std::chrono::milliseconds(100));
-                        // Wait for the button to be pressed again
-                        moveStraightToPoint(tempPosition, vel, acc);
+                    count++;
+                    if (count % print_freq == 0) {
+                        RCLCPP_INFO(this->get_logger(), "[moveStraightToPoint] Waiting for deadman switch...");
                     }
                     std::this_thread::sleep_for(std::chrono::milliseconds(25));
                 }
-                RCLCPP_INFO(this->get_logger(), "chess move successful");
-                return true;
+
+                // ─── Plan ─────────────────────────────────────────────────────────
+                moveit::planning_interface::MoveGroupInterface::Plan plan;
+                moveit_msgs::msg::RobotTrajectory trajectory;
+                double fraction;
+
+                {
+                    std::unique_lock<std::mutex> lock(moveit_mutex);
+                    RCLCPP_INFO(this->get_logger(), "[moveStraightToPoint] Mutex acquired, planning...");
+
+                    move_group_ptr->setStartStateToCurrentState();
+                    move_group_ptr->setMaxVelocityScalingFactor(vel);
+                    move_group_ptr->setMaxAccelerationScalingFactor(acc);
+
+                    fraction = move_group_ptr->computeCartesianPath(tempPosition, 0.01, 0.0, trajectory);
+                    if (fraction < 0.95) {
+                        RCLCPP_WARN(this->get_logger(), "Path only %.2f%% complete", fraction * 100.0);
+                        return false;
+                    }
+
+                    plan.trajectory_ = trajectory;
+                }
+
+                // ─── Execute ──────────────────────────────────────────────────────
+                move_group_ptr->asyncExecute(plan);
+                auto start = std::chrono::steady_clock::now();
+
+                while (rclcpp::ok()) {
+                    if (!button_state) {
+                        RCLCPP_WARN(this->get_logger(), "[moveStraightToPoint] Deadman switch released, stopping...");
+                        move_group_ptr->stop();
+                        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+                        break;  // Retry from outer loop
+                    }
+
+                    //check if the robot has finished it's move
+                    if(robot_stationary_ && std::chrono::steady_clock::now() - start > std::chrono::seconds(2)){
+                        //condition met for move complete
+                        RCLCPP_INFO(this->get_logger(), "[moveToJointAnglesInThread] SUCCESS move complete");
+                        //delay for safety to ensure that the robot has actually stopped and planning for the next move won't fail
+                        std::this_thread::sleep_for(std::chrono::milliseconds(500));
+                        return true;
+                    }
+
+                    std::this_thread::sleep_for(std::chrono::milliseconds(25));
+                }
+
+                RCLCPP_INFO(this->get_logger(), "[moveStraightToPoint] Retrying motion after interruption...");
             }
-            else {
-                RCLCPP_WARN(this->get_logger(), "Path only %.2f%% complete", fraction * 100.0);
-                return false;
-            }
+
+            return false;  // Shouldn't hit this unless ROS is shutting down
         }
 
 
@@ -355,7 +392,6 @@ class RobotKinematics : public rclcpp::Node {
 
             return robotReadToControlFrame({x_final, y_final}); //reordered here for transform
         }
-
 
 
         Eigen::Matrix4d multiplyMatrix4d(const Eigen::Matrix4d& A, const Eigen::Matrix4d& B) {
@@ -509,24 +545,43 @@ class RobotKinematics : public rclcpp::Node {
 
         //to detect the robot moving
         void jointStateCallback(const sensor_msgs::msg::JointState::SharedPtr msg) {
-            for (const auto& v : msg->velocity) {
-                if (std::abs(v) > 0.09) { // small threshold for floating point noise
-                    robot_stationary_ = false;
+            static std::vector<double> last_positions;
+
+            const double POSITION_EPSILON = 1e-3;  // 0.001 rad = ~0.057 degrees
+
+            bool moving = false;
+
+            // First time: initialize and return
+            if (last_positions.empty()) {
+                last_positions = msg->position;
+                robot_stationary_ = true;
+                RCLCPP_INFO(this->get_logger(), "Initialized joint position tracking");
+                return;
+            }
+
+            // Compare current with previous positions
+            size_t n = std::min(last_positions.size(), msg->position.size());
+            for (size_t i = 0; i < n; ++i) {
+                if (std::abs(msg->position[i] - last_positions[i]) > POSITION_EPSILON) {
+                    moving = true;
                     break;
-                }else{
-                    robot_stationary_ = true;
                 }
             }
-        
+
+            robot_stationary_ = !moving;
+
             if (robot_stationary_) {
                 // RCLCPP_INFO(this->get_logger(), "Robot is stationary.");
             } else {
                 // RCLCPP_INFO(this->get_logger(), "Robot is moving.");
             }
+
+            // Update last_positions
+            last_positions = msg->position;
         }
+
         //joint state sub obj
         rclcpp::Subscription<sensor_msgs::msg::JointState>::SharedPtr joint_state_sub_;
-        // bool robot_stationary_;
         int pickup_dropoff_wait_;
 
         //button state variables
