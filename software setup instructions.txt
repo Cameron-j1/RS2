@@ -1,3 +1,22 @@
 sudo apt install stockfish
-install smfl 
+
+CPP GUI for pi:
+sudo apt-get install libsfml-dev
+
+MoveIt:
+sudo apt install ros-humble-moveit
+
+ur description:
+sudo apt install ros-humble-ur-description
+
+dependencies:
+rosdep install --from-paths src --ignore-src --rosdistro humble -r -y
+
+realtime dependencies
+sudo apt install ros-humble-realtime-tools
+
+then follow these steps either for polyscope simulated ur3 or real ur3
+https://canvas.uts.edu.au/courses/34276/pages/ur3-e-new-getting-started-ros-2?module_item_id=2143637
+
+
 install ur and gazebo stuff - needs to be filled in
