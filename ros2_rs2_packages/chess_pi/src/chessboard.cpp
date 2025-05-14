@@ -7,6 +7,7 @@
 #include <vector>
 #include <string>
 #include <std_srvs/srv/trigger.hpp>
+#include <chrono>
 
 // Configs
 const int BOARD_SIZE = 8;
@@ -16,6 +17,12 @@ const int BOARD_OFFSET_Y = 40;
 const int WINDOW_WIDTH = 800;
 const int WINDOW_HEIGHT = 460;
 
+// GUI State enum
+enum GUIState {
+    STARTUP_SCREEN,
+    GAME_SCREEN
+};
+
 // Colors
 sf::Color cream(211, 211, 211); // GREY
 sf::Color brown(70, 130, 180);  // LIGHT BLUE
@@ -24,11 +31,21 @@ sf::Color buttonHover(100, 160, 250);
 sf::Color buttonText(255, 255, 255);
 sf::Color dropdownBg(230, 230, 230);
 sf::Color dropdownText(50, 50, 50);
+sf::Color startButtonGreen(46, 139, 87); // Green color for start button
+sf::Color startButtonHover(60, 179, 113); // Lighter green for hover
+sf::Color warningRed(255, 50, 50); // Red color for warning flashing text
 
 // Texture path
-std::string chessPiecesPath = ament_index_cpp::get_package_share_directory("ur3_test_control") + "/images/pieces.png";
+std::string chessPiecesPath = ament_index_cpp::get_package_share_directory("chess_pi") + "/images/pieces.png";
 
-
+// Flashing text struct
+struct FlashingText {
+    sf::Text text;
+    bool isActive = false;
+    bool isVisible = true;
+    float frequency = 2.0f; // Flashes per second
+    float timer = 0.0f;
+};
 
 #pragma region GUI Structs and Classes
 
@@ -52,35 +69,41 @@ struct Dropdown
     int selectedIndex = 0;
 };
 
-std::vector<Button> createButtons(sf::Font &font)
+// Button creation function with color parameter
+Button createButton(sf::Font &font, const std::string &label, float x, float y, float width, float height, sf::Color color, sf::Color hoverColor)
+{
+    Button button;
+    button.shape.setSize(sf::Vector2f(width, height));
+    button.shape.setFillColor(color);
+    button.shape.setOutlineThickness(1);
+    button.shape.setOutlineColor(sf::Color(40, 40, 40));
+    button.shape.setPosition(x, y);
+    button.label.setFont(font);
+    button.label.setString(label);
+    button.label.setCharacterSize(16);
+    button.label.setFillColor(buttonText);
+    sf::FloatRect textBounds = button.label.getLocalBounds();
+    button.label.setPosition(
+        x + (width - textBounds.width) / 2.0f - textBounds.left,
+        y + (height - textBounds.height) / 2.0f - textBounds.top);
+    button.name = label;
+    return button;
+}
+
+std::vector<Button> createGameButtons(sf::Font &font)
 {
     std::vector<Button> buttons;
-    std::vector<std::string> labels = {"ON", "OFF", "PAUSE"};  // Added RESET button
+    std::vector<std::string> labels = {""};
 
     int buttonWidth = 120, buttonHeight = 40;
-    int rightPanelX = BOARD_OFFSET_X + BOARD_SIZE * SQUARE_SIZE + 60;
+    int rightPanelX = BOARD_OFFSET_X + BOARD_SIZE * SQUARE_SIZE + 280;
     
-    std::cout << "Creating buttons at X position: " << rightPanelX << std::endl;
+    std::cout << "Creating game buttons at X position: " << rightPanelX << std::endl;
 
     for (int i = 0; i < labels.size(); i++)
     {
-        Button button;
-        button.shape.setSize(sf::Vector2f(buttonWidth, buttonHeight));
-        button.shape.setFillColor(buttonBlue);
-        button.shape.setOutlineThickness(1);
-        button.shape.setOutlineColor(sf::Color(40, 100, 150));
-        int startX = rightPanelX;
-        int startY = BOARD_OFFSET_Y + 20 + i * (buttonHeight + 15);
-        button.shape.setPosition(startX, startY);
-        button.label.setFont(font);
-        button.label.setString(labels[i]);
-        button.label.setCharacterSize(16);
-        button.label.setFillColor(buttonText);
-        sf::FloatRect textBounds = button.label.getLocalBounds();
-        button.label.setPosition(
-            startX + (buttonWidth - textBounds.width) / 2.0f - textBounds.left,
-            startY + (buttonHeight - textBounds.height) / 2.0f - textBounds.top);
-        button.name = labels[i];
+        Button button = createButton(font, labels[i], rightPanelX, BOARD_OFFSET_Y + 20 + i * (buttonHeight + 15), 
+                                     buttonWidth, buttonHeight, buttonBlue, buttonHover);
         buttons.push_back(button);
     }
 
@@ -92,20 +115,21 @@ Dropdown createDifficultyDropdown(sf::Font &font)
     Dropdown dropdown;
     std::vector<std::string> options = {"Easy", "Medium", "Hard"};
     int dropdownWidth = 200, dropdownHeight = 40;
-    int rightPanelX = BOARD_OFFSET_X + BOARD_SIZE * SQUARE_SIZE + 30;
-    int startY = BOARD_OFFSET_Y + 200;
+    // Center the dropdown in the window
+    int centerX = (WINDOW_WIDTH - dropdownWidth) / 2;
+    int startY = WINDOW_HEIGHT / 2 - 30;
 
     dropdown.mainButton.setSize(sf::Vector2f(dropdownWidth, dropdownHeight));
     dropdown.mainButton.setFillColor(dropdownBg);
     dropdown.mainButton.setOutlineThickness(1);
     dropdown.mainButton.setOutlineColor(sf::Color(180, 180, 180));
-    dropdown.mainButton.setPosition(rightPanelX, startY);
+    dropdown.mainButton.setPosition(centerX, startY);
     dropdown.mainLabel.setFont(font);
     dropdown.mainLabel.setString("Difficulty: " + options[0]);
     dropdown.mainLabel.setCharacterSize(14);
     dropdown.mainLabel.setFillColor(dropdownText);
     sf::FloatRect textBounds = dropdown.mainLabel.getLocalBounds();
-    dropdown.mainLabel.setPosition(rightPanelX + 10, startY + (dropdownHeight - textBounds.height) / 2.0f - textBounds.top);
+    dropdown.mainLabel.setPosition(centerX + 10, startY + (dropdownHeight - textBounds.height) / 2.0f - textBounds.top);
 
     for (int i = 0; i < options.size(); i++)
     {
@@ -114,7 +138,7 @@ Dropdown createDifficultyDropdown(sf::Font &font)
         option.setFillColor(dropdownBg);
         option.setOutlineThickness(1);
         option.setOutlineColor(sf::Color(180, 180, 180));
-        option.setPosition(rightPanelX, startY + (i + 1) * dropdownHeight);
+        option.setPosition(centerX, startY + (i + 1) * dropdownHeight);
 
         sf::Text optionLabel;
         optionLabel.setFont(font);
@@ -123,7 +147,7 @@ Dropdown createDifficultyDropdown(sf::Font &font)
         optionLabel.setFillColor(dropdownText);
         textBounds = optionLabel.getLocalBounds();
         optionLabel.setPosition(
-            rightPanelX + 10,
+            centerX + 10,
             startY + (i + 1) * dropdownHeight + (dropdownHeight - textBounds.height) / 2.0f - textBounds.top);
 
         dropdown.options.push_back(option);
@@ -132,6 +156,48 @@ Dropdown createDifficultyDropdown(sf::Font &font)
     }
 
     return dropdown;
+}
+
+// Create a flashing text message
+FlashingText createFlashingText(sf::Font &font, const std::string &message, float x, float y, float frequency, sf::Color color)
+{
+    FlashingText flashingText;
+    
+    flashingText.text.setFont(font);
+    flashingText.text.setString(message);
+    flashingText.text.setCharacterSize(20);
+    flashingText.text.setFillColor(color);
+    flashingText.text.setStyle(sf::Text::Bold);
+    
+    // Center the text
+    sf::FloatRect textBounds = flashingText.text.getLocalBounds();
+    flashingText.text.setPosition(
+        x - textBounds.width / 2.0f - textBounds.left,
+        y - textBounds.height / 2.0f - textBounds.top);
+    
+    flashingText.frequency = frequency;
+    flashingText.isActive = false;
+    flashingText.isVisible = true;
+    flashingText.timer = 0.0f;
+    
+    return flashingText;
+}
+
+// Update flashing text visibility based on elapsed time
+void updateFlashingText(FlashingText &flashingText, float deltaTime)
+{
+    if (!flashingText.isActive)
+        return;
+        
+    flashingText.timer += deltaTime;
+    
+    // Toggle visibility based on frequency
+    float toggleTime = 1.0f / (2.0f * flashingText.frequency); // Time for one half-cycle (on or off)
+    if (flashingText.timer >= toggleTime)
+    {
+        flashingText.isVisible = !flashingText.isVisible;
+        flashingText.timer = 0.0f;
+    }
 }
 
 unsigned char board[8][8] = {{'-'}};
@@ -212,7 +278,7 @@ void drawTitle(sf::RenderWindow &window, sf::Font &font)
     title.setFillColor(sf::Color(50, 50, 50));
     title.setStyle(sf::Text::Bold);
     sf::FloatRect textBounds = title.getLocalBounds();
-    title.setPosition((window.getSize().x - textBounds.width) / 2.0f - textBounds.left, 12);
+    title.setPosition((window.getSize().x - textBounds.width) / 2.0f - textBounds.left, 8);
     window.draw(title);
 }
 
@@ -248,6 +314,28 @@ public:
             {
                 buttonState = msg->data;
                 RCLCPP_INFO(this->get_logger(), "Button state: %s", buttonState ? "ON" : "OFF"); });
+                
+        // Add new subscribers for board_oor and player_turn_bool
+        board_oor_sub_ = this->create_subscription<std_msgs::msg::Bool>(
+            "board_oor", 10, [this](std_msgs::msg::Bool::SharedPtr msg)
+            {
+                boardOutOfRange = msg->data;
+                RCLCPP_INFO(this->get_logger(), "Board out of range: %s", boardOutOfRange ? "YES" : "NO");
+            });
+            
+        player_turn_sub_ = this->create_subscription<std_msgs::msg::Bool>(
+            "player_turn_bool", 10, [this](std_msgs::msg::Bool::SharedPtr msg)
+            {
+                playerTurn = msg->data;
+                RCLCPP_INFO(this->get_logger(), "Player turn: %s", playerTurn ? "YES" : "NO");
+            });
+        estop_flag_sub_ = this->create_subscription<std_msgs::msg::Bool>(
+            "estop_flag", 10, [this](std_msgs::msg::Bool::SharedPtr msg)
+            {
+                estopFlag = msg->data;
+                RCLCPP_INFO(this->get_logger(), "Player turn: %s", estopFlag ? "YES" : "NO");
+            });
+    
     }
 
     void callResetService()
@@ -270,7 +358,6 @@ public:
             });
     }
 
-
     std::string trimFenToBoard(const std::string& fenString) {
         // Find the position of the first whitespace
         size_t spacePos = fenString.find(' ');
@@ -283,9 +370,6 @@ public:
         // If no space was found, return the entire string
         return fenString;
     }
-        
-        
-
 
     void publishControl(const std::string &command)
     {
@@ -297,6 +381,9 @@ public:
 
     std::string getLastMove() const { return lastMove; }
     bool getButtonState() const { return buttonState; }
+    bool getBoardOutOfRange() const { return boardOutOfRange; }
+    bool getPlayerTurn() const { return playerTurn; }
+    bool getEstopFlag() const { return estopFlag; }
 
 private:
     void moveCallback(const std_msgs::msg::String::SharedPtr msg)
@@ -316,12 +403,16 @@ private:
     rclcpp::Subscription<std_msgs::msg::String>::SharedPtr subscription_;
     rclcpp::Publisher<std_msgs::msg::String>::SharedPtr publisher_;
     rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr button_state_sub_;
+    rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr board_oor_sub_;
+    rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr player_turn_sub_;
+    rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr estop_flag_sub_;
     std::string lastMove;
     bool buttonState = false;
+    bool boardOutOfRange = false;
+    bool playerTurn = false;
+    bool estopFlag = false;
 };
 #pragma endregion ROS
-
-
 
 int main(int argc, char **argv)
 {
@@ -329,9 +420,14 @@ int main(int argc, char **argv)
     auto node = std::make_shared<ChessSubscriber>();
 
     std::string lastFenRendered;
-
     std::string fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR";
     std::string status = "Ready to play";
+    
+    // Track the current GUI state
+    GUIState currentState = STARTUP_SCREEN;
+    
+    // Store selected difficulty
+    std::string selectedDifficulty = "Easy";
 
     sf::RenderWindow window(sf::VideoMode(WINDOW_WIDTH, WINDOW_HEIGHT), "Chess Visualizer", sf::Style::Titlebar | sf::Style::Close);
     window.setVerticalSyncEnabled(true);
@@ -351,179 +447,281 @@ int main(int argc, char **argv)
         return 1;
     }
 
-    std::vector<Button> buttons = createButtons(font);
+    // Create startup screen elements
     Dropdown difficultyDropdown = createDifficultyDropdown(font);
     
+    // Create start game button (centered and below dropdown)
+    int startButtonWidth = 200;
+    int startButtonHeight = 50;
+    int startButtonX = (WINDOW_WIDTH - startButtonWidth) / 2;
+    int startButtonY = WINDOW_HEIGHT / 2 + 160;
+    Button startButton = createButton(font, "START GAME", startButtonX, startButtonY, 
+                                     startButtonWidth, startButtonHeight, 
+                                     startButtonGreen, startButtonHover);
+    
+    // Create game screen elements
+    std::vector<Button> gameButtons = createGameButtons(font);
+    
     // Debug output to confirm buttons
-    std::cout << "Created " << buttons.size() << " buttons:" << std::endl;
-    for (const auto& button : buttons) {
-        std::cout << "Button: " << button.name << " at position (" 
-                  << button.shape.getPosition().x << ", " 
-                  << button.shape.getPosition().y << ")" << std::endl;
-    }
-
-    // Create a dedicated reset button
-    Button resetButton;
-    resetButton.shape.setSize(sf::Vector2f(120, 50));
-    resetButton.shape.setFillColor(sf::Color(220, 60, 60)); // Red color for reset
-    resetButton.shape.setOutlineThickness(2);
-    resetButton.shape.setOutlineColor(sf::Color::Black);
-    resetButton.shape.setPosition(BOARD_OFFSET_X + BOARD_SIZE * SQUARE_SIZE + 60, BOARD_OFFSET_Y + 320);
-    resetButton.label.setFont(font);
-    resetButton.label.setString("RESET BOARD");
-    resetButton.label.setCharacterSize(16);
-    resetButton.label.setFillColor(sf::Color::White);
-    resetButton.name = "RESET";
+    std::cout << "Created " << gameButtons.size() << " game buttons" << std::endl;
     
-    // Position the text in the center of the button
-    sf::FloatRect textBounds = resetButton.label.getLocalBounds();
-    resetButton.label.setPosition(
-        resetButton.shape.getPosition().x + (resetButton.shape.getSize().x - textBounds.width) / 2.0f - textBounds.left,
-        resetButton.shape.getPosition().y + (resetButton.shape.getSize().y - textBounds.height) / 2.0f - textBounds.top);
-    
-    std::cout << "Created dedicated reset button at (" 
-              << resetButton.shape.getPosition().x << ", " 
-              << resetButton.shape.getPosition().y << ")" << std::endl;
+    // Create a dedicated reset button for the game screen
+    Button resetButton = createButton(font, "BACK TO MENU", 
+                                    BOARD_OFFSET_X + BOARD_SIZE * SQUARE_SIZE + 120, 
+                                    BOARD_OFFSET_Y + 320, 
+                                    160, 50, 
+                                    sf::Color(220, 60, 60), sf::Color(255, 100, 100));
+                                    
+    // Create flashing text notifications
+    FlashingText boardOutOfRangeText = createFlashingText(
+        font, 
+        "Board out of range, please reposition", 
+        WINDOW_WIDTH / 2 + 30, 
+        WINDOW_HEIGHT/ 2 + 0, 
+        1.0f, // 2 flashes per second
+        warningRed
+    );
 
+    FlashingText playerTurnText = createFlashingText(
+        font, 
+        "Player's turn, please make your move, then press the Button.", 
+        WINDOW_WIDTH / 2, 
+        BOARD_OFFSET_Y + BOARD_SIZE * SQUARE_SIZE + 20, 
+        0.5f, // 1.5 flashes per second
+        sf::Color(0, 0, 0) // Blue color for player turn notification
+    );
+    
+
+    FlashingText eStopEngaged = createFlashingText(
+        font, 
+        "Software E-Stop Engaged, Please press the button.", 
+        WINDOW_WIDTH / 2, 
+        BOARD_OFFSET_Y + BOARD_SIZE * SQUARE_SIZE + 20, 
+        1.0f, // 1.5 flashes per second
+        warningRed // Blue color for player turn notification
+    );
+    
+    // Clock for delta time calculation
+    sf::Clock clock;
+    
     while (window.isOpen() && rclcpp::ok())
     {
         rclcpp::spin_some(node);
+        
+        // Calculate delta time for flashing text updates
+        float deltaTime = clock.restart().asSeconds();
+        
         sf::Event event;
         while (window.pollEvent(event))
         {
             if (event.type == sf::Event::Closed)
                 window.close();
+                
             if (event.type == sf::Event::MouseMoved)
             {
                 sf::Vector2f mousePos(event.mouseMove.x, event.mouseMove.y);
-                for (auto &button : buttons)
-                {
-                    bool wasHovered = button.isHovered;
-                    button.isHovered = button.shape.getGlobalBounds().contains(mousePos);
-                    if (button.isHovered != wasHovered)
-                    {
-                        button.shape.setFillColor(button.isHovered ? buttonHover : buttonBlue);
+                
+                if (currentState == STARTUP_SCREEN) {
+                    // Handle start button hover effect
+                    bool wasStartHovered = startButton.isHovered;
+                    startButton.isHovered = startButton.shape.getGlobalBounds().contains(mousePos);
+                    if (startButton.isHovered != wasStartHovered) {
+                        startButton.shape.setFillColor(startButton.isHovered ? startButtonHover : startButtonGreen);
+                    }
+                } else if (currentState == GAME_SCREEN) {
+                    // Handle game buttons hover effect
+                    for (auto &button : gameButtons) {
+                        bool wasHovered = button.isHovered;
+                        button.isHovered = button.shape.getGlobalBounds().contains(mousePos);
+                        if (button.isHovered != wasHovered) {
+                            button.shape.setFillColor(button.isHovered ? buttonHover : buttonBlue);
+                        }
+                    }
+                    
+                    // Handle reset button hover effect
+                    bool wasResetHovered = resetButton.isHovered;
+                    resetButton.isHovered = resetButton.shape.getGlobalBounds().contains(mousePos);
+                    if (resetButton.isHovered != wasResetHovered) {
+                        resetButton.shape.setFillColor(resetButton.isHovered ? sf::Color(255, 100, 100) : sf::Color(220, 60, 60));
                     }
                 }
-                
-                // Handle hover effect for reset button
-                bool wasResetHovered = resetButton.isHovered;
-                resetButton.isHovered = resetButton.shape.getGlobalBounds().contains(mousePos);
-                if (resetButton.isHovered != wasResetHovered)
-                {
-                    resetButton.shape.setFillColor(resetButton.isHovered ? sf::Color(255, 100, 100) : sf::Color(220, 60, 60));
-                }
             }
+            
             if (event.type == sf::Event::MouseButtonPressed && event.mouseButton.button == sf::Mouse::Left)
             {
                 sf::Vector2f mousePos(event.mouseButton.x, event.mouseButton.y);
                 
-                // Check for regular button clicks
-                for (const auto &button : buttons)
-                {
-                    if (button.shape.getGlobalBounds().contains(mousePos))
-                    {
-                        status = "Command: " + button.name;
-                        node->publishControl(button.name);
-                    }
-                }
-                
-                // Check for dedicated reset button click
-                if (resetButton.shape.getGlobalBounds().contains(mousePos))
-                {
-                    std::cout << "Reset button clicked!" << std::endl;
-                    status = "Resetting chessboard...";
-                    node->callResetService();
-                }
-                if (difficultyDropdown.mainButton.getGlobalBounds().contains(mousePos))
-                {
-                    difficultyDropdown.isOpen = !difficultyDropdown.isOpen;
-                }
-                else if (difficultyDropdown.isOpen)
-                {
-                    for (int i = 0; i < difficultyDropdown.options.size(); i++)
-                    {
-                        if (difficultyDropdown.options[i].getGlobalBounds().contains(mousePos))
-                        {
-                            difficultyDropdown.selectedIndex = i;
-                            difficultyDropdown.mainLabel.setString("Difficulty: " + difficultyDropdown.optionNames[i]);
-                            difficultyDropdown.isOpen = false;
-                            sf::FloatRect textBounds = difficultyDropdown.mainLabel.getLocalBounds();
-                            float x = difficultyDropdown.mainButton.getPosition().x + 10;
-                            float y = difficultyDropdown.mainButton.getPosition().y +
-                                      (difficultyDropdown.mainButton.getSize().y - textBounds.height) / 2.0f - textBounds.top;
-                            difficultyDropdown.mainLabel.setPosition(x, y);
-                            node->publishControl("DIFFICULTY_" + difficultyDropdown.optionNames[i]);
-                            status = "Difficulty set to " + difficultyDropdown.optionNames[i];
+                if (currentState == STARTUP_SCREEN) {
+                    // Handle dropdown interaction
+                    if (difficultyDropdown.mainButton.getGlobalBounds().contains(mousePos)) {
+                        difficultyDropdown.isOpen = !difficultyDropdown.isOpen;
+                    } else if (difficultyDropdown.isOpen) {
+                        for (int i = 0; i < difficultyDropdown.options.size(); i++) {
+                            if (difficultyDropdown.options[i].getGlobalBounds().contains(mousePos)) {
+                                difficultyDropdown.selectedIndex = i;
+                                selectedDifficulty = difficultyDropdown.optionNames[i];
+                                difficultyDropdown.mainLabel.setString("Difficulty: " + selectedDifficulty);
+                                difficultyDropdown.isOpen = false;
+                                
+                                sf::FloatRect textBounds = difficultyDropdown.mainLabel.getLocalBounds();
+                                float x = difficultyDropdown.mainButton.getPosition().x + 10;
+                                float y = difficultyDropdown.mainButton.getPosition().y +
+                                          (difficultyDropdown.mainButton.getSize().y - textBounds.height) / 2.0f - textBounds.top;
+                                difficultyDropdown.mainLabel.setPosition(x, y);
+                            }
                         }
+                    }
+                    
+                    // Check for start button click
+                    if (startButton.shape.getGlobalBounds().contains(mousePos)) {
+                        std::cout << "Start button clicked!" << std::endl;
+                        currentState = GAME_SCREEN;
+                        // Send difficulty to the game system
+                        node->publishControl("DIFFICULTY_" + selectedDifficulty);
+                        status = "Game started with " + selectedDifficulty + " difficulty";
+                        // Reset the board via ROS service
+                        node->callResetService();
+                    }
+                } else if (currentState == GAME_SCREEN) {
+                    // Check for game button clicks
+                    for (const auto &button : gameButtons) {
+                        if (button.shape.getGlobalBounds().contains(mousePos)) {
+                            status = "Command: " + button.name;
+                            node->publishControl(button.name);
+                        }
+                    }
+                    
+                    // Check for reset button click to go back to menu
+                    if (resetButton.shape.getGlobalBounds().contains(mousePos)) {
+                        std::cout << "Back to menu button clicked!" << std::endl;
+                        currentState = STARTUP_SCREEN;
+                        status = "Ready to play";
                     }
                 }
             }
         }
 
-    std::string currentFen = node->getLastMove();
-    if (!currentFen.empty() && currentFen != lastFenRendered)
-    {
-        pieces = makePieces(texture, currentFen);  // Rebuild piece sprites from FEN
-        lastFenRendered = currentFen;
-        status = "Updated board from FEN";
-        std::cout << "Board updated with new FEN: " << currentFen << std::endl;
-    }
+        // Update flashing text state based on ROS topic data
+        if (currentState == GAME_SCREEN) {
+            // Update board out of range warning
+            boardOutOfRangeText.isActive = node->getBoardOutOfRange();
+            updateFlashingText(boardOutOfRangeText, deltaTime);
+            
+            // Update player turn notification
+            playerTurnText.isActive = node->getPlayerTurn();
+            updateFlashingText(playerTurnText, deltaTime);
 
+            eStopEngaged.isActive = node->getEstopFlag();
+            updateFlashingText(eStopEngaged, deltaTime);
+
+        }
+
+        // Update game board if needed
+        if (currentState == GAME_SCREEN) {
+            std::string currentFen = node->getLastMove();
+            if (!currentFen.empty() && currentFen != lastFenRendered) {
+                pieces = makePieces(texture, currentFen);  // Rebuild piece sprites from FEN
+                lastFenRendered = currentFen;
+                status = "Updated board from FEN";
+                std::cout << "Board updated with new FEN: " << currentFen << std::endl;
+            }
+        }
 
         window.clear(sf::Color(250, 250, 250));
         drawTitle(window, font);
-        drawBoard(window);
-        for (const auto &piece : pieces)
-            window.draw(piece);
-        for (const auto &button : buttons)
-        {
-            window.draw(button.shape);
-            window.draw(button.label);
-        }
-        window.draw(difficultyDropdown.mainButton);
-        window.draw(difficultyDropdown.mainLabel);
-        if (difficultyDropdown.isOpen)
-        {
-            for (int i = 0; i < difficultyDropdown.options.size(); i++)
-            {
-                window.draw(difficultyDropdown.options[i]);
-                window.draw(difficultyDropdown.optionLabels[i]);
-            }
-        }
-
-        drawStatus(window, font, status);
-
-        // Indicator light
-        sf::RectangleShape indicator(sf::Vector2f(40, 40));
-        indicator.setPosition(WINDOW_WIDTH - 50, 10);
-        indicator.setFillColor(node->getButtonState() ? buttonBlue : sf::Color::Red);
-        indicator.setOutlineColor(sf::Color::Black);
-        indicator.setOutlineThickness(1);
-        window.draw(indicator);
-
-        sf::Text indicatorLabel;
-        indicatorLabel.setFont(font);
-        indicatorLabel.setCharacterSize(16);
-        indicatorLabel.setFillColor(sf::Color(50, 50, 50));
-
-        if (node->getButtonState())
-        {
-            // Robot is UNLOCKED
-            indicatorLabel.setString("Robot unlocked: ");
-            indicatorLabel.setPosition(WINDOW_WIDTH - 220, 22);
-        }
-        else
-        {
-            indicatorLabel.setString("Robot locked: ");
-            indicatorLabel.setPosition(WINDOW_WIDTH - 200, 22);
-        }
-
-        window.draw(indicatorLabel);
         
-        // Draw the dedicated reset button
-        window.draw(resetButton.shape);
-        window.draw(resetButton.label);
+        if (currentState == STARTUP_SCREEN) {
+            // Draw startup screen elements
+            
+            // Draw instruction text
+            sf::Text instructionText;
+            instructionText.setFont(font);
+            instructionText.setString("Select difficulty level and press Start Game");
+            instructionText.setCharacterSize(18);
+            instructionText.setFillColor(sf::Color(50, 50, 50));
+            sf::FloatRect textBounds = instructionText.getLocalBounds();
+            instructionText.setPosition(
+                (WINDOW_WIDTH - textBounds.width) / 2.0f - textBounds.left,
+                WINDOW_HEIGHT / 2 - 100);
+            window.draw(instructionText);
+            
+            // Draw dropdown
+            window.draw(difficultyDropdown.mainButton);
+            window.draw(difficultyDropdown.mainLabel);
+            if (difficultyDropdown.isOpen) {
+                for (int i = 0; i < difficultyDropdown.options.size(); i++) {
+                    window.draw(difficultyDropdown.options[i]);
+                    window.draw(difficultyDropdown.optionLabels[i]);
+                }
+            }
+            
+            // Draw start button
+            window.draw(startButton.shape);
+            window.draw(startButton.label);
+            
+        } else if (currentState == GAME_SCREEN) {
+            // Draw game screen elements
+            drawBoard(window);
+            for (const auto &piece : pieces)
+                window.draw(piece);
+                
+            for (const auto &button : gameButtons) {
+                window.draw(button.shape);
+                window.draw(button.label);
+            }
+            
+            drawStatus(window, font, status);
+            
+            // Draw flashing texts if they're active and visible
+            if (boardOutOfRangeText.isActive && boardOutOfRangeText.isVisible) {
+                window.draw(boardOutOfRangeText.text);
+            }
+            
+            if (playerTurnText.isActive && playerTurnText.isVisible) {
+                window.draw(playerTurnText.text);
+            }
+            
+            if (eStopEngaged.isActive && eStopEngaged.isVisible) {
+                window.draw(eStopEngaged.text);
+            }
+            
+            // Draw the dedicated reset/back button
+            window.draw(resetButton.shape);
+            window.draw(resetButton.label);
+            
+            // Indicator light
+            sf::RectangleShape indicator(sf::Vector2f(40, 40));
+            indicator.setPosition(WINDOW_WIDTH - 50, 10);
+            indicator.setFillColor(node->getButtonState() ? buttonBlue : sf::Color::Red);
+            indicator.setOutlineColor(sf::Color::Black);
+            indicator.setOutlineThickness(1);
+            window.draw(indicator);
+
+            sf::Text indicatorLabel;
+            indicatorLabel.setFont(font);
+            indicatorLabel.setCharacterSize(16);
+            indicatorLabel.setFillColor(sf::Color(50, 50, 50));
+
+            if (node->getButtonState()) {
+                // Robot is UNLOCKED
+                indicatorLabel.setString("Robot unlocked: ");
+                indicatorLabel.setPosition(WINDOW_WIDTH - 220, 22);
+            } else {
+                indicatorLabel.setString("Robot locked: ");
+                indicatorLabel.setPosition(WINDOW_WIDTH - 200, 22);
+            }
+
+            window.draw(indicatorLabel);
+            
+            // Display current difficulty in game screen
+            sf::Text difficultyText;
+            difficultyText.setFont(font);
+            difficultyText.setString("Difficulty: " + selectedDifficulty);
+            difficultyText.setCharacterSize(14);
+            difficultyText.setFillColor(sf::Color(80, 80, 80));
+            difficultyText.setPosition(BOARD_OFFSET_X + BOARD_SIZE * SQUARE_SIZE + 260, BOARD_OFFSET_Y + 280);
+            window.draw(difficultyText);
+        }
         
         window.display();
     }
