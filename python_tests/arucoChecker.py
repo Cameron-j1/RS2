@@ -23,7 +23,7 @@ aruco_to_H1 = {
     #aruco id: [x to H1 (m), y to H1 (m), rot z (rad)]
     # 1: [-aruco_board_span, -aruco_square_span, 0],
     2: [-0.2594, 0.2961, 0],
-    3: [0.0144+0.006, 0.2961, 0],
+    3: [0.0144, 0.2961, 0],
     # 4: [aruco_square_span, - aruco_square_span, 0]
 }
 
