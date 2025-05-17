@@ -47,16 +47,16 @@ class CameraNode(Node):
         self.latest_image = None
         self.get_logger().info('Node started. Displaying image stream. Press Ctrl+C to stop.')
         self.board = [['-'] * 8 for _ in range(8)]
-        self.is_castling = [False] * 64
+        self.castled = False
         self.model = get_model(model_id="reddotdetection/1")
+        self.BWmodel = get_model(model_id="blackwhite-fkduo/1")
+        self.cell_images = np.empty((8, 8), dtype=object)
         self.takeImg = False
 
     def img_action(self, msg):
         self.takeImg = msg.data
 
     def chess_callback(self, msg):
-        print("Msg len")
-        print(len(msg.data))
         if len(msg.data) > 50:
             for i in range(8):
                 for j in range(8):
@@ -71,38 +71,87 @@ class CameraNode(Node):
                 # Convert ROS Image message to OpenCV format (BGR)
                 self.latest_image = self.bridge.imgmsg_to_cv2(msg, desired_encoding='bgr8')
                 self.latest_image = self.make_square_crop(self.latest_image)
-                # # When the spacebar is pressed, it will trigger the chess analysis process (TODO)
                 chessBoardB = self.process_chessboard(self.latest_image)
                 chessStr = np.array2string(chessBoardB, separator=', ')
                 self.get_logger().info(f'Occupancy grid from black perspective:\n{chessStr}')
-                chessBoardW = [row[::-1] for row in chessBoardB[::-1]]
-                # chessStr = np.array2string(chessBoardW, separator=', ')
-                # self.get_logger().info(f'Occupancy grid from white perspective:\n{chessStr}')
-                # # Convert to the white perspective to match with the chess node
 
-                stop = False
+                # Convert to the white perspective to match with the chess node
+                chessBoardW = [row[::-1] for row in chessBoardB[::-1]]
+                self.cell_images = [row[::-1] for row in self.cell_images[::-1]]
+
+                castlingCheck = False
+
+                # Check if any castling was made
+                if chessBoardW[7][0] == 1 and self.board[7][0] == 'R' and chessBoardW[7][4] == 1 and self.board[7][4] == 'K' \
+                    and chessBoardW[7][2] == 0 and self.board[7][2] == '-' and chessBoardW[7][3] == 0 and self.board[7][3] == '-' and not self.castled:
+
+                    self.get_logger().info("White Queen-Side Castle")
+                    playerMove = [[7, 4], [7, 2], [7, 0], [7, 3]]
+                    castlingCheck = True
+                    self.castled = True
+
+                if chessBoardW[7][7] == 1 and self.board[7][7] == 'R' and chessBoardW[7][4] == 1 and self.board[7][4] == 'K' \
+                    and chessBoardW[7][5] == 0 and self.board[7][5] == '-' and chessBoardW[7][6] == 0 and self.board[7][6] == '-' and not self.castled:
+
+                    self.get_logger().info("White King-Side Castle")
+                    playerMove = [[7, 4], [7, 6], [7, 7], [7, 5]]
+                    castlingCheck = True
+                    self.castled = True
+
+                #Check for En Passant, no legality check yet
+                square_change = 0
+                startEnPassant = None
+                goalEnPassant = None
+                capturedPieceEnPassant = None
+                change_list = []
                 for i in range(8):
                     for y in range(8):
-                        # the piece has moved
-                        if chessBoardW[i][y] == 1 and self.board[i][y] != '-':
-                            cellToCheck = self.get_possible_moves(i, y)
-                            print(cellToCheck)
-                            for j in range(len(cellToCheck)):
-                                if chessBoardW[cellToCheck[j][0]][cellToCheck[j][1]] == 0:
-                                    pieceInitialPos = [i, y]
-                                    pieceFinalPos = cellToCheck[j]
-                                    print("pieceInitialPos")
-                                    print(pieceInitialPos)
-                                    print("pieceFinalPos")
-                                    print(pieceFinalPos)
-                                    playerMove = [pieceInitialPos, pieceFinalPos]
-                                    stop = True
-                                    break
+                        if (chessBoardW[i][y] == 1 and self.board[i][y] != '-') or (chessBoardW[i][y] != 1 and self.board[i][y] == '-'):
+                            square_change = square_change + 1
+                            change_list = change_list + [[i, y]]
+                
+                if square_change == 3:
+                    for i in range(3):
+                        if self.board[change_list[i][0]][change_list[i][1]] == '-':
+                            goalEnPassant = change_list[i]
+                            capturedPieceEnPassant = [change_list[i][0] + 1, change_list[i][1]]
+                            if self.board[change_list[i][0] + 1][change_list[i][1] + 1] == 'P' and chessBoardW[change_list[i][0] + 1][change_list[i][1] + 1] == 1:
+                                startEnPassant = [change_list[i][0] + 1, change_list[i][1] + 1]
+                                break
+                            elif self.board[change_list[i][0] + 1][change_list[i][1] - 1] == 'P' and chessBoardW[change_list[i][0] + 1][change_list[i][1] - 1] == 1:
+                                startEnPassant = [change_list[i][0] + 1, change_list[i][1] - 1]
+                                break
+                    playerMove = [capturedPieceEnPassant, [9, 9], startEnPassant, goalEnPassant]
+                    print("White En Passant")
+
+                #Normal and Capture move
+                if not castlingCheck and square_change != 3:
+                    stop = False
+                    for i in range(8):
+                        for y in range(8):
+                            # the piece has moved
+                            if chessBoardW[i][y] == 1 and self.board[i][y] != '-':
+                                cellToCheck = self.get_possible_moves(i, y)
+                                for j in range(len(cellToCheck)):
+                                    #black and white classification goes here
+                                    if chessBoardW[cellToCheck[j][0]][cellToCheck[j][1]] == 0:
+                                        # There used to be a mistake here as we checked the wrong cell, fixed now
+                                        if self.isWhite(self.cell_images[cellToCheck[j][0]][cellToCheck[j][1]]):
+                                            pieceInitialPos = [i, y]
+                                            pieceFinalPos = cellToCheck[j]
+                                            # Capture move, add 9 9 for the chessboard node to delete the captured piece
+                                            if self.board[cellToCheck[j][0]][cellToCheck[j][1]] != '-':
+                                                playerMove = [pieceFinalPos, [9, 9], pieceInitialPos, pieceFinalPos]
+                                            else: # This is a normal move
+                                                playerMove = [pieceInitialPos, pieceFinalPos]
+                                            stop = True
+                                            break
+                            if stop:
+                                break
                         if stop:
                             break
-                    if stop:
-                        break
-                self.get_logger().info(f'Start P: {playerMove[0][0]}, {playerMove[0][1]}; End P: {playerMove[1][0]}, {playerMove[1][1]} ')
+
+                    self.get_logger().info(f'Piece Start Position: {playerMove[0][0]}, {playerMove[0][1]}; Piece Destination: {playerMove[1][0]}, {playerMove[1][1]} ')
                 # # Publish the move to the chess node for stockfish
                 toChessNode = ''.join(str(num) for sublist in playerMove for num in sublist)
                 self.player_publish.publish(String(data=toChessNode))
@@ -121,28 +170,32 @@ class CameraNode(Node):
         prediction = self.model.infer(img)[0]
         return prediction.predictions[0].class_id
 
-    def find_move(self, newOccupancy):
-        # Heuristic check for castling
-        if newOccupancy[7][0] == 0 and newOccupancy[7][4] == 0 and self.board[7][0] != '-' and self.board[7][4] != '-':
-            self.get_logger().info("White Queen-Side Castling")
-            return [[7, 4], [7, 2], [7, 0], [7, 3]]
+    def isWhite(self, img):
+        prediction = self.BWmodel.infer(img)[0]
+        id = prediction.predictions[0].class_id
+        if id == 2:
+            return True
+        return False
 
-        if newOccupancy[7][7] == 0 and newOccupancy[7][4] == 0 and self.board[7][7] != '-' and self.board[7][4] != '-':
-            self.get_logger().info("White King-Side Castling")
-            return [[7, 4], [7, 6], [7, 7], [7, 5]]
+    def process_chessboard(self, img):
+        h, w = img.shape[:2]
+        rows, cols = 8, 8
+        cell_h = h // rows
+        cell_w = w // cols
+        occupancy = np.zeros((8, 8))
+        for i in range(rows):
+            for j in range(cols):
+                y1 = i * cell_h
+                y2 = (i + 1) * cell_h
+                x1 = j * cell_w
+                x2 = (j + 1) * cell_w
+                cell_img = img[y1:y2, x1:x2]
+                self.cell_images[i][j] = cell_img
 
-        for i in range(8):
-            for y in range(8):
-                # the piece has moved
-                if newOccupancy[i][y] == 1 and self.board[i][y] != '-':
-                    cellToCheck = self.get_possible_moves(i, y)
-                    self.get_logger().info(f'Moves:\n{len(cellToCheck)}')
-                    for j in range(len(cellToCheck)):
-                        if newOccupancy[cellToCheck[j][0]][cellToCheck[j][1]] == 0:
-                            pieceInitialPos = [i, y]
-                            pieceFinalPos = cellToCheck[j]
-                            return [pieceInitialPos, pieceFinalPos]
-        return None
+                if self.isDot(cell_img) == 0:
+                    occupancy[i][j] = 1
+
+        return occupancy
 
     def make_square_crop(self, img):
         """Crop the image to a square by trimming the longer dimension."""
@@ -256,7 +309,7 @@ class CameraNode(Node):
                         break
 
         elif current_piece in ('k', 'K'):
-            # Standard king moves
+            # Standard king moves check only, as castling is handled before this function call
             offsets = [
                 [-1, -1], [-1, 0], [-1, 1],
                 [0, -1],           [0, 1],
@@ -268,22 +321,6 @@ class CameraNode(Node):
                 if (self.is_valid(new_row, new_col) and 
                     (self.board[new_row][new_col] == '-' or self.is_enemy(current_piece, self.board[new_row][new_col]))):
                     moves.append([new_row, new_col])
-
-            # Castling moves
-            is_white = (current_piece == 'K')
-            start_row = 7 if is_white else 0  # White king at row 7, Black at row 0
-
-            if row == start_row and col == 4:  # King at e1 (7,4) or e8 (0,4)
-                # Kingside castling (right, toward h-file)
-                if (self.board[start_row][7] == ('R' if is_white else 'r') and  # Rook at h1/h8
-                    self.board[start_row][5] == '-' and self.board[start_row][6] == '-'):  # f and g empty
-                    moves.append([start_row, 6])  # King moves to g1/g8
-                    self.is_castling[start_row * 8 + 6] = True
-                # Queenside castling (left, toward a-file)
-                if (self.board[start_row][0] == ('R' if is_white else 'r') and  # Rook at a1/a8
-                    self.board[start_row][1] == '-' and self.board[start_row][2] == '-' and self.board[start_row][3] == '-'):  # b, c, d empty
-                    moves.append([start_row, 2])  # King moves to c1/c8
-                    self.is_castling[start_row * 8 + 2] = True
 
         return moves
 
