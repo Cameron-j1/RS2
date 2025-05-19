@@ -812,8 +812,13 @@ int main(int argc, char * argv[]) {
                     // Find the piece played
                     if ((int(pieces[i].getPosition().y)-8)/SQUARE_SIZE == physicalMove[0] &&
                         (int(pieces[i].getPosition().x)-8)/SQUARE_SIZE == physicalMove[1]) {
-                        pieces[i].setPosition(physicalMove[3] * SQUARE_SIZE + 8, physicalMove[2] * SQUARE_SIZE + 8);
-                        board[physicalMove[2]][physicalMove[3]] = board[physicalMove[0]][physicalMove[1]];
+                            if (physicalMove[3] == 9 || physicalMove[4] == 9) {
+                                pieces[i].setPosition(5000.0f, 5000.0f);
+                            }
+                            else {
+                                pieces[i].setPosition(physicalMove[3] * SQUARE_SIZE + 8, physicalMove[2] * SQUARE_SIZE + 8);
+                                board[physicalMove[2]][physicalMove[3]] = board[physicalMove[0]][physicalMove[1]];
+                            }
                         board[physicalMove[0]][physicalMove[1]] = '-';
                     }
                 }
