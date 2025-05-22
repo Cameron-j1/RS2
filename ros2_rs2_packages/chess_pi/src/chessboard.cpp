@@ -405,34 +405,34 @@ public:
                 RCLCPP_INFO(this->get_logger(), "Button state: %s", buttonState ? "ON" : "OFF"); });
                 
         // Add new subscribers for board_oor and player_turn_bool
-        board_oor_sub_ = this->create_subscription<std_msgs::msg::Bool>(
-            "board_oor", 10, [this](std_msgs::msg::Bool::SharedPtr msg)
-            {
-                boardOutOfRange = msg->data;
-                RCLCPP_INFO(this->get_logger(), "Board out of range: %s", boardOutOfRange ? "YES" : "NO");
-            });
+        // board_oor_sub_ = this->create_subscription<std_msgs::msg::Bool>(
+        //     "board_oor", 10, [this](std_msgs::msg::Bool::SharedPtr msg)
+        //     {
+        //         boardOutOfRange = msg->data;
+        //         RCLCPP_INFO(this->get_logger(), "Board out of range: %s", boardOutOfRange ? "YES" : "NO");
+        //     });
             
-        player_turn_sub_ = this->create_subscription<std_msgs::msg::Bool>(
-            "player_turn_bool", 10, [this](std_msgs::msg::Bool::SharedPtr msg)
-            {
-                playerTurn = msg->data;
-                RCLCPP_INFO(this->get_logger(), "Player turn: %s", playerTurn ? "YES" : "NO");
-            });
-        estop_flag_sub_ = this->create_subscription<std_msgs::msg::Bool>(
-            "estop_flag", 10, [this](std_msgs::msg::Bool::SharedPtr msg)
-            {
-                estopFlag = msg->data;
-                RCLCPP_INFO(this->get_logger(), "Player turn: %s", estopFlag ? "YES" : "NO");
-            });
+        // player_turn_sub_ = this->create_subscription<std_msgs::msg::Bool>(
+        //     "player_turn_bool", 10, [this](std_msgs::msg::Bool::SharedPtr msg)
+        //     {
+        //         playerTurn = msg->data;
+        //         RCLCPP_INFO(this->get_logger(), "Player turn: %s", playerTurn ? "YES" : "NO");
+        //     });
+        // estop_flag_sub_ = this->create_subscription<std_msgs::msg::Bool>(
+        //     "estop_flag", 10, [this](std_msgs::msg::Bool::SharedPtr msg)
+        //     {
+        //         estopFlag = msg->data;
+        //         RCLCPP_INFO(this->get_logger(), "Player turn: %s", estopFlag ? "YES" : "NO");
+        //     });
 
         status_sub_ = this->create_subscription<std_msgs::msg::String>(
             "/status", 10, [this](std_msgs::msg::String::SharedPtr msg)
             {
                 if (msg->data.size() >= 4) {
-                    temp1 = msg->data[0];
+                    boardOutOfRange = (msg->data[0] == '1');
                     temp2 = msg->data[1];
-                    temp3 = msg->data[2];
-                    temp4 = msg->data[3];
+                    estopFlag = (msg->data[2] == '1');
+                    playerTurn = (msg->data[3] == '1');
                     RCLCPP_INFO(this->get_logger(), "Status received: %c %c %c %c", temp1, temp2, temp3, temp4);
                 } else {
                     RCLCPP_WARN(this->get_logger(), "Status string too short: '%s'", msg->data.c_str());
