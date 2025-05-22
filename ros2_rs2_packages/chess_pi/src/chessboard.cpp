@@ -13,7 +13,7 @@
 const int BOARD_SIZE = 8;
 const int SQUARE_SIZE = 45;
 const int BOARD_OFFSET_X = 25;
-const int BOARD_OFFSET_Y = 40;
+const int BOARD_OFFSET_Y = 20;
 const int WINDOW_WIDTH = 800;
 const int WINDOW_HEIGHT = 460;
 
@@ -486,7 +486,7 @@ int main(int argc, char **argv)
         font, 
         "Player's turn, please make your move, then press the Button.", 
         WINDOW_WIDTH / 2, 
-        BOARD_OFFSET_Y + BOARD_SIZE * SQUARE_SIZE + 20, 
+        BOARD_OFFSET_Y + BOARD_SIZE * SQUARE_SIZE + 50, 
         0.5f, // 1.5 flashes per second
         sf::Color(0, 0, 0) // Blue color for player turn notification
     );

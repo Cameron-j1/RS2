@@ -1,6 +1,0 @@
-setup.py
-chess_pi/__init__.py
-chess_pi.egg-info/PKG-INFO
-chess_pi.egg-info/SOURCES.txt
-chess_pi.egg-info/dependency_links.txt
-chess_pi.egg-info/top_level.txt
