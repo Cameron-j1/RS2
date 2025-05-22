@@ -84,11 +84,7 @@ class RobotKinematics : public rclcpp::Node {
  
             takeImage = this->create_publisher<std_msgs::msg::Bool>("/take_image", 10);
 
-            player_turn_pub = this->create_publisher<std_msgs::msg::Bool>("/player_turn_bool", 10);
-
-            estop_engaged_pub = this->create_publisher<std_msgs::msg::Bool>("/estop_flag", 10);
-
-            board_oor_pub = this->create_publisher<std_msgs::msg::Bool>("/board_oor", 10);
+            status_pub = this->create_publisher<std_msgs::msg::String>("/status", 10);
 
             robot_stationary_ = false;
             pickup_dropoff_wait_ = 1.5; //seconds
@@ -112,7 +108,20 @@ class RobotKinematics : public rclcpp::Node {
  
             moveToJointAngles(camera_view_jangle.at(0), camera_view_jangle.at(1),camera_view_jangle.at(2),camera_view_jangle.at(3),camera_view_jangle.at(4),camera_view_jangle.at(5));
         }
- 
+
+        void publish_status(){
+            std::string status_str;
+            status_str += posError ? '1' : '0';
+            status_str += yawError ? '1' : '0';
+            status_str += eStop ? '1' : '0';
+            status_str += playerTurn ? '1' : '0';
+
+            auto msg = std_msgs::msg::String();
+            msg.data = status_str;
+            status_pub->publish(msg);
+            RCLCPP_WARN(this->get_logger(), "publishing error string: %s", status_str.c_str());
+        }
+    
         void publishServoState(bool state) {
             auto message = std_msgs::msg::Bool();
             message.data = state;
@@ -254,9 +263,9 @@ class RobotKinematics : public rclcpp::Node {
             tempPosition.orientation.w = 0.0;
  
             isTakeImage = false;
-            auto msg = std_msgs::msg::Bool();
-            msg.data = false;    // or false, depending on your logic
-            player_turn_pub->publish(msg);
+            
+            playerTurn = false;
+            publish_status();
 
             RCLCPP_INFO(this->get_logger(), "[maneuver] angle move to viewing position");
             moveToJointAngles(1.544, -2.060, 0.372, -0.108, -1.651, -6.233);
@@ -348,8 +357,8 @@ class RobotKinematics : public rclcpp::Node {
             RCLCPP_INFO(this->get_logger(), "[maneuver] angle move to viewing position");
             moveToJointAngles(1.544, -2.060, 0.372, -0.108, -1.651, -6.233);
             isTakeImage = true;
-            msg.data = true;    // or false, depending on your logic
-            player_turn_pub->publish(msg);
+            playerTurn = true;
+            publish_status();
 
         }
  
@@ -361,9 +370,8 @@ class RobotKinematics : public rclcpp::Node {
                 // ─── Wait for Deadman ─────────────────────────────────────────────
                 while (!button_state && rclcpp::ok()) {
                     count++;
-                    auto msg = std_msgs::msg::Bool();
-                    msg.data = true;    // or false, depending on your logic
-                    estop_engaged_pub->publish(msg);
+                    eStop = true;
+                    publish_status();
                     if (count % print_freq == 0) {
                         RCLCPP_INFO(this->get_logger(), "[moveStraightToPoint] Waiting for deadman switch...");
                     }
@@ -392,8 +400,8 @@ class RobotKinematics : public rclcpp::Node {
                     plan.trajectory_ = trajectory;
                 }
                 auto msg = std_msgs::msg::Bool();
-                msg.data = false;    // or false, depending on your logic
-                estop_engaged_pub->publish(msg);
+                eStop = false;
+                publish_status();
 
                 // ─── Execute ──────────────────────────────────────────────────────
                 move_group_ptr->asyncExecute(plan);
@@ -537,6 +545,12 @@ class RobotKinematics : public rclcpp::Node {
         rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr marker_pub;
         rclcpp::Publisher<std_msgs::msg::Bool>::SharedPtr takeImage;
         moveit::planning_interface::MoveGroupInterface* move_group_ptr;
+
+        // status variables
+        bool posError = false;
+        bool yawError = false;
+        bool eStop = false;
+        bool playerTurn = true;
  
         // calculate the height of other pieces based on the height of the pawn
         double operation_height = 0.15 + 0.1;//, pickupHeight = 0.05 + 0.1+0.015;
@@ -610,16 +624,21 @@ class RobotKinematics : public rclcpp::Node {
  
                     H1_X = -marker.pose.position.x;
                     H1_Y = -marker.pose.position.y;
-                    auto msg = std_msgs::msg::Bool();
-                    if(H1_X > std::abs(0.15) || H1_Y > 0.37 && (board_yaw < 0.13 || board_yaw > (M_PI-0.13))){
+                    
+                    if(std::abs(H1_X) < 0.15 || H1_Y > 0.45 || H1_Y < 0.35){
+                        posError = true;
+                        RCLCPP_WARN(this->get_logger(), "pos out of tolerance");
+                    }
+                    else if(board_yaw < 0.13 || board_yaw > (M_PI-0.13)){
                         // RCLCPP_INFO(this->get_logger(), "publishing board yaw");
-                        msg.data = true;
-                        board_oor_pub->publish(msg);
+                        yawError = true;
+                        RCLCPP_WARN(this->get_logger(), "yaw out of tolerance");
                     }
                     else{
-                        msg.data = false;
-                        board_oor_pub->publish(msg);
+                        yawError = false;
+                        posError = false;
                     }
+                    publish_status();
                     // RCLCPP_INFO(this->get_logger(), "board yaw: %.4f", board_yaw);
 
                     double dx = 3.5 * (SQUARE_SIZE / 1000.0);
@@ -695,13 +714,8 @@ class RobotKinematics : public rclcpp::Node {
         rclcpp::Subscription<sensor_msgs::msg::JointState>::SharedPtr joint_state_sub_;
         int pickup_dropoff_wait_;
 
-        // player turn pub for pi variables
-        rclcpp::Publisher<std_msgs::msg::Bool>::SharedPtr player_turn_pub;
 
-        //e-stop state pub for pi variables
-        rclcpp::Publisher<std_msgs::msg::Bool>::SharedPtr estop_engaged_pub;
-
-        rclcpp::Publisher<std_msgs::msg::Bool>::SharedPtr board_oor_pub;
+        rclcpp::Publisher<std_msgs::msg::String>::SharedPtr status_pub;
 
         //button state variables
         rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr button_sub_;
@@ -813,6 +827,8 @@ int main(int argc, char * argv[])
     primitive.dimensions[primitive.BOX_X] = 1.5;  // 1.5m in x-direction
     primitive.dimensions[primitive.BOX_Y] = 1.5;  // 1.5m in y-direction
     primitive.dimensions[primitive.BOX_Z] = 1.5;  // 1.5m in z-direction
+
+    
    
     // Define the pose of the cube
     // and center it at x=0, y=0
