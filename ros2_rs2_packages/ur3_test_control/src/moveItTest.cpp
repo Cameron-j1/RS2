@@ -370,13 +370,16 @@ class RobotKinematics : public rclcpp::Node {
                 // ─── Wait for Deadman ─────────────────────────────────────────────
                 while (!button_state && rclcpp::ok()) {
                     count++;
-                    eStop = true;
+                    playerTurn = false;
                     publish_status();
                     if (count % print_freq == 0) {
                         RCLCPP_INFO(this->get_logger(), "[moveStraightToPoint] Waiting for deadman switch...");
                     }
                     std::this_thread::sleep_for(std::chrono::milliseconds(5));
                 }
+
+                playerTurn = true;
+                publish_status();
  
                 // ─── Plan ─────────────────────────────────────────────────────────
                 moveit::planning_interface::MoveGroupInterface::Plan plan;
@@ -399,7 +402,7 @@ class RobotKinematics : public rclcpp::Node {
  
                     plan.trajectory_ = trajectory;
                 }
-                auto msg = std_msgs::msg::Bool();
+                
                 eStop = false;
                 publish_status();
 
@@ -410,7 +413,8 @@ class RobotKinematics : public rclcpp::Node {
                 while (rclcpp::ok()) {
                     if (!button_state) {
                         RCLCPP_WARN(this->get_logger(), "[moveStraightToPoint] Deadman switch released, stopping...");
-                        
+                        eStop = true;
+                        publish_status();
                         move_group_ptr->stop();
                         std::this_thread::sleep_for(std::chrono::milliseconds(100));
                         break;  // Retry from outer loop
