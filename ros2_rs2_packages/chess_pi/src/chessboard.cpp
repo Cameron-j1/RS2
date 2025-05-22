@@ -49,10 +49,95 @@ struct FlashingText {
 
 #pragma region GUI Structs and Classes
 
+// Custom RoundedRectangleShape class for rounded buttons
+class RoundedRectangleShape : public sf::Shape
+{
+public:
+    RoundedRectangleShape(const sf::Vector2f& size = sf::Vector2f(0, 0), float radius = 0, unsigned int cornerPointCount = 8)
+    : m_size(size), m_radius(radius), m_cornerPointCount(cornerPointCount)
+    {
+        update();
+    }
+
+    void setSize(const sf::Vector2f& size)
+    {
+        m_size = size;
+        update();
+    }
+
+    const sf::Vector2f& getSize() const
+    {
+        return m_size;
+    }
+
+    void setRadius(float radius)
+    {
+        m_radius = radius;
+        update();
+    }
+
+    float getRadius() const
+    {
+        return m_radius;
+    }
+
+    void setCornerPointCount(unsigned int count)
+    {
+        m_cornerPointCount = count;
+        update();
+    }
+
+    virtual std::size_t getPointCount() const
+    {
+        return 4 * m_cornerPointCount;
+    }
+
+    virtual sf::Vector2f getPoint(std::size_t index) const
+    {
+        if (index >= getPointCount())
+            return sf::Vector2f(0, 0);
+
+        // Calculate which corner we're dealing with
+        std::size_t cornerNumber = index / m_cornerPointCount;
+        std::size_t cornerIndex = index % m_cornerPointCount;
+        
+        // Define corner centers
+        sf::Vector2f centers[4] = {
+            {m_radius, m_radius},                              // top-left
+            {m_size.x - m_radius, m_radius},                   // top-right
+            {m_size.x - m_radius, m_size.y - m_radius},        // bottom-right
+            {m_radius, m_size.y - m_radius}                    // bottom-left
+        };
+        
+        // Define start angles for each corner (in radians)
+        float startAngles[4] = {
+            180.0f * 3.14159f / 180.0f,  // top-left: start at 180 degrees
+            270.0f * 3.14159f / 180.0f,  // top-right: start at 270 degrees
+            0.0f * 3.14159f / 180.0f,    // bottom-right: start at 0 degrees
+            90.0f * 3.14159f / 180.0f    // bottom-left: start at 90 degrees
+        };
+        
+        // Calculate the angle for this specific point
+        float angle = startAngles[cornerNumber] + cornerIndex * (90.0f * 3.14159f / 180.0f) / (m_cornerPointCount - 1);
+        
+        // Calculate position relative to corner center
+        float x = centers[cornerNumber].x + std::cos(angle) * m_radius;
+        float y = centers[cornerNumber].y + std::sin(angle) * m_radius;
+        
+        return sf::Vector2f(x, y);
+    }
+
+private:
+    sf::Vector2f m_size;
+    float m_radius;
+    unsigned int m_cornerPointCount;
+};
+
+
 // Button and Dropdown structs
 struct Button
 {
-    sf::RectangleShape shape;
+    RoundedRectangleShape shape;
     sf::Text label;
     std::string name;
     bool isHovered = false;
@@ -78,6 +163,10 @@ Button createButton(sf::Font &font, const std::string &label, float x, float y, 
     button.shape.setOutlineThickness(1);
     button.shape.setOutlineColor(sf::Color(40, 40, 40));
     button.shape.setPosition(x, y);
+    
+    // Set rounded corners radius (adjust as needed)
+    button.shape.setRadius(8.0f);
+    
     button.label.setFont(font);
     button.label.setString(label);
     button.label.setCharacterSize(16);
@@ -102,7 +191,7 @@ std::vector<Button> createGameButtons(sf::Font &font)
 
     for (int i = 0; i < labels.size(); i++)
     {
-        Button button = createButton(font, labels[i], rightPanelX, BOARD_OFFSET_Y + 20 + i * (buttonHeight + 15), 
+        Button button = createButton(font, labels[i], rightPanelX, BOARD_OFFSET_Y + 40 + i * (buttonHeight + 15), 
                                      buttonWidth, buttonHeight, buttonBlue, buttonHover);
         buttons.push_back(button);
     }
@@ -116,8 +205,8 @@ Dropdown createDifficultyDropdown(sf::Font &font)
     std::vector<std::string> options = {"Easy", "Medium", "Hard"};
     int dropdownWidth = 200, dropdownHeight = 40;
     // Center the dropdown in the window
-    int centerX = (WINDOW_WIDTH - dropdownWidth) / 2;
-    int startY = WINDOW_HEIGHT / 2 - 30;
+    int centerX = (WINDOW_WIDTH - dropdownWidth) / 2 + 150;
+    int startY = WINDOW_HEIGHT / 2;
 
     dropdown.mainButton.setSize(sf::Vector2f(dropdownWidth, dropdownHeight));
     dropdown.mainButton.setFillColor(dropdownBg);
@@ -278,7 +367,7 @@ void drawTitle(sf::RenderWindow &window, sf::Font &font)
     title.setFillColor(sf::Color(50, 50, 50));
     title.setStyle(sf::Text::Bold);
     sf::FloatRect textBounds = title.getLocalBounds();
-    title.setPosition((window.getSize().x - textBounds.width) / 2.0f - textBounds.left, 8);
+    title.setPosition((window.getSize().x - textBounds.width) / 2.0f - textBounds.left +80, 8);
     window.draw(title);
 }
 
@@ -453,8 +542,8 @@ int main(int argc, char **argv)
     // Create start game button (centered and below dropdown)
     int startButtonWidth = 200;
     int startButtonHeight = 50;
-    int startButtonX = (WINDOW_WIDTH - startButtonWidth) / 2;
-    int startButtonY = WINDOW_HEIGHT / 2 + 160;
+    int startButtonX = (WINDOW_WIDTH - startButtonWidth) / 2 - 180;
+    int startButtonY = WINDOW_HEIGHT / 2 - 5;
     Button startButton = createButton(font, "START GAME", startButtonX, startButtonY, 
                                      startButtonWidth, startButtonHeight, 
                                      startButtonGreen, startButtonHover);
@@ -486,7 +575,7 @@ int main(int argc, char **argv)
         font, 
         "Player's turn, please make your move, then press the Button.", 
         WINDOW_WIDTH / 2, 
-        BOARD_OFFSET_Y + BOARD_SIZE * SQUARE_SIZE + 50, 
+        BOARD_OFFSET_Y + BOARD_SIZE * SQUARE_SIZE + 80, 
         0.5f, // 1.5 flashes per second
         sf::Color(0, 0, 0) // Blue color for player turn notification
     );
@@ -496,9 +585,9 @@ int main(int argc, char **argv)
         font, 
         "Software E-Stop Engaged, Please press the button.", 
         WINDOW_WIDTH / 2, 
-        BOARD_OFFSET_Y + BOARD_SIZE * SQUARE_SIZE + 20, 
+        BOARD_OFFSET_Y + BOARD_SIZE * SQUARE_SIZE + 80, 
         1.0f, // 1.5 flashes per second
-        warningRed // Blue color for player turn notification
+        warningRed 
     );
     
     // Clock for delta time calculation
@@ -690,7 +779,7 @@ int main(int argc, char **argv)
             window.draw(resetButton.label);
             
             // Indicator light
-            sf::RectangleShape indicator(sf::Vector2f(40, 40));
+            sf::CircleShape indicator(20); // The parameter is the radius (half of the previous width/height of 40)
             indicator.setPosition(WINDOW_WIDTH - 50, 10);
             indicator.setFillColor(node->getButtonState() ? buttonBlue : sf::Color::Red);
             indicator.setOutlineColor(sf::Color::Black);
