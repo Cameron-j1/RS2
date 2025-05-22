@@ -424,7 +424,20 @@ public:
                 estopFlag = msg->data;
                 RCLCPP_INFO(this->get_logger(), "Player turn: %s", estopFlag ? "YES" : "NO");
             });
-    
+
+        status_sub_ = this->create_subscription<std_msgs::msg::String>(
+            "/status", 10, [this](std_msgs::msg::String::SharedPtr msg)
+            {
+                if (msg->data.size() >= 4) {
+                    temp1 = msg->data[0];
+                    temp2 = msg->data[1];
+                    temp3 = msg->data[2];
+                    temp4 = msg->data[3];
+                    RCLCPP_INFO(this->get_logger(), "Status received: %c %c %c %c", temp1, temp2, temp3, temp4);
+                } else {
+                    RCLCPP_WARN(this->get_logger(), "Status string too short: '%s'", msg->data.c_str());
+                }
+            });  
     }
 
     void callResetService()
@@ -495,6 +508,8 @@ private:
     rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr board_oor_sub_;
     rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr player_turn_sub_;
     rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr estop_flag_sub_;
+    rclcpp::Subscription<std_msgs::msg::String>::SharedPtr status_sub_;
+    char temp1, temp2, temp3, temp4;
     std::string lastMove;
     bool buttonState = false;
     bool boardOutOfRange = false;
@@ -502,6 +517,11 @@ private:
     bool estopFlag = false;
 };
 #pragma endregion ROS
+
+
+
+#pragma region Main Function
+// Main function
 
 int main(int argc, char **argv)
 {
@@ -818,3 +838,11 @@ int main(int argc, char **argv)
     rclcpp::shutdown();
     return 0;
 }
+
+
+#pragma endregion Main Function
+
+//TODO 
+// Assign GUI elemenst to the Error flags currently temp1, temp2, temp3, temp4
+
+//
