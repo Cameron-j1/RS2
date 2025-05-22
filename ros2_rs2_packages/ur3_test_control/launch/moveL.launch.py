@@ -107,6 +107,7 @@ def generate_launch_description():
         parameters=[
             robot_description,
             robot_description_semantic,
+            {"simulation_mode": False},
         ],
     )
 
