@@ -14,6 +14,22 @@ from launch.substitutions import LaunchConfiguration
 import os
 from ament_index_python.packages import get_package_share_directory
 
+# Add environment variable to control logging
+os.environ['RCUTILS_CONSOLE_OUTPUT_FORMAT'] = '[{severity}] [{name}]: {message}'
+os.environ['RCUTILS_LOGGING_BUFFERED_STREAM'] = '1'
+os.environ['RCUTILS_LOGGING_USE_STDOUT'] = '1'
+
+# Set global logging level to ERROR
+os.environ['RCUTILS_LOGGING_MIN_SEVERITY'] = 'ERROR'
+
+# Specifically suppress MoveGroup and related loggers
+os.environ['RCUTILS_LOGGING_MIN_SEVERITY_MOVEIT'] = 'ERROR'
+os.environ['RCUTILS_LOGGING_MIN_SEVERITY_UR_MOVEIT'] = 'ERROR'
+os.environ['RCUTILS_LOGGING_MIN_SEVERITY_MOVEIT_MOVE_GROUP'] = 'ERROR'
+os.environ['RCUTILS_LOGGING_MIN_SEVERITY_MOVEIT_ROS'] = 'ERROR'
+os.environ['RCUTILS_LOGGING_MIN_SEVERITY_MOVEIT_PLUGINS'] = 'ERROR'
+os.environ['RCUTILS_LOGGING_MIN_SEVERITY_MOVEIT_SIMPLE_CONTROLLER_MANAGER'] = 'ERROR'
+os.environ['RCUTILS_LOGGING_MIN_SEVERITY_MOVEIT_TRAJECTORY_EXECUTION_MANAGER'] = 'ERROR'
 
 def get_robot_description():
     joint_limit_params = PathJoinSubstitution(
@@ -109,6 +125,8 @@ def generate_launch_description():
             robot_description_semantic,
             {"simulation_mode": False},
         ],
+        # Override the global logging level for this specific node
+        arguments=['--ros-args', '--log-level', 'moveIt_test:=INFO']
     )
 
     chess_node = TimerAction(

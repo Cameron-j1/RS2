@@ -16,6 +16,9 @@
 #include <moveit/planning_scene_interface/planning_scene_interface.h>
 #include <moveit_msgs/msg/collision_object.hpp>
 #include <shape_msgs/msg/solid_primitive.hpp>
+#include <moveit/collision_detection/collision_common.h>
+#include <moveit/planning_scene_monitor/planning_scene_monitor.h>
+#include <moveit/planning_scene/planning_scene.h>
  
 #include <Eigen/Geometry>
  
@@ -88,11 +91,8 @@ class RobotKinematics : public rclcpp::Node {
  
             takeImage = this->create_publisher<std_msgs::msg::Bool>("/take_image", 10);
 
-            player_turn_pub = this->create_publisher<std_msgs::msg::Bool>("/player_turn_bool", 10);
-
-            estop_engaged_pub = this->create_publisher<std_msgs::msg::Bool>("/estop_flag", 10);
-
-            board_oor_pub = this->create_publisher<std_msgs::msg::Bool>("/board_oor", 10);
+            chess_move_pub_ = this->create_publisher<std_msgs::msg::String>("/chess_moves", 10);
+            status_pub = this->create_publisher<std_msgs::msg::String>("/status", 10);
 
             robot_stationary_ = false;
             pickup_dropoff_wait_ = 1.5; //seconds
@@ -115,8 +115,25 @@ class RobotKinematics : public rclcpp::Node {
             camPosition.position.z = 0.40406;
  
             moveToJointAngles(camera_view_jangle.at(0), camera_view_jangle.at(1),camera_view_jangle.at(2),camera_view_jangle.at(3),camera_view_jangle.at(4),camera_view_jangle.at(5));
+
+            active_threads_ = 0;
+            thread_mutex_ = std::make_unique<std::mutex>();
+            thread_cv_ = std::make_unique<std::condition_variable>();
         }
- 
+
+        void publish_status(){
+            std::string status_str;
+            status_str += posError ? '1' : '0';
+            status_str += yawError ? '1' : '0';
+            status_str += eStop ? '1' : '0';
+            status_str += playerTurn ? '1' : '0';
+
+            auto msg = std_msgs::msg::String();
+            msg.data = status_str;
+            status_pub->publish(msg);
+            // RCLCPP_WARN(this->get_logger(), "publishing error string: %s", status_str.c_str());
+        }
+    
         void publishServoState(bool state) {
             auto message = std_msgs::msg::Bool();
             message.data = state;
@@ -151,67 +168,117 @@ class RobotKinematics : public rclcpp::Node {
             if(msgData.find('=') != std::string::npos){
                 RCLCPP_INFO(this->get_logger(), "[chess_topic_callback] promotion move");
                 //promotion move
-                std::pair<double, double> currentPiece = chessToGridCenter(msgData[0], msgData[1]), goal = chessToGridCenter(msgData[2], msgData[3]);
-                //pickupHeightCap for promotion is the pawn height and the pickupheight is for the piece you are promoting to.
-                maneuver(currentPiece, goal, 'p', pieceHeight[msgData[5]], pieceHeight['p']);
+                maneuver(msgData[0], msgData[1], msgData[2], msgData[3], 'p', pieceHeight[msgData[5]], pieceHeight['p'], msgData);
 
             }else{
                 RCLCPP_INFO(this->get_logger(), "[chess_topic_callback] normal move");
                 if (msgData.length() < 12) { // if greater than 9 means it's the fen string for the camera node
-                    std::pair<double, double> currentPiece = chessToGridCenter(msgData[0], msgData[1]), goal = chessToGridCenter(msgData[2], msgData[3]);
                     RCLCPP_INFO(this->get_logger(), "Stockfish move: '%s'", msgData.c_str());
                     if(msgData.length() == 6){ // normal move
-                        maneuver(currentPiece, goal, msgData[4], pieceHeight[msgData[5]], 0);
+                        maneuver(msgData[0], msgData[1], msgData[2], msgData[3], msgData[4], pieceHeight[msgData[5]], 0, msgData);
                     }
                     if(msgData.length() == 7 || msgData.length() == 8){ // capture move
                         RCLCPP_INFO(this->get_logger(), "[chess_topic_callback] capture move");
-                        maneuver(currentPiece, goal, msgData[4], pieceHeight[msgData[5]], pieceHeight[msgData[6]]);
+                        maneuver(msgData[0], msgData[1], msgData[2], msgData[3], msgData[4], pieceHeight[msgData[5]], pieceHeight[msgData[6]], msgData);
                     }
                     if(msgData.length() == 11){ //castling
                         RCLCPP_INFO(this->get_logger(), "[chess_topic_callback] castling move");
                         //example castling string e8g8h8f8ckr. first move 'e8g8' second move 'h8f8' move type 'c' first move peice 'k' second move peice 'r'
-                        maneuver(currentPiece, goal, msgData[8], pieceHeight[msgData[9]], 0);
-                        currentPiece = chessToGridCenter(msgData[4], msgData[5]);
-                        goal = chessToGridCenter(msgData[6], msgData[7]);
-                        maneuver(currentPiece, goal, msgData[8], pieceHeight[msgData[10]], 0);
+                        maneuver(msgData[0], msgData[1], msgData[2], msgData[3], msgData[8], pieceHeight[msgData[9]], 0, msgData);
+                        maneuver(msgData[4], msgData[5], msgData[6], msgData[7], msgData[8], pieceHeight[msgData[10]], 0, msgData);
                     }
                 }
             }
         }
  
-        void maneuver(std::pair<double, double> cur, std::pair<double, double> goal, char moveType, double pickupHeight, double pickupHeightCap) {
+        void maneuver(char curFile, char curRank, char goalFile, char goalRank, char moveType, double pickupHeight, double pickupHeightCap, const std::string& original_move) {
+            // Wait for any existing threads to complete
+            {
+                std::unique_lock<std::mutex> lock(*thread_mutex_);
+                thread_cv_->wait(lock, [this]() { return active_threads_ == 0; });
+            }
+
             // Create a shared pointer to ensure the thread has access to the data
-            auto thread_data = std::make_shared<ManeuverData>(cur, goal, moveType, pickupHeight, pickupHeightCap);
+            auto thread_data = std::make_shared<ManeuverData>(curFile, curRank, goalFile, goalRank, moveType, pickupHeight, pickupHeightCap, original_move);
             RCLCPP_INFO(this->get_logger(), "[maneuver] creating maneuver thread");
+            
+            // Increment active threads counter
+            {
+                std::lock_guard<std::mutex> lock(*thread_mutex_);
+                active_threads_++;
+            }
+
             // Create the thread with shared ownership
             std::thread([this, thread_data]() {
-                this->maneuverInThread(thread_data->cur, thread_data->goal, thread_data->moveType, 
-                                    thread_data->pickupHeight, thread_data->pickupHeightCap);
+                try {
+                    this->maneuverInThread(thread_data->curFile, thread_data->curRank, 
+                                        thread_data->goalFile, thread_data->goalRank,
+                                        thread_data->moveType, 
+                                        thread_data->pickupHeight, thread_data->pickupHeightCap,
+                                        thread_data->original_move);
+                } catch (const std::exception& e) {
+                    RCLCPP_ERROR(this->get_logger(), "Exception in maneuver thread: %s", e.what());
+                }
+                
+                // Decrement active threads counter and notify waiting threads
+                {
+                    std::lock_guard<std::mutex> lock(*thread_mutex_);
+                    active_threads_--;
+                    thread_cv_->notify_all();
+                }
             }).detach();
         }
  
-        void maneuverInThread(std::pair<double, double> cur, std::pair<double, double> goal, char moveType, double pickupHeight, double pickupHeightCap) {
-            //loop so that if a move fails, it will try again from the top of maneuver
+        void maneuverInThread(char curFile, char curRank, char goalFile, char goalRank, char moveType, double pickupHeight, double pickupHeightCap, const std::string& original_move) {
+            moveToJointAngles(1.544, -2.060, 0.372, -0.108, -1.651, -6.233);
+            while(!H1_up_to_date_ && rclcpp::ok()) {
+                RCLCPP_INFO(this->get_logger(), "blocking till H1 correct");
+                std::this_thread::sleep_for(std::chrono::milliseconds(25));
+            }
+            std::pair<double, double> cur = chessToGridCenter(curFile, curRank);
+            std::pair<double, double> goal = chessToGridCenter(goalFile, goalRank);
+            
+            //loop so that if a move fails, it will try again
+            bool maneuver_complete = false;
+            bool first_try = true;
             while (rclcpp::ok()){
+                if(maneuver_complete){
+                    return;
+                }
+                
+                if(!first_try){
+                    // Publish the original move to retry
+                    auto msg = std_msgs::msg::String();
+                    msg.data = original_move;
+                    chess_move_pub_->publish(msg);
+                    RCLCPP_INFO(this->get_logger(), "Retrying move: %s", original_move.c_str());
+                    return;
+                }
+                first_try = false;
+
                 std::vector<geometry_msgs::msg::Pose> points = {};
                 geometry_msgs::msg::Pose tempPosition;
                 tempPosition.position.z = operation_height;
                 tempPosition.orientation.x = 1.0;
                 tempPosition.orientation.y = 0.0;
                 tempPosition.orientation.w = 0.0;
-    
+
+                // ─── Move to viewing position ─────────────────────────────────────────────
                 isTakeImage = false;
-                auto msg = std_msgs::msg::Bool();
-                msg.data = false;    // or false, depending on your logic
-                player_turn_pub->publish(msg);
-
-                bool all_moves_success = true;
-
                 RCLCPP_INFO(this->get_logger(), "[maneuver] angle move to viewing position");
 
                 if(!moveToJointAngles(1.544, -2.060, 0.372, -0.108, -1.651, -6.233)) continue;
-    
-                std::this_thread::sleep_for(std::chrono::seconds(2));
+
+                // Wait until H1 position is up to date
+                while(!H1_up_to_date_ && rclcpp::ok()) {
+                    RCLCPP_INFO(this->get_logger(), "blocking till H1 correct");
+                    std::this_thread::sleep_for(std::chrono::milliseconds(25));
+                }
+
+                // Log the positions for debugging
+                RCLCPP_INFO(this->get_logger(), "H1 position: (%.3f, %.3f)", H1_X, H1_Y);
+                RCLCPP_INFO(this->get_logger(), "Current position: (%.3f, %.3f)", cur.first, cur.second);
+                RCLCPP_INFO(this->get_logger(), "Goal position: (%.3f, %.3f)", goal.first, goal.second);
 
                 if(!moveToJointAngles(M_PI/2, -M_PI/2, M_PI/2, -M_PI/2, -M_PI/2, 0)) continue;
     
@@ -298,14 +365,11 @@ class RobotKinematics : public rclcpp::Node {
                 RCLCPP_INFO(this->get_logger(), "[maneuver] angle move to viewing position");
                 if(!moveToJointAngles(1.544, -2.060, 0.372, -0.108, -1.651, -6.233)) continue;
                 isTakeImage = true;
-                msg.data = true;    // or false, depending on your logic
-                player_turn_pub->publish(msg);
+                playerTurn = true;
+                publish_status();
 
-                //dont loop if you reach the end
-                break;
-
+                maneuver_complete = true; //next loop will return
             }
-
         }
 
         bool moveToJointAngles(double j1, double j2, double j3, double j4, double j5, double j6) {
@@ -391,8 +455,19 @@ class RobotKinematics : public rclcpp::Node {
                         //condition met for move complete
                         RCLCPP_INFO(this->get_logger(), "[moveToJointAnglesInThread] SUCCESS move complete");
                         //delay for safety to ensure that the robot has actually stopped and planning for the next move won't fail
-                        std::this_thread::sleep_for(std::chrono::milliseconds(300));
-                        return true;
+
+                        bool stationary_constant = true;
+                        for(int i = 0; i < 10; i++){
+                            if(!robot_stationary_){
+                                stationary_constant = false;
+                                break;
+                            }
+                            std::this_thread::sleep_for(std::chrono::milliseconds(100));
+                        }
+
+                        if(stationary_constant){
+                            return true;
+                        }
                     }
  
                     std::this_thread::sleep_for(std::chrono::milliseconds(5));
@@ -401,7 +476,7 @@ class RobotKinematics : public rclcpp::Node {
             }
             return false;  // Should not be reached unless ROS is shutting down
         }
-
+ 
         bool moveStraightToPoint(std::vector<geometry_msgs::msg::Pose> tempPosition, double vel, double acc) {
             
             if (move_group_ptr == nullptr) {
@@ -419,14 +494,15 @@ class RobotKinematics : public rclcpp::Node {
                 // ─── Wait for Deadman ─────────────────────────────────────────────
                 while (!button_state && rclcpp::ok()) {
                     count++;
-                    auto msg = std_msgs::msg::Bool();
-                    msg.data = true;    // or false, depending on your logic
-                    estop_engaged_pub->publish(msg);
                     if (count % print_freq == 0) {
                         RCLCPP_INFO(this->get_logger(), "[moveStraightToPoint] Waiting for deadman switch...");
                     }
                     std::this_thread::sleep_for(std::chrono::milliseconds(5));
+                    eStop = true;
+                    publish_status();
                 }
+                eStop = false;
+                publish_status();
  
                 // ─── Plan ─────────────────────────────────────────────────────────
                 moveit::planning_interface::MoveGroupInterface::Plan plan;
@@ -438,7 +514,7 @@ class RobotKinematics : public rclcpp::Node {
                     move_group_ptr->setMaxVelocityScalingFactor(MAX_VEL_CARTESIAN);
                     move_group_ptr->setMaxAccelerationScalingFactor(MAX_ACCEL_CARTESIAN);
  
-                    fraction = move_group_ptr->computeCartesianPath(tempPosition, 0.01, 0.0, trajectory);
+                    fraction = move_group_ptr->computeCartesianPath(tempPosition, 0.01, 0.0, trajectory, /*avoid_collisions =*/ true);
                     if (fraction < 0.95) {
                         RCLCPP_WARN(this->get_logger(), "[moveStraightToPoint] Path only %.2f%% complete", fraction * 100.0);
 
@@ -465,12 +541,51 @@ class RobotKinematics : public rclcpp::Node {
                         }
                         return false;
                     }
- 
+
+                    // Check for collisions in the planned trajectory
+                    try{  
+                        moveit::core::RobotState current_state = *move_group_ptr->getCurrentState();
+                        collision_detection::CollisionRequest collision_request;
+                        collision_detection::CollisionResult collision_result;
+                        collision_request.group_name = move_group_ptr->getName();
+                        collision_request.contacts = true;
+                        collision_request.max_contacts = 100;
+    
+                        // Get the planning scene
+                        moveit::planning_interface::PlanningSceneInterface planning_scene_interface;
+                        auto planning_scene = std::make_shared<planning_scene::PlanningScene>(move_group_ptr->getRobotModel());
+                        if (!planning_scene) {
+                            RCLCPP_ERROR(this->get_logger(), "[moveStraightToPoint] Failed to create planning scene");
+                            return false;
+                        }
+    
+                        // Update planning scene with current state
+                        planning_scene->setCurrentState(current_state);
+    
+                        // Check each waypoint in the trajectory for collisions
+                        for (const auto& waypoint : trajectory.joint_trajectory.points) {
+                            // Update robot state with waypoint joint positions
+                            for (size_t i = 0; i < waypoint.positions.size(); ++i) {
+                                current_state.setJointPositions(trajectory.joint_trajectory.joint_names[i], &waypoint.positions[i]);
+                            }
+                            
+                            // Check for collisions at this waypoint
+                            planning_scene->checkCollision(collision_request, collision_result, current_state);
+                            if (collision_result.collision) {
+                                RCLCPP_WARN(this->get_logger(), "[moveStraightToPoint] Collision detected in planned trajectory");
+                                return false;
+                            }
+                        }
+                    } catch (const std::exception& e) {
+                        RCLCPP_ERROR(this->get_logger(), "[moveStraightToPoint] Exception during collision checking: %s", e.what());
+                        return false;
+                    } catch (...) {
+                        RCLCPP_ERROR(this->get_logger(), "[moveStraightToPoint] Unknown exception during collision checking");
+                        return false;
+                    }
+
                     plan.trajectory_ = trajectory;
                 }
-                auto msg = std_msgs::msg::Bool();
-                msg.data = false;    // or false, depending on your logic
-                estop_engaged_pub->publish(msg);
 
                 // ─── Execute ──────────────────────────────────────────────────────
                 move_group_ptr->asyncExecute(plan);
@@ -479,7 +594,8 @@ class RobotKinematics : public rclcpp::Node {
                 while (rclcpp::ok()) {
                     if (!button_state) {
                         RCLCPP_WARN(this->get_logger(), "[moveStraightToPoint] Deadman switch released, stopping...");
-                        
+                        eStop = true;
+                        publish_status();
                         move_group_ptr->stop();
                         std::this_thread::sleep_for(std::chrono::milliseconds(100));
                         break;  // Retry from outer loop
@@ -509,6 +625,7 @@ class RobotKinematics : public rclcpp::Node {
  
  
         std::pair<double, double> chessToGridCenter(char file, char rank) {
+            std::lock_guard<std::mutex> lock(h1_mutex);
             // Convert file to column index (0-based: 'a' = 0, 'h' = 7)
             double col = file - 'a';
             if (col < 0 || col > 7) {
@@ -540,6 +657,8 @@ class RobotKinematics : public rclcpp::Node {
             double x_final = H1_X + x_rotated;
             double y_final = H1_Y + y_rotated;
 
+            RCLCPP_INFO(this->get_logger(), "chessToGridCenter - Calculated positions: dx=%.6f, dy=%.6f, x_rotated=%.6f, y_rotated=%.6f, x_final=%.6f, y_final=%.6f",
+                dx, dy, x_rotated, y_rotated, x_final, y_final);
 
 
             //yaw debug messages
@@ -614,6 +733,12 @@ class RobotKinematics : public rclcpp::Node {
         rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr marker_pub;
         rclcpp::Publisher<std_msgs::msg::Bool>::SharedPtr takeImage;
         moveit::planning_interface::MoveGroupInterface* move_group_ptr;
+
+        // status variables
+        bool posError = false;
+        bool yawError = false;
+        bool eStop = false;
+        bool playerTurn = true;
  
         // calculate the height of other pieces based on the height of the pawn
         double operation_height = 0.15 + 0.1;//, pickupHeight = 0.05 + 0.1+0.015;
@@ -677,6 +802,17 @@ class RobotKinematics : public rclcpp::Node {
                 }
  
                 if (marker_id == 53 && robot_stationary_) { //only read the markers if the robot is currently stationary
+                    // Check if enough time has passed since robot became stationary
+                    auto current_time = std::chrono::steady_clock::now();
+                    auto time_since_stationary = std::chrono::duration_cast<std::chrono::seconds>(
+                        current_time - robot_stationary_time_).count();
+                    
+                    if (time_since_stationary >= 5) {
+                        H1_up_to_date_ = true;
+                    }
+
+                    // RCLCPP_INFO(this->get_logger(), "UPDATING board position");
+                    std::lock_guard<std::mutex> lock(h1_mutex);
                     std::string frame_id = marker.header.frame_id;             
  
                     auto q_msg = marker.pose.orientation;
@@ -687,16 +823,23 @@ class RobotKinematics : public rclcpp::Node {
  
                     H1_X = -marker.pose.position.x;
                     H1_Y = -marker.pose.position.y;
-                    auto msg = std_msgs::msg::Bool();
-                    if(H1_X > std::abs(0.15) || H1_Y > 0.37 && (board_yaw < 0.13 || board_yaw > (M_PI-0.13))){
+                    RCLCPP_INFO(this->get_logger(), "H1_X: %.3f, H1_Y: %.3f", H1_X, H1_Y);
+                    RCLCPP_INFO(this->get_logger(), "H1_up_to_date_: %s", H1_up_to_date_ ? "TRUE" : "FALSE");
+                    
+                    if(std::abs(H1_X) < 0.15 || H1_Y > 0.45 || H1_Y < 0.35){
+                        posError = true;
+                        // RCLCPP_WARN(this->get_logger(), "pos out of tolerance");
+                    }
+                    else if(board_yaw < 0.13 || board_yaw > (M_PI-0.13)){
                         // RCLCPP_INFO(this->get_logger(), "publishing board yaw");
-                        msg.data = true;
-                        board_oor_pub->publish(msg);
+                        yawError = true;
+                        RCLCPP_WARN(this->get_logger(), "yaw out of tolerance");
                     }
                     else{
-                        msg.data = false;
-                        board_oor_pub->publish(msg);
+                        yawError = false;
+                        posError = false;
                     }
+                    publish_status();
                     // RCLCPP_INFO(this->get_logger(), "board yaw: %.4f", board_yaw);
 
                     double dx = 3.5 * (SQUARE_SIZE / 1000.0);
@@ -741,6 +884,8 @@ class RobotKinematics : public rclcpp::Node {
             if (last_positions.empty()) {
                 last_positions = msg->position;
                 robot_stationary_ = true;
+                robot_stationary_time_ = std::chrono::steady_clock::now();
+                H1_up_to_date_ = false;
                 callbackCount = 0;
                 RCLCPP_INFO(this->get_logger(), "Initialized joint position tracking");
                 return;
@@ -756,6 +901,13 @@ class RobotKinematics : public rclcpp::Node {
                         break;
                     }
                 }
+
+                // If robot just became stationary, update the timestamp
+                if (!robot_stationary_ && !moving) {
+                    robot_stationary_time_ = std::chrono::steady_clock::now();
+                    H1_up_to_date_ = false;
+                }
+                
                 robot_stationary_ = !moving;  
                 if (robot_stationary_) {
                     // RCLCPP_INFO(this->get_logger(), "Robot is stationary.");
@@ -772,13 +924,9 @@ class RobotKinematics : public rclcpp::Node {
         rclcpp::Subscription<sensor_msgs::msg::JointState>::SharedPtr joint_state_sub_;
         int pickup_dropoff_wait_;
 
-        // player turn pub for pi variables
-        rclcpp::Publisher<std_msgs::msg::Bool>::SharedPtr player_turn_pub;
 
-        //e-stop state pub for pi variables
-        rclcpp::Publisher<std_msgs::msg::Bool>::SharedPtr estop_engaged_pub;
-
-        rclcpp::Publisher<std_msgs::msg::Bool>::SharedPtr board_oor_pub;
+        rclcpp::Publisher<std_msgs::msg::String>::SharedPtr chess_move_pub_;
+        rclcpp::Publisher<std_msgs::msg::String>::SharedPtr status_pub;
 
         //button state variables
         rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr button_sub_;
@@ -786,6 +934,11 @@ class RobotKinematics : public rclcpp::Node {
         std::atomic<bool> button_state;
         std::atomic<bool> robot_stationary_;
         std::mutex moveit_mutex;
+        std::mutex h1_mutex;
+
+        // Add H1 position tracking variables
+        std::atomic<bool> H1_up_to_date_;
+        std::chrono::steady_clock::time_point robot_stationary_time_;
 
         //promotion global variable
         std::atomic<bool> request_peice_attach_;
@@ -799,6 +952,10 @@ class RobotKinematics : public rclcpp::Node {
                     RCLCPP_WARN(this->get_logger(), "[button_callback] starting takePictureInThread");
                     takePictureInThread();
                     isTakeImage = false;
+                }
+                if(isTakeImage && simulation_mode_){
+                    playerTurn = false;
+                    publish_status();
                 }
             }
         }
@@ -822,8 +979,31 @@ class RobotKinematics : public rclcpp::Node {
         }
 
         void takePictureInThread() {
+            // Wait for any existing threads to complete
+            {
+                std::unique_lock<std::mutex> lock(*thread_mutex_);
+                thread_cv_->wait(lock, [this]() { return active_threads_ == 0; });
+            }
+
+            // Increment active threads counter
+            {
+                std::lock_guard<std::mutex> lock(*thread_mutex_);
+                active_threads_++;
+            }
+
             std::thread([this]() {
-                this->camera_maneuver();
+                try {
+                    this->camera_maneuver();
+                } catch (const std::exception& e) {
+                    RCLCPP_ERROR(this->get_logger(), "Exception in camera maneuver thread: %s", e.what());
+                }
+                
+                // Decrement active threads counter and notify waiting threads
+                {
+                    std::lock_guard<std::mutex> lock(*thread_mutex_);
+                    active_threads_--;
+                    thread_cv_->notify_all();
+                }
             }).detach();
         }
  
@@ -831,6 +1011,15 @@ class RobotKinematics : public rclcpp::Node {
             while(!robot_stationary_){
                 std::this_thread::sleep_for(std::chrono::milliseconds(10));
             }
+
+            //might be something to try soon
+            // while(!H1_up_to_date_ && rclcpp::ok()) {
+            //     std::this_thread::sleep_for(std::chrono::milliseconds(25));
+            // }
+
+            //move goes to robot here
+            playerTurn = false;
+            publish_status();
  
             geometry_msgs::msg::Pose camPositionReal = camPosition;
             RCLCPP_INFO(this->get_logger(), "Button pressed, movinnnnn");
@@ -859,27 +1048,50 @@ class RobotKinematics : public rclcpp::Node {
         }
 
     struct ManeuverData {
-        std::pair<double, double> cur;
-        std::pair<double, double> goal;
+        char curFile;
+        char curRank;
+        char goalFile;
+        char goalRank;
         char moveType;
         double pickupHeight;
         double pickupHeightCap;
+        std::string original_move;
 
-        ManeuverData(std::pair<double, double> c, std::pair<double, double> g, 
-                    char mt, double ph, double phc)
-            : cur(c), goal(g), moveType(mt), pickupHeight(ph), pickupHeightCap(phc) {}
+        ManeuverData(char cf, char cr, char gf, char gr, 
+                    char mt, double ph, double phc, const std::string& om)
+            : curFile(cf), curRank(cr), goalFile(gf), goalRank(gr), 
+              moveType(mt), pickupHeight(ph), pickupHeightCap(phc),
+              original_move(om) {}
     };
 
     // Add simulation mode member variable
     bool simulation_mode_;
+
+    // Add thread tracking variables
+    std::atomic<int> active_threads_;
+    std::unique_ptr<std::mutex> thread_mutex_;
+    std::unique_ptr<std::condition_variable> thread_cv_;
 };
  
  
 int main(int argc, char * argv[])
 {
+    // Set up logging environment variables
+    setenv("RCUTILS_CONSOLE_OUTPUT_FORMAT", "[{severity}] [{time}] [{name}]: {message}", 1);
+    setenv("RCUTILS_LOGGING_USE_STDOUT", "0", 1);
+    setenv("RCUTILS_LOGGING_BUFFERED_STREAM", "1", 1);
+    setenv("RCUTILS_LOGGING_USE_STDOUT", "0", 1);
+    setenv("RCUTILS_LOGGING_USE_STDERR", "0", 1);
+    setenv("RCUTILS_LOGGING_USE_FILE", "1", 1);
+    setenv("RCUTILS_LOGGING_FILE_PATH", "robot_kinematics.log", 1);
+    
     // Initialize ROS 2
     rclcpp::init(argc, argv);
     auto node = std::make_shared<RobotKinematics>();
+ 
+    // Log startup information
+    RCLCPP_INFO(node->get_logger(), "Robot Kinematics node starting up");
+    RCLCPP_INFO(node->get_logger(), "Log file: robot_kinematics.log");
  
     //Create the MoveGroupInterface
     moveit::planning_interface::MoveGroupInterface move_group(node, "ur_manipulator");
@@ -907,6 +1119,8 @@ int main(int argc, char * argv[])
     primitive.dimensions[primitive.BOX_X] = 1.5;  // 1.5m in x-direction
     primitive.dimensions[primitive.BOX_Y] = 1.5;  // 1.5m in y-direction
     primitive.dimensions[primitive.BOX_Z] = 1.5;  // 1.5m in z-direction
+
+    
    
     // Define the pose of the cube
     // and center it at x=0, y=0
@@ -932,16 +1146,16 @@ int main(int argc, char * argv[])
     primitive2.dimensions.resize(3);
     primitive2.dimensions[primitive2.BOX_X] = 0.4;  // X: -0.4 to 0.4 = 0.8m
     primitive2.dimensions[primitive2.BOX_Y] = 0.5;  // Y: 0.1 to 0.6 = 0.5m
-    // primitive2.dimensions[primitive2.BOX_Z] = 0.05; // Z: 0 to 0.05 = 0.05m
-    primitive2.dimensions[primitive2.BOX_Z] = 0.5; // Z: 0 to 0.05 = 0.05m
+    primitive2.dimensions[primitive2.BOX_Z] = 0.05; // Z: 0 to 0.05 = 0.05m
+    // primitive2.dimensions[primitive2.BOX_Z] = 0.5; // Z: 0 to 0.05 = 0.05m
 
     // Define the pose of the second cube
     geometry_msgs::msg::Pose box_pose2;
     box_pose2.orientation.w = 1.0;
-    box_pose2.position.x = 0.4;     // Centered between -0.4 and 0.4
+    box_pose2.position.x = 0;     // Centered between -0.4 and 0.4
     box_pose2.position.y = 0.35;    // Centered between 0.1 and 0.6
-    // box_pose2.position.z = 0.025;   // Centered between 0 and 0.05
-    box_pose2.position.z = 0.5/2;   // Centered between 0 and 0.05
+    box_pose2.position.z = 0.025;   // Centered between 0 and 0.05
+    // box_pose2.position.z = 0.5/2;   // Centered between 0 and 0.05
 
     // Add the primitive and pose to the second collision object
     collision_object2.primitives.push_back(primitive2);
