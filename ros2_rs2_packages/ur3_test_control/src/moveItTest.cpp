@@ -97,6 +97,8 @@ class RobotKinematics : public rclcpp::Node {
             //promotion variable initialise
             request_peice_attach_ = false;
 
+            //bin height
+
             //intialise cam position to default value
             camPosition.orientation.x = 1.0;
             camPosition.orientation.y = 0.0;
@@ -296,12 +298,29 @@ class RobotKinematics : public rclcpp::Node {
                 RCLCPP_INFO(this->get_logger(), "[maneuver] move straight up to pickup peice being captured");
                 moveStraightToPoint({tempPosition}, 0.05, 0.05);
                 // WE HAVE TO FIND THE X AND Y OF THE DROPPING POSITION
-                tempPosition.position.x = -0.292;
-                tempPosition.position.y = 0.290;
-                RCLCPP_INFO(this->get_logger(), "[maneuver] move straight to drop off position");
+                
+                //bin stuff boi
+                moveToJointAngles(-1.72964, 0.51477, -0.35763, -1.56703, -0.59512, -0.53938);
+                
+                tempPosition.position.x = x_Bin_Aruco;
+                tempPosition.position.y = y_Bin_Aruco;
+                tempPosition.position.z = aboveBinHeight;
+                moveStraightToPoint({tempPosition}, 0.05, 0.05);
+                tempPosition.position.z = binDropHeight;
                 moveStraightToPoint({tempPosition}, 0.05, 0.05);
                 publishServoState(false);
                 std::this_thread::sleep_for(std::chrono::seconds(pickup_dropoff_wait_));
+                tempPosition.position.z = aboveBinHeight;
+                moveStraightToPoint({tempPosition}, 0.05, 0.05);
+                moveToJointAngles(M_PI/2, -M_PI/2, M_PI/2, -M_PI/2, -M_PI/2, 0);
+
+                
+                // tempPosition.position.x = -0.292;
+                // tempPosition.position.y = 0.290;
+                // RCLCPP_INFO(this->get_logger(), "[maneuver] move straight to drop off position");
+                // moveStraightToPoint({tempPosition}, 0.05, 0.05);
+                // publishServoState(false);
+                // std::this_thread::sleep_for(std::chrono::seconds(pickup_dropoff_wait_));
             }   
 
             if(moveType == 'p'){ // promotion logic
@@ -586,6 +605,9 @@ class RobotKinematics : public rclcpp::Node {
         double H1_Y;
         geometry_msgs::msg::Pose camPosition;
         Eigen::Matrix4d H1_transform_;
+
+        double aboveBinHeight = 0.1848+100/1000;
+        double binDropHeight = aboveBinHeight - 50/1000;
         double board_yaw = 0;
  
         Eigen::Matrix4d quaternionToTransformMatrix(const Eigen::Quaterniond& q, const Eigen::Vector3d& translation){
