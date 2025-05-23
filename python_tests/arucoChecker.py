@@ -96,7 +96,7 @@ def average_T_pos(Transforms):
 
 
 
-def get_aruco_transforms(image, marker_size_mm=250.0):
+def get_aruco_transforms(image, aruco_dict, marker_size_mm=250.0):
     """
     Detect 6x6 ArUco markers in an image and return the 4x4 transformation matrices
     from camera to each detected marker.
@@ -119,11 +119,10 @@ def get_aruco_transforms(image, marker_size_mm=250.0):
         gray = image
     
     # Define the ArUco dictionary (6x6 markers)
-    aruco_dict = aruco.getPredefinedDictionary(aruco.DICT_5X5_100)
+    # aruco_dict = aruco.getPredefinedDictionary(aruco.DICT_5X5_100)   
     
     # Create ArUco parameters
     parameters = aruco.DetectorParameters()
-    
     
     # Create detector
     detector = aruco.ArucoDetector(aruco_dict, parameters)
@@ -294,7 +293,7 @@ def calculate_transforms(img, publisher, T_base_to_ee):
     aruco_transforms = None
     # aruco_transforms, ids = get_aruco_transforms(image, 77.8)
     # aruco_transforms, ids = get_aruco_transforms(image, 22.5)
-    aruco_transforms, ids = get_aruco_transforms(image, 47.9)
+    aruco_transforms, ids = get_aruco_transforms(image, cv2.aruco.getPredefinedDictionary(cv2.aruco.DICT_5X5_100), 47.9)
     print(ids)
     # print(aruco_transforms)
 
@@ -384,6 +383,24 @@ def calculate_transforms(img, publisher, T_base_to_ee):
                 
                 #publish the finalised H1 transform
                 publisher.add_pose(H1_T_final, H1_marker_ID)
+
+    #process other arucos (bin arucos)
+    aruco_transforms, ids = get_aruco_transforms(image, cv2.aruco.getPredefinedDictionary(cv2.aruco.DICT_4X4_100), 32.2)
+    if aruco_transforms is not None:
+        for i, transform in enumerate(aruco_transforms):
+            if(ids[i] == 6):
+                T_marker_to_cam  = invert_transform(transform)
+                T_cam_to_marker = transform
+                T_base_to_marker = T_cam @ T_cam_to_marker
+                publisher.add_pose(T_base_to_marker, ids[i])
+    
+                #move the transform to the bin placement spot
+                T_bin_aruco_to_drop = np.eye(4)
+                T_bin_aruco_to_drop[1][3] = -0.045
+    
+                T_base_to_drop = T_base_to_marker @ T_bin_aruco_to_drop
+                print(f"T_base_to_drop X:{T_base_to_drop[0, 3]}, Y:{T_base_to_drop[1, 3]}, Z:{T_base_to_drop[2, 3]}")
+                publisher.add_pose(T_base_to_drop, 69) #bind aruco drop point ID 69
 
 #start ROS crap
 rclpy.init()

@@ -306,8 +306,15 @@ class RobotKinematics : public rclcpp::Node {
                     RCLCPP_INFO(this->get_logger(), "[maneuver] move straight up to pickup peice being captured");
                     if(!moveStraightToPoint({tempPosition}, 0.05, 0.05)) continue;
                     //bin stuff boi
-                    if(!moveToJointAngles(-1.72964, 0.51477, -0.35763, -1.56703, -0.59512, -0.53938)) continue;
+                    if(!moveToJointAngles(1.544, -2.060, 0.372, -0.108, -1.651, -6.233)) continue;
+                    if(!moveToJointAngles(1.544-M_PI/2, -2.060, 0.372, -0.108, -1.651, -6.233)) continue;
+                    while(!robot_stationary_){
+                        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+                    }
                     
+                    std::this_thread::sleep_for(std::chrono::seconds(3));
+                    if(!moveToJointAngles(0, -M_PI/2, M_PI/2, -M_PI/2, -M_PI/2, 0)) continue;
+
                     tempPosition.position.x = x_Bin_Aruco;
                     tempPosition.position.y = y_Bin_Aruco;
                     tempPosition.position.z = aboveBinHeight;
@@ -554,6 +561,7 @@ class RobotKinematics : public rclcpp::Node {
 
                         for(int i = 0; i<25; i++){
                             RCLCPP_WARN(this->get_logger(), "[moveStraightToPoint] All planning attempts failed!!!.");
+                            RCLCPP_INFO(this->get_logger(), "X: %.3f, Y: %.3f, Z: %.3f", tempPosition[0].position.x, tempPosition[0].position.y, tempPosition[0].position.z);
                             std::this_thread::sleep_for(std::chrono::milliseconds(250));
                         }
                         return false;
@@ -790,7 +798,7 @@ class RobotKinematics : public rclcpp::Node {
         geometry_msgs::msg::Pose camPosition;
         Eigen::Matrix4d H1_transform_;
 
-        double aboveBinHeight = 0.1848+100/1000;
+        double aboveBinHeight = 0.1848+100/1000+0.125;
         double binDropHeight = aboveBinHeight - 50/1000;
         double board_yaw = 0;
  
@@ -823,10 +831,11 @@ class RobotKinematics : public rclcpp::Node {
                         marker.pose.orientation.w);
                 }
 
-                if(marker_id == 69 && robot_stationary_){
+                if(marker_id == 693 && robot_stationary_){
                     std::lock_guard<std::mutex> lock(bin_mutex);
                     x_Bin_Aruco = marker.pose.position.x;
                     y_Bin_Aruco = marker.pose.position.y;
+                    RCLCPP_INFO(this->get_logger(), "x_Bin_Aruco: %.3f, y_Bin_Aruco: %.3f", x_Bin_Aruco, y_Bin_Aruco);
                 }
  
                 if (marker_id == 53 && robot_stationary_) { //only read the markers if the robot is currently stationary
@@ -851,8 +860,8 @@ class RobotKinematics : public rclcpp::Node {
  
                     H1_X = -marker.pose.position.x;
                     H1_Y = -marker.pose.position.y;
-                    RCLCPP_INFO(this->get_logger(), "H1_X: %.3f, H1_Y: %.3f", H1_X, H1_Y);
-                    RCLCPP_INFO(this->get_logger(), "H1_up_to_date_: %s", H1_up_to_date_ ? "TRUE" : "FALSE");
+                    // RCLCPP_INFO(this->get_logger(), "H1_X: %.3f, H1_Y: %.3f", H1_X, H1_Y);
+                    // RCLCPP_INFO(this->get_logger(), "H1_up_to_date_: %s", H1_up_to_date_ ? "TRUE" : "FALSE");
                     
                     if(std::abs(H1_X) < 0.15 || H1_Y > 0.45 || H1_Y < 0.35){
                         posError = true;
@@ -951,7 +960,6 @@ class RobotKinematics : public rclcpp::Node {
         //joint state sub obj
         rclcpp::Subscription<sensor_msgs::msg::JointState>::SharedPtr joint_state_sub_;
         int pickup_dropoff_wait_;
-
 
         rclcpp::Publisher<std_msgs::msg::String>::SharedPtr chess_move_pub_;
         rclcpp::Publisher<std_msgs::msg::String>::SharedPtr status_pub;
