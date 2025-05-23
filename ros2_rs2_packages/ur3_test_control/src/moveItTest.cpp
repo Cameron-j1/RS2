@@ -785,6 +785,8 @@ class RobotKinematics : public rclcpp::Node {
         std::map<int, geometry_msgs::msg::TransformStamped> marker_transforms_;
         double H1_X;
         double H1_Y;
+        double x_Bin_Aruco;
+        double y_Bin_Aruco;
         geometry_msgs::msg::Pose camPosition;
         Eigen::Matrix4d H1_transform_;
 
@@ -819,6 +821,12 @@ class RobotKinematics : public rclcpp::Node {
                         marker.pose.orientation.y,
                         marker.pose.orientation.z,
                         marker.pose.orientation.w);
+                }
+
+                if(marker_id == 69 && robot_stationary_){
+                    std::lock_guard<std::mutex> lock(bin_mutex);
+                    x_Bin_Aruco = marker.pose.position.x;
+                    y_Bin_Aruco = marker.pose.position.y;
                 }
  
                 if (marker_id == 53 && robot_stationary_) { //only read the markers if the robot is currently stationary
@@ -955,6 +963,7 @@ class RobotKinematics : public rclcpp::Node {
         std::atomic<bool> robot_stationary_;
         std::mutex moveit_mutex;
         std::mutex h1_mutex;
+        std::mutex bin_mutex;
 
         // Add H1 position tracking variables
         std::atomic<bool> H1_up_to_date_;
