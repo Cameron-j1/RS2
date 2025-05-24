@@ -17,7 +17,7 @@ const int SQUARE_SIZE = 45;
 const int BOARD_OFFSET_X = 25;
 const int BOARD_OFFSET_Y = 20;
 const int WINDOW_WIDTH = 800;
-const int WINDOW_HEIGHT = 460;
+const int WINDOW_HEIGHT = 480;
 
 // GUI State enum
 enum GUIState {
@@ -971,7 +971,7 @@ int main(int argc, char **argv)
     // Robot Only Mode state
     bool robotOnlyMode = false;
 
-    sf::RenderWindow window(sf::VideoMode(WINDOW_WIDTH, WINDOW_HEIGHT), "Chess Visualizer", sf::Style::Titlebar | sf::Style::Close);
+    sf::RenderWindow window(sf::VideoMode(WINDOW_WIDTH, WINDOW_HEIGHT), "Chess Visualizer", sf::Style::Fullscreen);
     window.setVerticalSyncEnabled(true);
 
     sf::Texture texture;
@@ -1065,6 +1065,9 @@ int main(int argc, char **argv)
         while (window.pollEvent(event))
         {
             if (event.type == sf::Event::Closed)
+                window.close();
+                
+            if (event.type == sf::Event::KeyPressed && event.key.code == sf::Keyboard::Escape)
                 window.close();
                 
             if (event.type == sf::Event::MouseMoved)
