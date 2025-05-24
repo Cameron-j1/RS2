@@ -171,10 +171,11 @@ struct MoveInfo {
     bool isCapture;
     bool isCastling;
     bool isPromotion;
+    char captured;
 };
 
 MoveInfo executeMove(int fromRow, int fromCol, int toRow, int toCol) {
-    MoveInfo moveInfo = {false, false, false};
+    MoveInfo moveInfo = {false, false, false, '-'};
     
     char piece = board[fromRow][fromCol];
     char capturedPiece = board[toRow][toCol];
@@ -182,6 +183,7 @@ MoveInfo executeMove(int fromRow, int fromCol, int toRow, int toCol) {
     // Check if it's a capture
     if (capturedPiece != '-') {
         moveInfo.isCapture = true;
+        moveInfo.captured = capturedPiece;
     }
     
     // Check if it's a pawn promotion
@@ -905,14 +907,6 @@ public:
         RCLCPP_INFO(this->get_logger(), "Published control: %s", command.c_str());
     }
 
-   // void publishChessMove(const std::string &moveString)
-   // {
-     //   auto msg = std_msgs::msg::String();
-      //  msg.data = moveString;
-       // chess_moves_publisher_->publish(msg);
-       // RCLCPP_INFO(this->get_logger(), "Published move: %s", moveString.c_str());
-   // }
-
     std::string getLastMove() const { return lastMove; }
     bool getButtonState() const { return buttonState; }
     bool getBoardOutOfRange() const { return boardOutOfRange; }
@@ -950,7 +944,7 @@ private:
     bool estopFlag = false;
 };
 #pragma endregion ROS
-std::string createMoveString(int fromRow, int fromCol, int toRow, int toCol, char piece, bool isCapture, bool isCastling, bool isPromotion, std::shared_ptr<ChessSubscriber> ros2node);
+std::string createMoveString(int fromRow, int fromCol, int toRow, int toCol, char piece, char pieceCap, bool isCapture, bool isCastling, bool isPromotion, std::shared_ptr<ChessSubscriber> ros2node);
 
 #pragma region Main Function
 // Main function
@@ -1194,7 +1188,7 @@ int main(int argc, char **argv)
                                     MoveInfo moveInfo = executeMove(selectedPiece.x, selectedPiece.y, row, col);
                                     
                                     // Create move string
-                                    std::string moveString = createMoveString(selectedPiece.x, selectedPiece.y, row, col, piece, moveInfo.isCapture, moveInfo.isCastling, moveInfo.isPromotion, node);
+                                    std::string moveString = createMoveString(selectedPiece.x, selectedPiece.y, row, col, piece, moveInfo.captured, moveInfo.isCapture, moveInfo.isCastling, moveInfo.isPromotion, node);
                                     
                                     // Output move information to terminal
                                     std::cout << "=========================" << std::endl;
@@ -1457,7 +1451,7 @@ std::string coordsToChessNotation(int row, int col) {
 }
 
 // Function to create move string in format: moveplayed + moveType + piecePlayed
-std::string createMoveString(int fromRow, int fromCol, int toRow, int toCol, char piece, bool isCapture, bool isCastling, bool isPromotion, std::shared_ptr<ChessSubscriber> ros2node) {
+std::string createMoveString(int fromRow, int fromCol, int toRow, int toCol, char piece, char pieceCap, bool isCapture, bool isCastling, bool isPromotion, std::shared_ptr<ChessSubscriber> ros2node) {
     std::string moveStr = "";
     
     // 1. Move played (from + to coordinates)
@@ -1520,6 +1514,7 @@ std::string createMoveString(int fromRow, int fromCol, int toRow, int toCol, cha
     } else {
         char pieceLower = std::tolower(piece);
         moveStr += pieceLower;
+	if (isCapture) moveStr += pieceCap;
     }
     msgToControlNode.data = moveStr;
     ros2node->chess_moves_publisher_->publish(msgToControlNode);
