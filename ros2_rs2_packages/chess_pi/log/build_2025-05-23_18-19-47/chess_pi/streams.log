@@ -1,0 +1,63 @@
+[0.019s] Invoking command in '/home/cameron/ros2_ws/src/RaspberryPi-RS2/RS2/ros2_rs2_packages/chess_pi/build/chess_pi': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/opt/ros/humble /usr/bin/cmake /home/cameron/ros2_ws/src/RaspberryPi-RS2/RS2/ros2_rs2_packages/chess_pi -DCMAKE_INSTALL_PREFIX=/home/cameron/ros2_ws/src/RaspberryPi-RS2/RS2/ros2_rs2_packages/chess_pi/install/chess_pi
+[0.136s] -- The C compiler identification is GNU 11.4.0
+[0.208s] -- The CXX compiler identification is GNU 11.4.0
+[0.219s] -- Detecting C compiler ABI info
+[0.330s] -- Detecting C compiler ABI info - done
+[0.338s] -- Check for working C compiler: /usr/bin/cc - skipped
+[0.338s] -- Detecting C compile features
+[0.339s] -- Detecting C compile features - done
+[0.342s] -- Detecting CXX compiler ABI info
+[0.464s] -- Detecting CXX compiler ABI info - done
+[0.473s] -- Check for working CXX compiler: /usr/bin/c++ - skipped
+[0.473s] -- Detecting CXX compile features
+[0.474s] -- Detecting CXX compile features - done
+[0.479s] -- Found ament_cmake: 1.3.11 (/opt/ros/humble/share/ament_cmake/cmake)
+[0.698s] -- Found Python3: /usr/bin/python3 (found version "3.10.12") found components: Interpreter 
+[0.816s] -- Found ament_index_cpp: 1.4.0 (/opt/ros/humble/share/ament_index_cpp/cmake)
+[0.824s] -- Found SFML 2.5.1 in /usr/lib/x86_64-linux-gnu/cmake/SFML
+[0.825s] -- Found rclpy: 3.3.16 (/opt/ros/humble/share/rclpy/cmake)
+[0.826s] -- Looking for pthread.h
+[0.938s] -- Looking for pthread.h - found
+[0.938s] -- Performing Test CMAKE_HAVE_LIBC_PTHREAD
+[1.049s] -- Performing Test CMAKE_HAVE_LIBC_PTHREAD - Success
+[1.049s] -- Found Threads: TRUE  
+[1.052s] -- Found rclcpp: 16.0.12 (/opt/ros/humble/share/rclcpp/cmake)
+[1.101s] -- Found rosidl_generator_c: 3.1.6 (/opt/ros/humble/share/rosidl_generator_c/cmake)
+[1.107s] -- Found rosidl_adapter: 3.1.6 (/opt/ros/humble/share/rosidl_adapter/cmake)
+[1.117s] -- Found rosidl_generator_cpp: 3.1.6 (/opt/ros/humble/share/rosidl_generator_cpp/cmake)
+[1.133s] -- Using all available rosidl_typesupport_c: rosidl_typesupport_fastrtps_c;rosidl_typesupport_introspection_c
+[1.153s] -- Using all available rosidl_typesupport_cpp: rosidl_typesupport_fastrtps_cpp;rosidl_typesupport_introspection_cpp
+[1.206s] -- Found rmw_implementation_cmake: 6.1.2 (/opt/ros/humble/share/rmw_implementation_cmake/cmake)
+[1.209s] -- Found rmw_fastrtps_cpp: 6.2.7 (/opt/ros/humble/share/rmw_fastrtps_cpp/cmake)
+[1.352s] -- Found OpenSSL: /usr/lib/x86_64-linux-gnu/libcrypto.so (found version "3.0.2")  
+[1.394s] -- Found FastRTPS: /opt/ros/humble/include  
+[1.450s] -- Using RMW implementation 'rmw_fastrtps_cpp' as default
+[1.525s] -- Found std_srvs: 4.8.0 (/opt/ros/humble/share/std_srvs/cmake)
+[1.736s] -- Configuring done
+[1.744s] -- Generating done
+[1.748s] -- Build files have been written to: /home/cameron/ros2_ws/src/RaspberryPi-RS2/RS2/ros2_rs2_packages/chess_pi/build/chess_pi
+[1.760s] Invoked command in '/home/cameron/ros2_ws/src/RaspberryPi-RS2/RS2/ros2_rs2_packages/chess_pi/build/chess_pi' returned '0': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/opt/ros/humble /usr/bin/cmake /home/cameron/ros2_ws/src/RaspberryPi-RS2/RS2/ros2_rs2_packages/chess_pi -DCMAKE_INSTALL_PREFIX=/home/cameron/ros2_ws/src/RaspberryPi-RS2/RS2/ros2_rs2_packages/chess_pi/install/chess_pi
+[1.762s] Invoking command in '/home/cameron/ros2_ws/src/RaspberryPi-RS2/RS2/ros2_rs2_packages/chess_pi/build/chess_pi': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/opt/ros/humble /usr/bin/cmake --build /home/cameron/ros2_ws/src/RaspberryPi-RS2/RS2/ros2_rs2_packages/chess_pi/build/chess_pi -- -j16 -l16
+[1.846s] [ 50%] [32mBuilding CXX object CMakeFiles/chess_node.dir/src/chessboard.cpp.o[0m
+[1.865s] [ 50%] Built target ament_cmake_python_copy_chess_pi
+[2.201s] running egg_info
+[2.201s] creating chess_pi.egg-info
+[2.202s] writing chess_pi.egg-info/PKG-INFO
+[2.202s] writing dependency_links to chess_pi.egg-info/dependency_links.txt
+[2.202s] writing top-level names to chess_pi.egg-info/top_level.txt
+[2.202s] writing manifest file 'chess_pi.egg-info/SOURCES.txt'
+[2.204s] reading manifest file 'chess_pi.egg-info/SOURCES.txt'
+[2.205s] writing manifest file 'chess_pi.egg-info/SOURCES.txt'
+[2.247s] [ 50%] Built target ament_cmake_python_build_chess_pi_egg
+[4.075s] [01m[K/home/cameron/ros2_ws/src/RaspberryPi-RS2/RS2/ros2_rs2_packages/chess_pi/src/chessboard.cpp:[m[K In function ‘[01m[Kstd::string boardToFen()[m[K’:
+[4.075s] [01m[K/home/cameron/ros2_ws/src/RaspberryPi-RS2/RS2/ros2_rs2_packages/chess_pi/src/chessboard.cpp:67:26:[m[K [01;31m[Kerror: [m[K‘[01m[Kboard[m[K’ was not declared in this scope
+[4.076s]    67 |             char piece = [01;31m[Kboard[m[K[row][col];
+[4.076s]       |                          [01;31m[K^~~~~[m[K
+[4.078s] [01m[K/home/cameron/ros2_ws/src/RaspberryPi-RS2/RS2/ros2_rs2_packages/chess_pi/src/chessboard.cpp:[m[K In function ‘[01m[Kvoid executeMove(int, int, int, int)[m[K’:
+[4.079s] [01m[K/home/cameron/ros2_ws/src/RaspberryPi-RS2/RS2/ros2_rs2_packages/chess_pi/src/chessboard.cpp:88:18:[m[K [01;31m[Kerror: [m[K‘[01m[Kboard[m[K’ was not declared in this scope
+[4.079s]    88 |     char piece = [01;31m[Kboard[m[K[fromRow][fromCol];
+[4.079s]       |                  [01;31m[K^~~~~[m[K
+[7.481s] gmake[2]: *** [CMakeFiles/chess_node.dir/build.make:76: CMakeFiles/chess_node.dir/src/chessboard.cpp.o] Error 1
+[7.481s] gmake[1]: *** [CMakeFiles/Makefile2:140: CMakeFiles/chess_node.dir/all] Error 2
+[7.482s] gmake: *** [Makefile:146: all] Error 2
+[7.484s] Invoked command in '/home/cameron/ros2_ws/src/RaspberryPi-RS2/RS2/ros2_rs2_packages/chess_pi/build/chess_pi' returned '2': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/opt/ros/humble /usr/bin/cmake --build /home/cameron/ros2_ws/src/RaspberryPi-RS2/RS2/ros2_rs2_packages/chess_pi/build/chess_pi -- -j16 -l16

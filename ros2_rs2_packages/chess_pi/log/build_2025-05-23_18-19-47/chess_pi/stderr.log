@@ -1,0 +1,11 @@
+[01m[K/home/cameron/ros2_ws/src/RaspberryPi-RS2/RS2/ros2_rs2_packages/chess_pi/src/chessboard.cpp:[m[K In function ‘[01m[Kstd::string boardToFen()[m[K’:
+[01m[K/home/cameron/ros2_ws/src/RaspberryPi-RS2/RS2/ros2_rs2_packages/chess_pi/src/chessboard.cpp:67:26:[m[K [01;31m[Kerror: [m[K‘[01m[Kboard[m[K’ was not declared in this scope
+   67 |             char piece = [01;31m[Kboard[m[K[row][col];
+      |                          [01;31m[K^~~~~[m[K
+[01m[K/home/cameron/ros2_ws/src/RaspberryPi-RS2/RS2/ros2_rs2_packages/chess_pi/src/chessboard.cpp:[m[K In function ‘[01m[Kvoid executeMove(int, int, int, int)[m[K’:
+[01m[K/home/cameron/ros2_ws/src/RaspberryPi-RS2/RS2/ros2_rs2_packages/chess_pi/src/chessboard.cpp:88:18:[m[K [01;31m[Kerror: [m[K‘[01m[Kboard[m[K’ was not declared in this scope
+   88 |     char piece = [01;31m[Kboard[m[K[fromRow][fromCol];
+      |                  [01;31m[K^~~~~[m[K
+gmake[2]: *** [CMakeFiles/chess_node.dir/build.make:76: CMakeFiles/chess_node.dir/src/chessboard.cpp.o] Error 1
+gmake[1]: *** [CMakeFiles/Makefile2:140: CMakeFiles/chess_node.dir/all] Error 2
+gmake: *** [Makefile:146: all] Error 2

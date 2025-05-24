@@ -1,0 +1,54 @@
+[0.012s] Invoking command in '/home/cameron/ros2_ws/src/RaspberryPi-RS2/RS2/ros2_rs2_packages/chess_pi/build/chess_pi': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/opt/ros/humble /usr/bin/cmake --build /home/cameron/ros2_ws/src/RaspberryPi-RS2/RS2/ros2_rs2_packages/chess_pi/build/chess_pi -- -j16 -l16
+[0.071s] [35m[1mConsolidate compiler generated dependencies of target chess_node[0m
+[0.090s] [  0%] Built target ament_cmake_python_copy_chess_pi
+[0.091s] [ 50%] [32mBuilding CXX object CMakeFiles/chess_node.dir/src/chessboard.cpp.o[0m
+[0.278s] running egg_info
+[0.279s] writing chess_pi.egg-info/PKG-INFO
+[0.279s] writing dependency_links to chess_pi.egg-info/dependency_links.txt
+[0.279s] writing top-level names to chess_pi.egg-info/top_level.txt
+[0.280s] reading manifest file 'chess_pi.egg-info/SOURCES.txt'
+[0.281s] writing manifest file 'chess_pi.egg-info/SOURCES.txt'
+[0.308s] [ 50%] Built target ament_cmake_python_build_chess_pi_egg
+[8.294s] [100%] [32m[1mLinking CXX executable chess_node[0m
+[8.734s] [100%] Built target chess_node
+[8.746s] Invoked command in '/home/cameron/ros2_ws/src/RaspberryPi-RS2/RS2/ros2_rs2_packages/chess_pi/build/chess_pi' returned '0': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/opt/ros/humble /usr/bin/cmake --build /home/cameron/ros2_ws/src/RaspberryPi-RS2/RS2/ros2_rs2_packages/chess_pi/build/chess_pi -- -j16 -l16
+[8.755s] Invoking command in '/home/cameron/ros2_ws/src/RaspberryPi-RS2/RS2/ros2_rs2_packages/chess_pi/build/chess_pi': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/opt/ros/humble /usr/bin/cmake --install /home/cameron/ros2_ws/src/RaspberryPi-RS2/RS2/ros2_rs2_packages/chess_pi/build/chess_pi
+[8.762s] -- Install configuration: ""
+[8.762s] -- Installing: /home/cameron/ros2_ws/src/RaspberryPi-RS2/RS2/ros2_rs2_packages/chess_pi/install/chess_pi/lib/chess_pi/chess_node
+[8.765s] -- Set runtime path of "/home/cameron/ros2_ws/src/RaspberryPi-RS2/RS2/ros2_rs2_packages/chess_pi/install/chess_pi/lib/chess_pi/chess_node" to ""
+[8.765s] -- Up-to-date: /home/cameron/ros2_ws/src/RaspberryPi-RS2/RS2/ros2_rs2_packages/chess_pi/install/chess_pi/share/chess_pi/launch
+[8.765s] -- Up-to-date: /home/cameron/ros2_ws/src/RaspberryPi-RS2/RS2/ros2_rs2_packages/chess_pi/install/chess_pi/share/chess_pi/launch/moveL.launch.py
+[8.765s] -- Up-to-date: /home/cameron/ros2_ws/src/RaspberryPi-RS2/RS2/ros2_rs2_packages/chess_pi/install/chess_pi/share/chess_pi/launch/__pycache__
+[8.766s] -- Up-to-date: /home/cameron/ros2_ws/src/RaspberryPi-RS2/RS2/ros2_rs2_packages/chess_pi/install/chess_pi/share/chess_pi/launch/__pycache__/moveL.launch.cpython-310.pyc
+[8.766s] -- Up-to-date: /home/cameron/ros2_ws/src/RaspberryPi-RS2/RS2/ros2_rs2_packages/chess_pi/install/chess_pi/share/chess_pi/images
+[8.766s] -- Up-to-date: /home/cameron/ros2_ws/src/RaspberryPi-RS2/RS2/ros2_rs2_packages/chess_pi/install/chess_pi/share/chess_pi/images/pieces.png
+[8.766s] -- Up-to-date: /home/cameron/ros2_ws/src/RaspberryPi-RS2/RS2/ros2_rs2_packages/chess_pi/install/chess_pi/share/chess_pi/config
+[8.766s] -- Up-to-date: /home/cameron/ros2_ws/src/RaspberryPi-RS2/RS2/ros2_rs2_packages/chess_pi/install/chess_pi/share/chess_pi/config/controllers.yaml
+[8.766s] -- Up-to-date: /home/cameron/ros2_ws/src/RaspberryPi-RS2/RS2/ros2_rs2_packages/chess_pi/install/chess_pi/share/chess_pi/config/kinematics.yaml
+[8.766s] -- Up-to-date: /home/cameron/ros2_ws/src/RaspberryPi-RS2/RS2/ros2_rs2_packages/chess_pi/install/chess_pi/lib/chess_pi/servo_control_node.py
+[8.766s] -- Up-to-date: /home/cameron/ros2_ws/src/RaspberryPi-RS2/RS2/ros2_rs2_packages/chess_pi/install/chess_pi/share/chess_pi/environment/pythonpath.sh
+[8.766s] -- Up-to-date: /home/cameron/ros2_ws/src/RaspberryPi-RS2/RS2/ros2_rs2_packages/chess_pi/install/chess_pi/share/chess_pi/environment/pythonpath.dsv
+[8.766s] -- Up-to-date: /home/cameron/ros2_ws/src/RaspberryPi-RS2/RS2/ros2_rs2_packages/chess_pi/install/chess_pi/local/lib/python3.10/dist-packages/chess_pi-0.0.0-py3.10.egg-info
+[8.766s] -- Installing: /home/cameron/ros2_ws/src/RaspberryPi-RS2/RS2/ros2_rs2_packages/chess_pi/install/chess_pi/local/lib/python3.10/dist-packages/chess_pi-0.0.0-py3.10.egg-info/PKG-INFO
+[8.766s] -- Installing: /home/cameron/ros2_ws/src/RaspberryPi-RS2/RS2/ros2_rs2_packages/chess_pi/install/chess_pi/local/lib/python3.10/dist-packages/chess_pi-0.0.0-py3.10.egg-info/SOURCES.txt
+[8.766s] -- Installing: /home/cameron/ros2_ws/src/RaspberryPi-RS2/RS2/ros2_rs2_packages/chess_pi/install/chess_pi/local/lib/python3.10/dist-packages/chess_pi-0.0.0-py3.10.egg-info/top_level.txt
+[8.767s] -- Installing: /home/cameron/ros2_ws/src/RaspberryPi-RS2/RS2/ros2_rs2_packages/chess_pi/install/chess_pi/local/lib/python3.10/dist-packages/chess_pi-0.0.0-py3.10.egg-info/dependency_links.txt
+[8.767s] -- Up-to-date: /home/cameron/ros2_ws/src/RaspberryPi-RS2/RS2/ros2_rs2_packages/chess_pi/install/chess_pi/local/lib/python3.10/dist-packages/chess_pi
+[8.767s] -- Up-to-date: /home/cameron/ros2_ws/src/RaspberryPi-RS2/RS2/ros2_rs2_packages/chess_pi/install/chess_pi/local/lib/python3.10/dist-packages/chess_pi/__init__.py
+[8.790s] Listing '/home/cameron/ros2_ws/src/RaspberryPi-RS2/RS2/ros2_rs2_packages/chess_pi/install/chess_pi/local/lib/python3.10/dist-packages/chess_pi'...
+[8.794s] -- Up-to-date: /home/cameron/ros2_ws/src/RaspberryPi-RS2/RS2/ros2_rs2_packages/chess_pi/install/chess_pi/share/ament_index/resource_index/package_run_dependencies/chess_pi
+[8.794s] -- Up-to-date: /home/cameron/ros2_ws/src/RaspberryPi-RS2/RS2/ros2_rs2_packages/chess_pi/install/chess_pi/share/ament_index/resource_index/parent_prefix_path/chess_pi
+[8.794s] -- Up-to-date: /home/cameron/ros2_ws/src/RaspberryPi-RS2/RS2/ros2_rs2_packages/chess_pi/install/chess_pi/share/chess_pi/environment/ament_prefix_path.sh
+[8.794s] -- Up-to-date: /home/cameron/ros2_ws/src/RaspberryPi-RS2/RS2/ros2_rs2_packages/chess_pi/install/chess_pi/share/chess_pi/environment/ament_prefix_path.dsv
+[8.794s] -- Up-to-date: /home/cameron/ros2_ws/src/RaspberryPi-RS2/RS2/ros2_rs2_packages/chess_pi/install/chess_pi/share/chess_pi/environment/path.sh
+[8.794s] -- Up-to-date: /home/cameron/ros2_ws/src/RaspberryPi-RS2/RS2/ros2_rs2_packages/chess_pi/install/chess_pi/share/chess_pi/environment/path.dsv
+[8.794s] -- Up-to-date: /home/cameron/ros2_ws/src/RaspberryPi-RS2/RS2/ros2_rs2_packages/chess_pi/install/chess_pi/share/chess_pi/local_setup.bash
+[8.794s] -- Up-to-date: /home/cameron/ros2_ws/src/RaspberryPi-RS2/RS2/ros2_rs2_packages/chess_pi/install/chess_pi/share/chess_pi/local_setup.sh
+[8.794s] -- Up-to-date: /home/cameron/ros2_ws/src/RaspberryPi-RS2/RS2/ros2_rs2_packages/chess_pi/install/chess_pi/share/chess_pi/local_setup.zsh
+[8.794s] -- Up-to-date: /home/cameron/ros2_ws/src/RaspberryPi-RS2/RS2/ros2_rs2_packages/chess_pi/install/chess_pi/share/chess_pi/local_setup.dsv
+[8.794s] -- Installing: /home/cameron/ros2_ws/src/RaspberryPi-RS2/RS2/ros2_rs2_packages/chess_pi/install/chess_pi/share/chess_pi/package.dsv
+[8.794s] -- Up-to-date: /home/cameron/ros2_ws/src/RaspberryPi-RS2/RS2/ros2_rs2_packages/chess_pi/install/chess_pi/share/ament_index/resource_index/packages/chess_pi
+[8.794s] -- Up-to-date: /home/cameron/ros2_ws/src/RaspberryPi-RS2/RS2/ros2_rs2_packages/chess_pi/install/chess_pi/share/chess_pi/cmake/chess_piConfig.cmake
+[8.794s] -- Up-to-date: /home/cameron/ros2_ws/src/RaspberryPi-RS2/RS2/ros2_rs2_packages/chess_pi/install/chess_pi/share/chess_pi/cmake/chess_piConfig-version.cmake
+[8.794s] -- Up-to-date: /home/cameron/ros2_ws/src/RaspberryPi-RS2/RS2/ros2_rs2_packages/chess_pi/install/chess_pi/share/chess_pi/package.xml
+[8.796s] Invoked command in '/home/cameron/ros2_ws/src/RaspberryPi-RS2/RS2/ros2_rs2_packages/chess_pi/build/chess_pi' returned '0': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/opt/ros/humble /usr/bin/cmake --install /home/cameron/ros2_ws/src/RaspberryPi-RS2/RS2/ros2_rs2_packages/chess_pi/build/chess_pi

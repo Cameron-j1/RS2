@@ -1,0 +1,185 @@
+[0.000000] (-) TimerEvent: {}
+[0.000371] (chess_pi) JobQueued: {'identifier': 'chess_pi', 'dependencies': OrderedDict()}
+[0.000427] (chess_pi) JobStarted: {'identifier': 'chess_pi'}
+[0.016670] (chess_pi) JobProgress: {'identifier': 'chess_pi', 'progress': 'cmake'}
+[0.018105] (chess_pi) JobProgress: {'identifier': 'chess_pi', 'progress': 'build'}
+[0.019223] (chess_pi) Command: {'cmd': ['/usr/bin/cmake', '--build', '/home/cameron/ros2_ws/src/RaspberryPi-RS2/RS2/ros2_rs2_packages/chess_pi/build/chess_pi', '--', '-j16', '-l16'], 'cwd': '/home/cameron/ros2_ws/src/RaspberryPi-RS2/RS2/ros2_rs2_packages/chess_pi/build/chess_pi', 'env': OrderedDict([('LESSOPEN', '| /usr/bin/lesspipe %s'), ('LANGUAGE', 'en_AU:en'), ('USER', 'cameron'), ('XDG_SESSION_TYPE', 'wayland'), ('GIT_ASKPASS', '/tmp/.mount_CursorgkwmxU/usr/share/cursor/resources/app/extensions/git/dist/askpass.sh'), ('SHLVL', '2'), ('LD_LIBRARY_PATH', '/tmp/.mount_CursorgkwmxU/usr/lib/:/tmp/.mount_CursorgkwmxU/usr/lib32/:/tmp/.mount_CursorgkwmxU/usr/lib64/:/tmp/.mount_CursorgkwmxU/lib/:/tmp/.mount_CursorgkwmxU/lib/i386-linux-gnu/:/tmp/.mount_CursorgkwmxU/lib/x86_64-linux-gnu/:/tmp/.mount_CursorgkwmxU/lib/aarch64-linux-gnu/:/tmp/.mount_CursorgkwmxU/lib32/:/tmp/.mount_CursorgkwmxU/lib64/:/usr/lib/x86_64-linux-gnu/gazebo-11/plugins:/opt/ros/humble/opt/rviz_ogre_vendor/lib:/opt/ros/humble/lib/x86_64-linux-gnu:/opt/ros/humble/lib'), ('HOME', '/home/cameron'), ('CHROME_DESKTOP', 'cursor.desktop'), ('APPDIR', '/tmp/.mount_CursorgkwmxU'), ('OLDPWD', '/home/cameron/ros2_ws/src/RaspberryPi-RS2/RS2'), ('DISABLE_AUTO_UPDATE', 'true'), ('TERM_PROGRAM_VERSION', '0.50.5'), ('DESKTOP_SESSION', 'ubuntu'), ('PERLLIB', '/tmp/.mount_CursorgkwmxU/usr/share/perl5/:/tmp/.mount_CursorgkwmxU/usr/lib/perl5/:'), ('ROS_PYTHON_VERSION', '3'), ('GNOME_SHELL_SESSION_MODE', 'ubuntu'), ('GTK_MODULES', 'gail:atk-bridge'), ('PAGER', 'head -n 10000 | cat'), ('VSCODE_GIT_ASKPASS_MAIN', '/tmp/.mount_CursorgkwmxU/usr/share/cursor/resources/app/extensions/git/dist/askpass-main.js'), ('VSCODE_GIT_ASKPASS_NODE', '/tmp/.mount_CursorgkwmxU/usr/share/cursor/cursor'), ('SYSTEMD_EXEC_PID', '2438'), ('IM_CONFIG_CHECK_ENV', '1'), ('DBUS_SESSION_BUS_ADDRESS', 'unix:path=/run/user/1000/bus'), ('COLORTERM', 'truecolor'), ('IM_CONFIG_PHASE', '1'), ('WAYLAND_DISPLAY', 'wayland-0'), ('COLCON_PREFIX_PATH', '/home/cameron/ros2_ws/install'), ('ROS_DISTRO', 'humble'), ('LOGNAME', 'cameron'), ('OWD', '/home/cameron'), ('_', '/usr/bin/colcon'), ('ROS_VERSION', '2'), ('XDG_SESSION_CLASS', 'user'), ('USERNAME', 'cameron'), ('TERM', 'xterm-256color'), ('GNOME_DESKTOP_SESSION_ID', 'this-is-deprecated'), ('ROS_LOCALHOST_ONLY', '0'), ('PATH', '/home/cameron/.local/bin:/home/cameron/.local/bin:/tmp/.mount_CursorgkwmxU/usr/bin/:/tmp/.mount_CursorgkwmxU/usr/sbin/:/tmp/.mount_CursorgkwmxU/usr/games/:/tmp/.mount_CursorgkwmxU/bin/:/tmp/.mount_CursorgkwmxU/sbin/:/opt/ros/humble/bin:/home/cameron/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/snap/bin:/snap/bin:/home/cameron/.config/Cursor/User/globalStorage/github.copilot-chat/debugCommand'), ('SESSION_MANAGER', 'local/UbuntuLaptop:@/tmp/.ICE-unix/2221,unix/UbuntuLaptop:/tmp/.ICE-unix/2221'), ('APPIMAGE', '/home/cameron/Applications/Cursor-0.50.5-x86_64.AppImage'), ('XDG_MENU_PREFIX', 'gnome-'), ('GNOME_TERMINAL_SCREEN', '/org/gnome/Terminal/screen/d0c4079e_29ef_4d9f_899c_1f932b735908'), ('GNOME_SETUP_DISPLAY', ':1'), ('XDG_RUNTIME_DIR', '/run/user/1000'), ('GDK_BACKEND', 'x11'), ('DISPLAY', ':0'), ('LANG', 'en_AU.UTF-8'), ('XDG_CURRENT_DESKTOP', 'Unity'), ('XMODIFIERS', '@im=ibus'), ('XDG_SESSION_DESKTOP', 'ubuntu'), ('XAUTHORITY', '/run/user/1000/.mutter-Xwaylandauth.X18T62'), ('LS_COLORS', 'rs=0:di=01;34:ln=01;36:mh=00:pi=40;33:so=01;35:do=01;35:bd=40;33;01:cd=40;33;01:or=40;31;01:mi=00:su=37;41:sg=30;43:ca=30;41:tw=30;42:ow=34;42:st=37;44:ex=01;32:*.tar=01;31:*.tgz=01;31:*.arc=01;31:*.arj=01;31:*.taz=01;31:*.lha=01;31:*.lz4=01;31:*.lzh=01;31:*.lzma=01;31:*.tlz=01;31:*.txz=01;31:*.tzo=01;31:*.t7z=01;31:*.zip=01;31:*.z=01;31:*.dz=01;31:*.gz=01;31:*.lrz=01;31:*.lz=01;31:*.lzo=01;31:*.xz=01;31:*.zst=01;31:*.tzst=01;31:*.bz2=01;31:*.bz=01;31:*.tbz=01;31:*.tbz2=01;31:*.tz=01;31:*.deb=01;31:*.rpm=01;31:*.jar=01;31:*.war=01;31:*.ear=01;31:*.sar=01;31:*.rar=01;31:*.alz=01;31:*.ace=01;31:*.zoo=01;31:*.cpio=01;31:*.7z=01;31:*.rz=01;31:*.cab=01;31:*.wim=01;31:*.swm=01;31:*.dwm=01;31:*.esd=01;31:*.jpg=01;35:*.jpeg=01;35:*.mjpg=01;35:*.mjpeg=01;35:*.gif=01;35:*.bmp=01;35:*.pbm=01;35:*.pgm=01;35:*.ppm=01;35:*.tga=01;35:*.xbm=01;35:*.xpm=01;35:*.tif=01;35:*.tiff=01;35:*.png=01;35:*.svg=01;35:*.svgz=01;35:*.mng=01;35:*.pcx=01;35:*.mov=01;35:*.mpg=01;35:*.mpeg=01;35:*.m2v=01;35:*.mkv=01;35:*.webm=01;35:*.webp=01;35:*.ogm=01;35:*.mp4=01;35:*.m4v=01;35:*.mp4v=01;35:*.vob=01;35:*.qt=01;35:*.nuv=01;35:*.wmv=01;35:*.asf=01;35:*.rm=01;35:*.rmvb=01;35:*.flc=01;35:*.avi=01;35:*.fli=01;35:*.flv=01;35:*.gl=01;35:*.dl=01;35:*.xcf=01;35:*.xwd=01;35:*.yuv=01;35:*.cgm=01;35:*.emf=01;35:*.ogv=01;35:*.ogx=01;35:*.aac=00;36:*.au=00;36:*.flac=00;36:*.m4a=00;36:*.mid=00;36:*.midi=00;36:*.mka=00;36:*.mp3=00;36:*.mpc=00;36:*.ogg=00;36:*.ra=00;36:*.wav=00;36:*.oga=00;36:*.opus=00;36:*.spx=00;36:*.xspf=00;36:'), ('VSCODE_GIT_IPC_HANDLE', '/run/user/1000/vscode-git-ca92b35611.sock'), ('GNOME_TERMINAL_SERVICE', ':1.164'), ('TERM_PROGRAM', 'vscode'), ('CURSOR_TRACE_ID', '85f4697520124c3894ff3deea09e135a'), ('SSH_AGENT_LAUNCHER', 'gnome-keyring'), ('SSH_AUTH_SOCK', '/run/user/1000/keyring/ssh'), ('GSETTINGS_SCHEMA_DIR', '/tmp/.mount_CursorgkwmxU/usr/share/glib-2.0/schemas/:'), ('ROS_DOMAIN_ID', '50'), ('AMENT_PREFIX_PATH', '/home/cameron/ros2_ws/install/ur3_test_control:/home/cameron/ros2_ws/install/chess_pi:/opt/ros/humble'), ('ORIGINAL_XDG_CURRENT_DESKTOP', 'ubuntu:GNOME'), ('SHELL', '/bin/bash'), ('ARGV0', '/home/cameron/Applications/Cursor-0.50.5-x86_64.AppImage'), ('QT_ACCESSIBILITY', '1'), ('GDMSESSION', 'ubuntu'), ('LESSCLOSE', '/usr/bin/lesspipe %s %s'), ('GAZEBO_RESOURCE_PATH', '/usr/share/gazebo-11/'), ('VSCODE_GIT_ASKPASS_EXTRA_ARGS', ''), ('QT_IM_MODULE', 'ibus'), ('PWD', '/home/cameron/ros2_ws/src/RaspberryPi-RS2/RS2/ros2_rs2_packages/chess_pi/build/chess_pi'), ('XDG_CONFIG_DIRS', '/etc/xdg/xdg-ubuntu:/etc/xdg'), ('XDG_DATA_DIRS', '/tmp/.mount_CursorgkwmxU/usr/share/:/usr/local/share:/usr/share:/usr/share/ubuntu:/usr/local/share/:/usr/share/:/var/lib/snapd/desktop'), ('PYTHONPATH', '/home/cameron/ros2_ws/install/ur3_test_control/local/lib/python3.10/dist-packages:/home/cameron/ros2_ws/install/chess_pi/local/lib/python3.10/dist-packages:/opt/ros/humble/lib/python3.10/site-packages:/opt/ros/humble/local/lib/python3.10/dist-packages'), ('QT_PLUGIN_PATH', '/tmp/.mount_CursorgkwmxU/usr/lib/qt4/plugins/:/tmp/.mount_CursorgkwmxU/usr/lib/i386-linux-gnu/qt4/plugins/:/tmp/.mount_CursorgkwmxU/usr/lib/x86_64-linux-gnu/qt4/plugins/:/tmp/.mount_CursorgkwmxU/usr/lib/aarch64-linux-gnu/qt4/plugins/:/tmp/.mount_CursorgkwmxU/usr/lib32/qt4/plugins/:/tmp/.mount_CursorgkwmxU/usr/lib64/qt4/plugins/:/tmp/.mount_CursorgkwmxU/usr/lib/qt5/plugins/:/tmp/.mount_CursorgkwmxU/usr/lib/i386-linux-gnu/qt5/plugins/:/tmp/.mount_CursorgkwmxU/usr/lib/x86_64-linux-gnu/qt5/plugins/:/tmp/.mount_CursorgkwmxU/usr/lib/aarch64-linux-gnu/qt5/plugins/:/tmp/.mount_CursorgkwmxU/usr/lib32/qt5/plugins/:/tmp/.mount_CursorgkwmxU/usr/lib64/qt5/plugins/:'), ('COLCON', '1'), ('VTE_VERSION', '6800'), ('CMAKE_PREFIX_PATH', '/home/cameron/ros2_ws/install/ur3_test_control:/home/cameron/ros2_ws/install/chess_pi:/opt/ros/humble')]), 'shell': False}
+[0.088235] (chess_pi) StdoutLine: {'line': b'\x1b[35m\x1b[1mConsolidate compiler generated dependencies of target chess_node\x1b[0m\n'}
+[0.098712] (-) TimerEvent: {}
+[0.117085] (chess_pi) StdoutLine: {'line': b'[  0%] Built target ament_cmake_python_copy_chess_pi\n'}
+[0.118009] (chess_pi) StdoutLine: {'line': b'[ 50%] \x1b[32mBuilding CXX object CMakeFiles/chess_node.dir/src/chessboard.cpp.o\x1b[0m\n'}
+[0.198899] (-) TimerEvent: {}
+[0.299275] (-) TimerEvent: {}
+[0.399826] (-) TimerEvent: {}
+[0.425491] (chess_pi) StdoutLine: {'line': b'running egg_info\n'}
+[0.426400] (chess_pi) StdoutLine: {'line': b'writing chess_pi.egg-info/PKG-INFO\n'}
+[0.426770] (chess_pi) StdoutLine: {'line': b'writing dependency_links to chess_pi.egg-info/dependency_links.txt\n'}
+[0.427128] (chess_pi) StdoutLine: {'line': b'writing top-level names to chess_pi.egg-info/top_level.txt\n'}
+[0.429543] (chess_pi) StdoutLine: {'line': b"reading manifest file 'chess_pi.egg-info/SOURCES.txt'\n"}
+[0.430086] (chess_pi) StdoutLine: {'line': b"writing manifest file 'chess_pi.egg-info/SOURCES.txt'\n"}
+[0.471702] (chess_pi) StdoutLine: {'line': b'[ 50%] Built target ament_cmake_python_build_chess_pi_egg\n'}
+[0.499971] (-) TimerEvent: {}
+[0.600447] (-) TimerEvent: {}
+[0.700930] (-) TimerEvent: {}
+[0.801414] (-) TimerEvent: {}
+[0.901960] (-) TimerEvent: {}
+[1.002423] (-) TimerEvent: {}
+[1.102887] (-) TimerEvent: {}
+[1.203347] (-) TimerEvent: {}
+[1.303793] (-) TimerEvent: {}
+[1.404125] (-) TimerEvent: {}
+[1.504470] (-) TimerEvent: {}
+[1.604887] (-) TimerEvent: {}
+[1.705269] (-) TimerEvent: {}
+[1.805599] (-) TimerEvent: {}
+[1.905969] (-) TimerEvent: {}
+[2.006301] (-) TimerEvent: {}
+[2.106641] (-) TimerEvent: {}
+[2.206965] (-) TimerEvent: {}
+[2.307328] (-) TimerEvent: {}
+[2.407671] (-) TimerEvent: {}
+[2.508038] (-) TimerEvent: {}
+[2.608354] (-) TimerEvent: {}
+[2.708757] (-) TimerEvent: {}
+[2.809090] (-) TimerEvent: {}
+[2.909488] (-) TimerEvent: {}
+[3.009827] (-) TimerEvent: {}
+[3.110220] (-) TimerEvent: {}
+[3.210568] (-) TimerEvent: {}
+[3.311013] (-) TimerEvent: {}
+[3.411353] (-) TimerEvent: {}
+[3.511695] (-) TimerEvent: {}
+[3.612114] (-) TimerEvent: {}
+[3.712478] (-) TimerEvent: {}
+[3.812781] (-) TimerEvent: {}
+[3.913137] (-) TimerEvent: {}
+[4.013478] (-) TimerEvent: {}
+[4.113790] (-) TimerEvent: {}
+[4.214107] (-) TimerEvent: {}
+[4.314464] (-) TimerEvent: {}
+[4.414891] (-) TimerEvent: {}
+[4.515210] (-) TimerEvent: {}
+[4.615553] (-) TimerEvent: {}
+[4.715992] (-) TimerEvent: {}
+[4.816299] (-) TimerEvent: {}
+[4.916589] (-) TimerEvent: {}
+[5.016925] (-) TimerEvent: {}
+[5.117286] (-) TimerEvent: {}
+[5.217639] (-) TimerEvent: {}
+[5.317943] (-) TimerEvent: {}
+[5.418306] (-) TimerEvent: {}
+[5.518661] (-) TimerEvent: {}
+[5.619101] (-) TimerEvent: {}
+[5.719713] (-) TimerEvent: {}
+[5.820209] (-) TimerEvent: {}
+[5.920633] (-) TimerEvent: {}
+[6.021094] (-) TimerEvent: {}
+[6.121555] (-) TimerEvent: {}
+[6.221987] (-) TimerEvent: {}
+[6.322384] (-) TimerEvent: {}
+[6.422808] (-) TimerEvent: {}
+[6.523231] (-) TimerEvent: {}
+[6.623527] (-) TimerEvent: {}
+[6.723909] (-) TimerEvent: {}
+[6.824231] (-) TimerEvent: {}
+[6.924549] (-) TimerEvent: {}
+[7.024851] (-) TimerEvent: {}
+[7.125187] (-) TimerEvent: {}
+[7.225603] (-) TimerEvent: {}
+[7.325956] (-) TimerEvent: {}
+[7.426412] (-) TimerEvent: {}
+[7.526826] (-) TimerEvent: {}
+[7.627223] (-) TimerEvent: {}
+[7.727565] (-) TimerEvent: {}
+[7.827970] (-) TimerEvent: {}
+[7.928275] (-) TimerEvent: {}
+[8.028671] (-) TimerEvent: {}
+[8.129016] (-) TimerEvent: {}
+[8.229363] (-) TimerEvent: {}
+[8.329737] (-) TimerEvent: {}
+[8.430091] (-) TimerEvent: {}
+[8.530416] (-) TimerEvent: {}
+[8.630756] (-) TimerEvent: {}
+[8.731208] (-) TimerEvent: {}
+[8.831550] (-) TimerEvent: {}
+[8.931855] (-) TimerEvent: {}
+[9.032187] (-) TimerEvent: {}
+[9.132487] (-) TimerEvent: {}
+[9.232844] (-) TimerEvent: {}
+[9.333261] (-) TimerEvent: {}
+[9.433723] (-) TimerEvent: {}
+[9.534142] (-) TimerEvent: {}
+[9.634616] (-) TimerEvent: {}
+[9.734920] (-) TimerEvent: {}
+[9.835284] (-) TimerEvent: {}
+[9.935798] (-) TimerEvent: {}
+[10.036209] (-) TimerEvent: {}
+[10.136781] (-) TimerEvent: {}
+[10.237213] (-) TimerEvent: {}
+[10.337506] (-) TimerEvent: {}
+[10.437871] (-) TimerEvent: {}
+[10.538207] (-) TimerEvent: {}
+[10.638533] (-) TimerEvent: {}
+[10.738860] (-) TimerEvent: {}
+[10.839185] (-) TimerEvent: {}
+[10.939575] (-) TimerEvent: {}
+[11.040002] (-) TimerEvent: {}
+[11.140347] (-) TimerEvent: {}
+[11.240728] (-) TimerEvent: {}
+[11.341097] (-) TimerEvent: {}
+[11.441449] (-) TimerEvent: {}
+[11.541808] (-) TimerEvent: {}
+[11.606343] (chess_pi) StdoutLine: {'line': b'[100%] \x1b[32m\x1b[1mLinking CXX executable chess_node\x1b[0m\n'}
+[11.641967] (-) TimerEvent: {}
+[11.742296] (-) TimerEvent: {}
+[11.842725] (-) TimerEvent: {}
+[11.943050] (-) TimerEvent: {}
+[12.043470] (-) TimerEvent: {}
+[12.143895] (-) TimerEvent: {}
+[12.226440] (chess_pi) StdoutLine: {'line': b'[100%] Built target chess_node\n'}
+[12.240988] (chess_pi) CommandEnded: {'returncode': 0}
+[12.241541] (chess_pi) JobProgress: {'identifier': 'chess_pi', 'progress': 'install'}
+[12.243971] (-) TimerEvent: {}
+[12.250953] (chess_pi) Command: {'cmd': ['/usr/bin/cmake', '--install', '/home/cameron/ros2_ws/src/RaspberryPi-RS2/RS2/ros2_rs2_packages/chess_pi/build/chess_pi'], 'cwd': '/home/cameron/ros2_ws/src/RaspberryPi-RS2/RS2/ros2_rs2_packages/chess_pi/build/chess_pi', 'env': OrderedDict([('LESSOPEN', '| /usr/bin/lesspipe %s'), ('LANGUAGE', 'en_AU:en'), ('USER', 'cameron'), ('XDG_SESSION_TYPE', 'wayland'), ('GIT_ASKPASS', '/tmp/.mount_CursorgkwmxU/usr/share/cursor/resources/app/extensions/git/dist/askpass.sh'), ('SHLVL', '2'), ('LD_LIBRARY_PATH', '/tmp/.mount_CursorgkwmxU/usr/lib/:/tmp/.mount_CursorgkwmxU/usr/lib32/:/tmp/.mount_CursorgkwmxU/usr/lib64/:/tmp/.mount_CursorgkwmxU/lib/:/tmp/.mount_CursorgkwmxU/lib/i386-linux-gnu/:/tmp/.mount_CursorgkwmxU/lib/x86_64-linux-gnu/:/tmp/.mount_CursorgkwmxU/lib/aarch64-linux-gnu/:/tmp/.mount_CursorgkwmxU/lib32/:/tmp/.mount_CursorgkwmxU/lib64/:/usr/lib/x86_64-linux-gnu/gazebo-11/plugins:/opt/ros/humble/opt/rviz_ogre_vendor/lib:/opt/ros/humble/lib/x86_64-linux-gnu:/opt/ros/humble/lib'), ('HOME', '/home/cameron'), ('CHROME_DESKTOP', 'cursor.desktop'), ('APPDIR', '/tmp/.mount_CursorgkwmxU'), ('OLDPWD', '/home/cameron/ros2_ws/src/RaspberryPi-RS2/RS2'), ('DISABLE_AUTO_UPDATE', 'true'), ('TERM_PROGRAM_VERSION', '0.50.5'), ('DESKTOP_SESSION', 'ubuntu'), ('PERLLIB', '/tmp/.mount_CursorgkwmxU/usr/share/perl5/:/tmp/.mount_CursorgkwmxU/usr/lib/perl5/:'), ('ROS_PYTHON_VERSION', '3'), ('GNOME_SHELL_SESSION_MODE', 'ubuntu'), ('GTK_MODULES', 'gail:atk-bridge'), ('PAGER', 'head -n 10000 | cat'), ('VSCODE_GIT_ASKPASS_MAIN', '/tmp/.mount_CursorgkwmxU/usr/share/cursor/resources/app/extensions/git/dist/askpass-main.js'), ('VSCODE_GIT_ASKPASS_NODE', '/tmp/.mount_CursorgkwmxU/usr/share/cursor/cursor'), ('SYSTEMD_EXEC_PID', '2438'), ('IM_CONFIG_CHECK_ENV', '1'), ('DBUS_SESSION_BUS_ADDRESS', 'unix:path=/run/user/1000/bus'), ('COLORTERM', 'truecolor'), ('IM_CONFIG_PHASE', '1'), ('WAYLAND_DISPLAY', 'wayland-0'), ('COLCON_PREFIX_PATH', '/home/cameron/ros2_ws/install'), ('ROS_DISTRO', 'humble'), ('LOGNAME', 'cameron'), ('OWD', '/home/cameron'), ('_', '/usr/bin/colcon'), ('ROS_VERSION', '2'), ('XDG_SESSION_CLASS', 'user'), ('USERNAME', 'cameron'), ('TERM', 'xterm-256color'), ('GNOME_DESKTOP_SESSION_ID', 'this-is-deprecated'), ('ROS_LOCALHOST_ONLY', '0'), ('PATH', '/home/cameron/.local/bin:/home/cameron/.local/bin:/tmp/.mount_CursorgkwmxU/usr/bin/:/tmp/.mount_CursorgkwmxU/usr/sbin/:/tmp/.mount_CursorgkwmxU/usr/games/:/tmp/.mount_CursorgkwmxU/bin/:/tmp/.mount_CursorgkwmxU/sbin/:/opt/ros/humble/bin:/home/cameron/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/snap/bin:/snap/bin:/home/cameron/.config/Cursor/User/globalStorage/github.copilot-chat/debugCommand'), ('SESSION_MANAGER', 'local/UbuntuLaptop:@/tmp/.ICE-unix/2221,unix/UbuntuLaptop:/tmp/.ICE-unix/2221'), ('APPIMAGE', '/home/cameron/Applications/Cursor-0.50.5-x86_64.AppImage'), ('XDG_MENU_PREFIX', 'gnome-'), ('GNOME_TERMINAL_SCREEN', '/org/gnome/Terminal/screen/d0c4079e_29ef_4d9f_899c_1f932b735908'), ('GNOME_SETUP_DISPLAY', ':1'), ('XDG_RUNTIME_DIR', '/run/user/1000'), ('GDK_BACKEND', 'x11'), ('DISPLAY', ':0'), ('LANG', 'en_AU.UTF-8'), ('XDG_CURRENT_DESKTOP', 'Unity'), ('XMODIFIERS', '@im=ibus'), ('XDG_SESSION_DESKTOP', 'ubuntu'), ('XAUTHORITY', '/run/user/1000/.mutter-Xwaylandauth.X18T62'), ('LS_COLORS', 'rs=0:di=01;34:ln=01;36:mh=00:pi=40;33:so=01;35:do=01;35:bd=40;33;01:cd=40;33;01:or=40;31;01:mi=00:su=37;41:sg=30;43:ca=30;41:tw=30;42:ow=34;42:st=37;44:ex=01;32:*.tar=01;31:*.tgz=01;31:*.arc=01;31:*.arj=01;31:*.taz=01;31:*.lha=01;31:*.lz4=01;31:*.lzh=01;31:*.lzma=01;31:*.tlz=01;31:*.txz=01;31:*.tzo=01;31:*.t7z=01;31:*.zip=01;31:*.z=01;31:*.dz=01;31:*.gz=01;31:*.lrz=01;31:*.lz=01;31:*.lzo=01;31:*.xz=01;31:*.zst=01;31:*.tzst=01;31:*.bz2=01;31:*.bz=01;31:*.tbz=01;31:*.tbz2=01;31:*.tz=01;31:*.deb=01;31:*.rpm=01;31:*.jar=01;31:*.war=01;31:*.ear=01;31:*.sar=01;31:*.rar=01;31:*.alz=01;31:*.ace=01;31:*.zoo=01;31:*.cpio=01;31:*.7z=01;31:*.rz=01;31:*.cab=01;31:*.wim=01;31:*.swm=01;31:*.dwm=01;31:*.esd=01;31:*.jpg=01;35:*.jpeg=01;35:*.mjpg=01;35:*.mjpeg=01;35:*.gif=01;35:*.bmp=01;35:*.pbm=01;35:*.pgm=01;35:*.ppm=01;35:*.tga=01;35:*.xbm=01;35:*.xpm=01;35:*.tif=01;35:*.tiff=01;35:*.png=01;35:*.svg=01;35:*.svgz=01;35:*.mng=01;35:*.pcx=01;35:*.mov=01;35:*.mpg=01;35:*.mpeg=01;35:*.m2v=01;35:*.mkv=01;35:*.webm=01;35:*.webp=01;35:*.ogm=01;35:*.mp4=01;35:*.m4v=01;35:*.mp4v=01;35:*.vob=01;35:*.qt=01;35:*.nuv=01;35:*.wmv=01;35:*.asf=01;35:*.rm=01;35:*.rmvb=01;35:*.flc=01;35:*.avi=01;35:*.fli=01;35:*.flv=01;35:*.gl=01;35:*.dl=01;35:*.xcf=01;35:*.xwd=01;35:*.yuv=01;35:*.cgm=01;35:*.emf=01;35:*.ogv=01;35:*.ogx=01;35:*.aac=00;36:*.au=00;36:*.flac=00;36:*.m4a=00;36:*.mid=00;36:*.midi=00;36:*.mka=00;36:*.mp3=00;36:*.mpc=00;36:*.ogg=00;36:*.ra=00;36:*.wav=00;36:*.oga=00;36:*.opus=00;36:*.spx=00;36:*.xspf=00;36:'), ('VSCODE_GIT_IPC_HANDLE', '/run/user/1000/vscode-git-ca92b35611.sock'), ('GNOME_TERMINAL_SERVICE', ':1.164'), ('TERM_PROGRAM', 'vscode'), ('CURSOR_TRACE_ID', '85f4697520124c3894ff3deea09e135a'), ('SSH_AGENT_LAUNCHER', 'gnome-keyring'), ('SSH_AUTH_SOCK', '/run/user/1000/keyring/ssh'), ('GSETTINGS_SCHEMA_DIR', '/tmp/.mount_CursorgkwmxU/usr/share/glib-2.0/schemas/:'), ('ROS_DOMAIN_ID', '50'), ('AMENT_PREFIX_PATH', '/home/cameron/ros2_ws/install/ur3_test_control:/home/cameron/ros2_ws/install/chess_pi:/opt/ros/humble'), ('ORIGINAL_XDG_CURRENT_DESKTOP', 'ubuntu:GNOME'), ('SHELL', '/bin/bash'), ('ARGV0', '/home/cameron/Applications/Cursor-0.50.5-x86_64.AppImage'), ('QT_ACCESSIBILITY', '1'), ('GDMSESSION', 'ubuntu'), ('LESSCLOSE', '/usr/bin/lesspipe %s %s'), ('GAZEBO_RESOURCE_PATH', '/usr/share/gazebo-11/'), ('VSCODE_GIT_ASKPASS_EXTRA_ARGS', ''), ('QT_IM_MODULE', 'ibus'), ('PWD', '/home/cameron/ros2_ws/src/RaspberryPi-RS2/RS2/ros2_rs2_packages/chess_pi/build/chess_pi'), ('XDG_CONFIG_DIRS', '/etc/xdg/xdg-ubuntu:/etc/xdg'), ('XDG_DATA_DIRS', '/tmp/.mount_CursorgkwmxU/usr/share/:/usr/local/share:/usr/share:/usr/share/ubuntu:/usr/local/share/:/usr/share/:/var/lib/snapd/desktop'), ('PYTHONPATH', '/home/cameron/ros2_ws/install/ur3_test_control/local/lib/python3.10/dist-packages:/home/cameron/ros2_ws/install/chess_pi/local/lib/python3.10/dist-packages:/opt/ros/humble/lib/python3.10/site-packages:/opt/ros/humble/local/lib/python3.10/dist-packages'), ('QT_PLUGIN_PATH', '/tmp/.mount_CursorgkwmxU/usr/lib/qt4/plugins/:/tmp/.mount_CursorgkwmxU/usr/lib/i386-linux-gnu/qt4/plugins/:/tmp/.mount_CursorgkwmxU/usr/lib/x86_64-linux-gnu/qt4/plugins/:/tmp/.mount_CursorgkwmxU/usr/lib/aarch64-linux-gnu/qt4/plugins/:/tmp/.mount_CursorgkwmxU/usr/lib32/qt4/plugins/:/tmp/.mount_CursorgkwmxU/usr/lib64/qt4/plugins/:/tmp/.mount_CursorgkwmxU/usr/lib/qt5/plugins/:/tmp/.mount_CursorgkwmxU/usr/lib/i386-linux-gnu/qt5/plugins/:/tmp/.mount_CursorgkwmxU/usr/lib/x86_64-linux-gnu/qt5/plugins/:/tmp/.mount_CursorgkwmxU/usr/lib/aarch64-linux-gnu/qt5/plugins/:/tmp/.mount_CursorgkwmxU/usr/lib32/qt5/plugins/:/tmp/.mount_CursorgkwmxU/usr/lib64/qt5/plugins/:'), ('COLCON', '1'), ('VTE_VERSION', '6800'), ('CMAKE_PREFIX_PATH', '/home/cameron/ros2_ws/install/ur3_test_control:/home/cameron/ros2_ws/install/chess_pi:/opt/ros/humble')]), 'shell': False}
+[12.261993] (chess_pi) StdoutLine: {'line': b'-- Install configuration: ""\n'}
+[12.262294] (chess_pi) StdoutLine: {'line': b'-- Installing: /home/cameron/ros2_ws/src/RaspberryPi-RS2/RS2/ros2_rs2_packages/chess_pi/install/chess_pi/lib/chess_pi/chess_node\n'}
+[12.265678] (chess_pi) StdoutLine: {'line': b'-- Set runtime path of "/home/cameron/ros2_ws/src/RaspberryPi-RS2/RS2/ros2_rs2_packages/chess_pi/install/chess_pi/lib/chess_pi/chess_node" to ""\n'}
+[12.266035] (chess_pi) StdoutLine: {'line': b'-- Installing: /home/cameron/ros2_ws/src/RaspberryPi-RS2/RS2/ros2_rs2_packages/chess_pi/install/chess_pi/share/chess_pi/launch\n'}
+[12.266228] (chess_pi) StdoutLine: {'line': b'-- Installing: /home/cameron/ros2_ws/src/RaspberryPi-RS2/RS2/ros2_rs2_packages/chess_pi/install/chess_pi/share/chess_pi/launch/moveL.launch.py\n'}
+[12.266414] (chess_pi) StdoutLine: {'line': b'-- Installing: /home/cameron/ros2_ws/src/RaspberryPi-RS2/RS2/ros2_rs2_packages/chess_pi/install/chess_pi/share/chess_pi/launch/__pycache__\n'}
+[12.266594] (chess_pi) StdoutLine: {'line': b'-- Installing: /home/cameron/ros2_ws/src/RaspberryPi-RS2/RS2/ros2_rs2_packages/chess_pi/install/chess_pi/share/chess_pi/launch/__pycache__/moveL.launch.cpython-310.pyc\n'}
+[12.266731] (chess_pi) StdoutLine: {'line': b'-- Installing: /home/cameron/ros2_ws/src/RaspberryPi-RS2/RS2/ros2_rs2_packages/chess_pi/install/chess_pi/share/chess_pi/images\n'}
+[12.266859] (chess_pi) StdoutLine: {'line': b'-- Installing: /home/cameron/ros2_ws/src/RaspberryPi-RS2/RS2/ros2_rs2_packages/chess_pi/install/chess_pi/share/chess_pi/images/pieces.png\n'}
+[12.266983] (chess_pi) StdoutLine: {'line': b'-- Installing: /home/cameron/ros2_ws/src/RaspberryPi-RS2/RS2/ros2_rs2_packages/chess_pi/install/chess_pi/share/chess_pi/config\n'}
+[12.267107] (chess_pi) StdoutLine: {'line': b'-- Installing: /home/cameron/ros2_ws/src/RaspberryPi-RS2/RS2/ros2_rs2_packages/chess_pi/install/chess_pi/share/chess_pi/config/controllers.yaml\n'}
+[12.267231] (chess_pi) StdoutLine: {'line': b'-- Installing: /home/cameron/ros2_ws/src/RaspberryPi-RS2/RS2/ros2_rs2_packages/chess_pi/install/chess_pi/share/chess_pi/config/kinematics.yaml\n'}
+[12.267354] (chess_pi) StdoutLine: {'line': b'-- Installing: /home/cameron/ros2_ws/src/RaspberryPi-RS2/RS2/ros2_rs2_packages/chess_pi/install/chess_pi/lib/chess_pi/servo_control_node.py\n'}
+[12.267476] (chess_pi) StdoutLine: {'line': b'-- Installing: /home/cameron/ros2_ws/src/RaspberryPi-RS2/RS2/ros2_rs2_packages/chess_pi/install/chess_pi/share/chess_pi/environment/pythonpath.sh\n'}
+[12.267598] (chess_pi) StdoutLine: {'line': b'-- Installing: /home/cameron/ros2_ws/src/RaspberryPi-RS2/RS2/ros2_rs2_packages/chess_pi/install/chess_pi/share/chess_pi/environment/pythonpath.dsv\n'}
+[12.267732] (chess_pi) StdoutLine: {'line': b'-- Installing: /home/cameron/ros2_ws/src/RaspberryPi-RS2/RS2/ros2_rs2_packages/chess_pi/install/chess_pi/local/lib/python3.10/dist-packages/chess_pi-0.0.0-py3.10.egg-info\n'}
+[12.267892] (chess_pi) StdoutLine: {'line': b'-- Installing: /home/cameron/ros2_ws/src/RaspberryPi-RS2/RS2/ros2_rs2_packages/chess_pi/install/chess_pi/local/lib/python3.10/dist-packages/chess_pi-0.0.0-py3.10.egg-info/PKG-INFO\n'}
+[12.268029] (chess_pi) StdoutLine: {'line': b'-- Installing: /home/cameron/ros2_ws/src/RaspberryPi-RS2/RS2/ros2_rs2_packages/chess_pi/install/chess_pi/local/lib/python3.10/dist-packages/chess_pi-0.0.0-py3.10.egg-info/SOURCES.txt\n'}
+[12.268150] (chess_pi) StdoutLine: {'line': b'-- Installing: /home/cameron/ros2_ws/src/RaspberryPi-RS2/RS2/ros2_rs2_packages/chess_pi/install/chess_pi/local/lib/python3.10/dist-packages/chess_pi-0.0.0-py3.10.egg-info/top_level.txt\n'}
+[12.268273] (chess_pi) StdoutLine: {'line': b'-- Installing: /home/cameron/ros2_ws/src/RaspberryPi-RS2/RS2/ros2_rs2_packages/chess_pi/install/chess_pi/local/lib/python3.10/dist-packages/chess_pi-0.0.0-py3.10.egg-info/dependency_links.txt\n'}
+[12.268389] (chess_pi) StdoutLine: {'line': b'-- Installing: /home/cameron/ros2_ws/src/RaspberryPi-RS2/RS2/ros2_rs2_packages/chess_pi/install/chess_pi/local/lib/python3.10/dist-packages/chess_pi\n'}
+[12.268503] (chess_pi) StdoutLine: {'line': b'-- Installing: /home/cameron/ros2_ws/src/RaspberryPi-RS2/RS2/ros2_rs2_packages/chess_pi/install/chess_pi/local/lib/python3.10/dist-packages/chess_pi/__init__.py\n'}
+[12.303442] (chess_pi) StdoutLine: {'line': b"Listing '/home/cameron/ros2_ws/src/RaspberryPi-RS2/RS2/ros2_rs2_packages/chess_pi/install/chess_pi/local/lib/python3.10/dist-packages/chess_pi'...\n"}
+[12.303752] (chess_pi) StdoutLine: {'line': b"Compiling '/home/cameron/ros2_ws/src/RaspberryPi-RS2/RS2/ros2_rs2_packages/chess_pi/install/chess_pi/local/lib/python3.10/dist-packages/chess_pi/__init__.py'...\n"}
+[12.308881] (chess_pi) StdoutLine: {'line': b'-- Installing: /home/cameron/ros2_ws/src/RaspberryPi-RS2/RS2/ros2_rs2_packages/chess_pi/install/chess_pi/share/ament_index/resource_index/package_run_dependencies/chess_pi\n'}
+[12.309299] (chess_pi) StdoutLine: {'line': b'-- Installing: /home/cameron/ros2_ws/src/RaspberryPi-RS2/RS2/ros2_rs2_packages/chess_pi/install/chess_pi/share/ament_index/resource_index/parent_prefix_path/chess_pi\n'}
+[12.309431] (chess_pi) StdoutLine: {'line': b'-- Installing: /home/cameron/ros2_ws/src/RaspberryPi-RS2/RS2/ros2_rs2_packages/chess_pi/install/chess_pi/share/chess_pi/environment/ament_prefix_path.sh\n'}
+[12.309541] (chess_pi) StdoutLine: {'line': b'-- Installing: /home/cameron/ros2_ws/src/RaspberryPi-RS2/RS2/ros2_rs2_packages/chess_pi/install/chess_pi/share/chess_pi/environment/ament_prefix_path.dsv\n'}
+[12.309650] (chess_pi) StdoutLine: {'line': b'-- Installing: /home/cameron/ros2_ws/src/RaspberryPi-RS2/RS2/ros2_rs2_packages/chess_pi/install/chess_pi/share/chess_pi/environment/path.sh\n'}
+[12.309858] (chess_pi) StdoutLine: {'line': b'-- Installing: /home/cameron/ros2_ws/src/RaspberryPi-RS2/RS2/ros2_rs2_packages/chess_pi/install/chess_pi/share/chess_pi/environment/path.dsv\n'}
+[12.309962] (chess_pi) StdoutLine: {'line': b'-- Installing: /home/cameron/ros2_ws/src/RaspberryPi-RS2/RS2/ros2_rs2_packages/chess_pi/install/chess_pi/share/chess_pi/local_setup.bash\n'}
+[12.310061] (chess_pi) StdoutLine: {'line': b'-- Installing: /home/cameron/ros2_ws/src/RaspberryPi-RS2/RS2/ros2_rs2_packages/chess_pi/install/chess_pi/share/chess_pi/local_setup.sh\n'}
+[12.310160] (chess_pi) StdoutLine: {'line': b'-- Installing: /home/cameron/ros2_ws/src/RaspberryPi-RS2/RS2/ros2_rs2_packages/chess_pi/install/chess_pi/share/chess_pi/local_setup.zsh\n'}
+[12.310258] (chess_pi) StdoutLine: {'line': b'-- Installing: /home/cameron/ros2_ws/src/RaspberryPi-RS2/RS2/ros2_rs2_packages/chess_pi/install/chess_pi/share/chess_pi/local_setup.dsv\n'}
+[12.310354] (chess_pi) StdoutLine: {'line': b'-- Installing: /home/cameron/ros2_ws/src/RaspberryPi-RS2/RS2/ros2_rs2_packages/chess_pi/install/chess_pi/share/chess_pi/package.dsv\n'}
+[12.310450] (chess_pi) StdoutLine: {'line': b'-- Installing: /home/cameron/ros2_ws/src/RaspberryPi-RS2/RS2/ros2_rs2_packages/chess_pi/install/chess_pi/share/ament_index/resource_index/packages/chess_pi\n'}
+[12.310551] (chess_pi) StdoutLine: {'line': b'-- Installing: /home/cameron/ros2_ws/src/RaspberryPi-RS2/RS2/ros2_rs2_packages/chess_pi/install/chess_pi/share/chess_pi/cmake/chess_piConfig.cmake\n'}
+[12.310649] (chess_pi) StdoutLine: {'line': b'-- Installing: /home/cameron/ros2_ws/src/RaspberryPi-RS2/RS2/ros2_rs2_packages/chess_pi/install/chess_pi/share/chess_pi/cmake/chess_piConfig-version.cmake\n'}
+[12.310761] (chess_pi) StdoutLine: {'line': b'-- Installing: /home/cameron/ros2_ws/src/RaspberryPi-RS2/RS2/ros2_rs2_packages/chess_pi/install/chess_pi/share/chess_pi/package.xml\n'}
+[12.312623] (chess_pi) CommandEnded: {'returncode': 0}
+[12.327520] (chess_pi) JobEnded: {'identifier': 'chess_pi', 'rc': 0}
+[12.328191] (-) EventReactorShutdown: {}

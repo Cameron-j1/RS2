@@ -1,3 +1,5 @@
+#pragma region Includes and Configuration
+
 #include <iostream>
 #include <SFML/Graphics.hpp>
 #include <rclcpp/rclcpp.hpp>
@@ -38,16 +40,395 @@ sf::Color warningRed(255, 50, 50); // Red color for warning flashing text
 // Texture path
 std::string chessPiecesPath = ament_index_cpp::get_package_share_directory("chess_pi") + "/images/pieces.png";
 
+#pragma endregion Includes and Configuration
+
+#pragma region Global Variables and Structs
+
 // Flashing text struct
 struct FlashingText {
-    sf::Text text;
+    std::vector<sf::Text> textLines;
     bool isActive = false;
     bool isVisible = true;
     float frequency = 2.0f; // Flashes per second
     float timer = 0.0f;
 };
 
+// Global variables for move indication
+sf::Vector2i selectedPiece(-1, -1);
+std::vector<std::vector<int>> possibleMoves;
+std::vector<sf::CircleShape> moveIndicators;
+
+// Game state variables for complete FEN notation
+bool whiteToMove = true;  // Track whose turn it is
+bool whiteCanCastleKing = true;
+bool whiteCanCastleQueen = true;
+bool blackCanCastleKing = true;
+bool blackCanCastleQueen = true;
+std::string enPassantTarget = "-";  // En passant target square
+int halfmoveClock = 0;  // Halfmove clock (moves since last pawn move or capture)
+int fullmoveNumber = 1;  // Fullmove number
+
+std::unordered_map<int, bool> isCastling;
+unsigned char board[8][8] = {{'-'}};
+
+#pragma endregion Global Variables and Structs
+
+#pragma region Function Declarations
+
+// Function declarations (add before any function definitions)
+void updateMoveIndicators(int row, int col);
+std::string coordsToChessNotation(int row, int col);
+std::string createMoveString(int fromRow, int fromCol, int toRow, int toCol, char piece, bool isCapture, bool isCastling, bool isPromotion);
+
+#pragma endregion Function Declarations
+
+#pragma region Chess Logic Functions
+
+// Function to generate FEN string from current board state
+std::string boardToFen() {
+    std::string fen = "";
+    
+    // 1. Board position
+    for (int row = 0; row < 8; row++) {
+        if (row > 0) fen += "/";
+        
+        int emptyCount = 0;
+        for (int col = 0; col < 8; col++) {
+            char piece = board[row][col];
+            if (piece == '-') {
+                emptyCount++;
+            } else {
+                if (emptyCount > 0) {
+                    fen += std::to_string(emptyCount);
+                    emptyCount = 0;
+                }
+                fen += piece;
+            }
+        }
+        if (emptyCount > 0) {
+            fen += std::to_string(emptyCount);
+        }
+    }
+    
+    // 2. Active color
+    fen += " ";
+    fen += whiteToMove ? "w" : "b";
+    
+    // 3. Castling availability
+    fen += " ";
+    std::string castling = "";
+    if (whiteCanCastleKing) castling += "K";
+    if (whiteCanCastleQueen) castling += "Q";
+    if (blackCanCastleKing) castling += "k";
+    if (blackCanCastleQueen) castling += "q";
+    if (castling.empty()) castling = "-";
+    fen += castling;
+    
+    // 4. En passant target square
+    fen += " ";
+    fen += enPassantTarget;
+    
+    // 5. Halfmove clock
+    fen += " ";
+    fen += std::to_string(halfmoveClock);
+    
+    // 6. Fullmove number
+    fen += " ";
+    fen += std::to_string(fullmoveNumber);
+    
+    return fen;
+}
+
+// Function to get just the board position part (for sending to other GUI)
+std::string getBoardPosition() {
+    std::string boardPos = "";
+    
+    for (int row = 0; row < 8; row++) {
+        if (row > 0) boardPos += "/";
+        
+        int emptyCount = 0;
+        for (int col = 0; col < 8; col++) {
+            char piece = board[row][col];
+            if (piece == '-') {
+                emptyCount++;
+            } else {
+                if (emptyCount > 0) {
+                    boardPos += std::to_string(emptyCount);
+                    emptyCount = 0;
+                }
+                boardPos += piece;
+            }
+        }
+        if (emptyCount > 0) {
+            boardPos += std::to_string(emptyCount);
+        }
+    }
+    
+    return boardPos;
+}
+
+// Function to execute a move on the board and return move information
+struct MoveInfo {
+    bool isCapture;
+    bool isCastling;
+    bool isPromotion;
+};
+
+MoveInfo executeMove(int fromRow, int fromCol, int toRow, int toCol) {
+    MoveInfo moveInfo = {false, false, false};
+    
+    char piece = board[fromRow][fromCol];
+    char capturedPiece = board[toRow][toCol];
+    
+    // Check if it's a capture
+    if (capturedPiece != '-') {
+        moveInfo.isCapture = true;
+    }
+    
+    // Check if it's a pawn promotion
+    if ((piece == 'P' && toRow == 0) || (piece == 'p' && toRow == 7)) {
+        moveInfo.isPromotion = true;
+        std::cout << "Pawn promotion detected!" << std::endl;
+    }
+    
+    board[fromRow][fromCol] = '-';
+    
+    // Handle promotion - convert pawn to queen
+    if (moveInfo.isPromotion) {
+        if (piece == 'P') {
+            board[toRow][toCol] = 'Q';  // White pawn promotes to white queen
+            std::cout << "White pawn promoted to Queen!" << std::endl;
+        } else {
+            board[toRow][toCol] = 'q';  // Black pawn promotes to black queen
+            std::cout << "Black pawn promoted to Queen!" << std::endl;
+        }
+    } else {
+        board[toRow][toCol] = piece;
+    }
+    
+    // Handle castling
+    if ((piece == 'K' || piece == 'k') && abs(toCol - fromCol) == 2) {
+        // This is castling
+        moveInfo.isCastling = true;
+        if (toCol == 6) { // Kingside castling
+            // Move rook from h-file to f-file
+            char rook = board[fromRow][7];
+            board[fromRow][7] = '-';
+            board[fromRow][5] = rook;
+            std::cout << "Kingside castling executed!" << std::endl;
+        } else if (toCol == 2) { // Queenside castling
+            // Move rook from a-file to d-file
+            char rook = board[fromRow][0];
+            board[fromRow][0] = '-';
+            board[fromRow][3] = rook;
+            std::cout << "Queenside castling executed!" << std::endl;
+        }
+    }
+    
+    // Update castling rights
+    if (piece == 'K') {
+        whiteCanCastleKing = false;
+        whiteCanCastleQueen = false;
+    } else if (piece == 'k') {
+        blackCanCastleKing = false;
+        blackCanCastleQueen = false;
+    } else if (piece == 'R') {
+        if (fromRow == 7 && fromCol == 7) whiteCanCastleKing = false;
+        if (fromRow == 7 && fromCol == 0) whiteCanCastleQueen = false;
+    } else if (piece == 'r') {
+        if (fromRow == 0 && fromCol == 7) blackCanCastleKing = false;
+        if (fromRow == 0 && fromCol == 0) blackCanCastleQueen = false;
+    }
+    
+    // Update halfmove clock
+    if (piece == 'P' || piece == 'p' || capturedPiece != '-') {
+        halfmoveClock = 0;  // Reset on pawn move or capture
+    } else {
+        halfmoveClock++;
+    }
+    
+    // Update fullmove number (increment after black's move)
+    if (!whiteToMove) {
+        fullmoveNumber++;
+    }
+    
+    // Switch turns
+    whiteToMove = !whiteToMove;
+    
+    // Reset en passant target (simplified - would need more logic for actual en passant)
+    enPassantTarget = "-";
+    
+    return moveInfo;
+}
+
+bool isValid(int row, int col) {
+    return row >= 0 && row < 8 && col >= 0 && col < 8;
+}
+
+// Helper function to check if two pieces are enemies (one uppercase, one lowercase)
+bool isEnemy(char piece1, char piece2) {
+    return (std::isupper(piece1) && std::islower(piece2)) || 
+           (std::islower(piece1) && std::isupper(piece2));
+}
+
+std::vector<std::vector<int>> getPossibleMoves(int row, int col) {
+    std::vector<std::vector<int>> moves;
+    char currentPiece = board[row][col];
+    bool isWhite = std::isupper(currentPiece);
+
+    if (!isValid(row, col) || currentPiece == '-') {
+        return moves; // Invalid position or empty cell
+    }
+
+    if (currentPiece == 'p' || currentPiece == 'P') {
+        int direction = isWhite ? -1 : 1; // White moves up, Black moves down
+        int startRow = isWhite ? 6 : 1;   // Starting row for two-step move
+
+        // Forward move
+        int newRow = row + direction;
+        if (isValid(newRow, col) && board[newRow][col] == '-') {
+            moves.push_back({newRow, col});
+            // Two-step move from starting row
+            if (row == startRow && board[newRow + direction][col] == '-') {
+                moves.push_back({newRow + direction, col});
+            }
+        }
+
+        // Capture moves (diagonal)
+        for (int dc : {-1, 1}) {
+            newRow = row + direction;
+            int newCol = col + dc;
+            if (isValid(newRow, newCol) && board[newRow][newCol] != '-' && 
+                isEnemy(currentPiece, board[newRow][newCol])) {
+                moves.push_back({newRow, newCol});
+            }
+        }
+    }
+    else if (currentPiece == 'r' || currentPiece == 'R') {
+        // Directions: up, down, left, right
+        std::vector<std::vector<int>> directions = {{-1, 0}, {1, 0}, {0, -1}, {0, 1}};
+        for (const auto& dir : directions) {
+            int newRow = row, newCol = col;
+            while (true) {
+                newRow += dir[0];
+                newCol += dir[1];
+                if (!isValid(newRow, newCol)) break;
+                if (board[newRow][newCol] == '-') {
+                    moves.push_back({newRow, newCol});
+                }
+                else if (isEnemy(currentPiece, board[newRow][newCol])) {
+                    moves.push_back({newRow, newCol});
+                    break; // Stop after capturing
+                }
+                else {
+                    break; // Blocked by friendly piece
+                }
+            }
+        }
+    }
+    else if (currentPiece == 'n' || currentPiece == 'N') {
+        std::vector<std::vector<int>> offsets = {
+            {-2, -1}, {-2, 1}, {-1, -2}, {-1, 2},
+            {1, -2}, {1, 2}, {2, -1}, {2, 1}
+        };
+        for (const auto& offset : offsets) {
+            int newRow = row + offset[0];
+            int newCol = col + offset[1];
+            if (isValid(newRow, newCol) && 
+                (board[newRow][newCol] == '-' || isEnemy(currentPiece, board[newRow][newCol]))) {
+                moves.push_back({newRow, newCol});
+            }
+        }
+    }
+    else if (currentPiece == 'b' || currentPiece == 'B') {
+        std::vector<std::vector<int>> directions = {{-1, -1}, {-1, 1}, {1, -1}, {1, 1}};
+        for (const auto& dir : directions) {
+            int newRow = row, newCol = col;
+            while (true) {
+                newRow += dir[0];
+                newCol += dir[1];
+                if (!isValid(newRow, newCol)) break;
+                if (board[newRow][newCol] == '-') {
+                    moves.push_back({newRow, newCol});
+                }
+                else if (isEnemy(currentPiece, board[newRow][newCol])) {
+                    moves.push_back({newRow, newCol});
+                    break;
+                }
+                else {
+                    break;
+                }
+            }
+        }
+    }
+    else if (currentPiece == 'q' || currentPiece == 'Q') {
+        std::vector<std::vector<int>> directions = {
+            {-1, 0}, {1, 0}, {0, -1}, {0, 1}, // Rook-like
+            {-1, -1}, {-1, 1}, {1, -1}, {1, 1} // Bishop-like
+        };
+        for (const auto& dir : directions) {
+            int newRow = row, newCol = col;
+            while (true) {
+                newRow += dir[0];
+                newCol += dir[1];
+                if (!isValid(newRow, newCol)) break;
+                if (board[newRow][newCol] == '-') {
+                    moves.push_back({newRow, newCol});
+                }
+                else if (isEnemy(currentPiece, board[newRow][newCol])) {
+                    moves.push_back({newRow, newCol});
+                    break;
+                }
+                else {
+                    break;
+                }
+            }
+        }
+    }
+    else if (currentPiece == 'k' || currentPiece == 'K') {
+        // Standard king moves
+        std::vector<std::vector<int>> offsets = {
+            {-1, -1}, {-1, 0}, {-1, 1},
+            {0, -1},           {0, 1},
+            {1, -1},  {1, 0},  {1, 1}
+        };
+        for (const auto& offset : offsets) {
+            int newRow = row + offset[0];
+            int newCol = col + offset[1];
+            if (isValid(newRow, newCol) && 
+                (board[newRow][newCol] == '-' || isEnemy(currentPiece, board[newRow][newCol]))) {
+                moves.push_back({newRow, newCol});
+            }
+        }
+
+        // Castling moves
+        bool isWhite = (currentPiece == 'K');
+        int startRow = isWhite ? 7 : 0; // White king at row 7, Black at row 0
+        
+        if (row == startRow && col == 4) { // King must be at e1 (7,4) or e8 (0,4)
+            // Kingside castling (right, toward h-file)
+            if (board[startRow][7] == (isWhite ? 'R' : 'r') && // Rook at h1/h8
+                board[startRow][5] == '-' && board[startRow][6] == '-') { // f and g empty
+                moves.push_back({startRow, 6}); // King moves to g1/g8
+                isCastling[startRow * 8 + 6] = true;
+            }
+            // Queenside castling (left, toward a-file)
+            if (board[startRow][0] == (isWhite ? 'R' : 'r') && // Rook at a1/a8
+                board[startRow][1] == '-' && board[startRow][2] == '-' && board[startRow][3] == '-') { // b, c, d empty
+                moves.push_back({startRow, 2}); // King moves to c1/c8
+                isCastling[startRow * 8 + 2] = true;
+            }
+        }
+    }
+
+    return moves;
+}
+
+#pragma endregion Chess Logic Functions
+
 #pragma region GUI Structs and Classes
+
+// Custom GUI Code for move validation
 
 // Custom RoundedRectangleShape class for rounded buttons
 class RoundedRectangleShape : public sf::Shape
@@ -133,7 +514,6 @@ private:
     unsigned int m_cornerPointCount;
 };
 
-
 // Button and Dropdown structs
 struct Button
 {
@@ -182,7 +562,7 @@ Button createButton(sf::Font &font, const std::string &label, float x, float y, 
 std::vector<Button> createGameButtons(sf::Font &font)
 {
     std::vector<Button> buttons;
-    std::vector<std::string> labels = {""};
+    std::vector<std::string> labels = {};
 
     int buttonWidth = 120, buttonHeight = 40;
     int rightPanelX = BOARD_OFFSET_X + BOARD_SIZE * SQUARE_SIZE + 280;
@@ -247,22 +627,52 @@ Dropdown createDifficultyDropdown(sf::Font &font)
     return dropdown;
 }
 
+#pragma endregion GUI Structs and Classes
+
+#pragma region GUI Helper Functions
+
 // Create a flashing text message
 FlashingText createFlashingText(sf::Font &font, const std::string &message, float x, float y, float frequency, sf::Color color)
 {
     FlashingText flashingText;
     
-    flashingText.text.setFont(font);
-    flashingText.text.setString(message);
-    flashingText.text.setCharacterSize(20);
-    flashingText.text.setFillColor(color);
-    flashingText.text.setStyle(sf::Text::Bold);
+    flashingText.textLines.push_back(sf::Text());
+    flashingText.textLines.back().setFont(font);
+    flashingText.textLines.back().setString(message);
+    flashingText.textLines.back().setCharacterSize(20);
+    flashingText.textLines.back().setFillColor(color);
+    flashingText.textLines.back().setStyle(sf::Text::Bold);
     
     // Center the text
-    sf::FloatRect textBounds = flashingText.text.getLocalBounds();
-    flashingText.text.setPosition(
+    sf::FloatRect textBounds = flashingText.textLines.back().getLocalBounds();
+    flashingText.textLines.back().setPosition(
         x - textBounds.width / 2.0f - textBounds.left,
         y - textBounds.height / 2.0f - textBounds.top);
+    
+    flashingText.frequency = frequency;
+    flashingText.isActive = false;
+    flashingText.isVisible = true;
+    flashingText.timer = 0.0f;
+    
+    return flashingText;
+}
+
+// Create a multi-line flashing text message positioned on the right side
+FlashingText createMultiLineFlashingText(sf::Font &font, const std::vector<std::string> &lines, float x, float y, float frequency, sf::Color color)
+{
+    FlashingText flashingText;
+    
+    for (size_t i = 0; i < lines.size(); i++) {
+        flashingText.textLines.push_back(sf::Text());
+        flashingText.textLines.back().setFont(font);
+        flashingText.textLines.back().setString(lines[i]);
+        flashingText.textLines.back().setCharacterSize(14);
+        flashingText.textLines.back().setFillColor(color);
+        flashingText.textLines.back().setStyle(sf::Text::Bold);
+        
+        // Position each line
+        flashingText.textLines.back().setPosition(x, y + i * 18); // 18 pixels between lines
+    }
     
     flashingText.frequency = frequency;
     flashingText.isActive = false;
@@ -289,7 +699,9 @@ void updateFlashingText(FlashingText &flashingText, float deltaTime)
     }
 }
 
-unsigned char board[8][8] = {{'-'}};
+#pragma endregion GUI Helper Functions
+
+#pragma region Drawing Functions
 
 void drawBoard(sf::RenderWindow &window)
 {
@@ -303,6 +715,11 @@ void drawBoard(sf::RenderWindow &window)
             window.draw(square);
         }
     }
+    
+    // Draw move indicators
+    for (const auto& indicator : moveIndicators) {
+        window.draw(indicator);
+    }
 }
 
 std::vector<sf::Sprite> makePieces(const sf::Texture &texture, std::string fen)
@@ -312,11 +729,25 @@ std::vector<sf::Sprite> makePieces(const sf::Texture &texture, std::string fen)
     sf::Sprite piece(texture);
     piece.setScale(SQUARE_SIZE / 64.f, SQUARE_SIZE / 64.f);
 
+    // First, initialize the entire board with empty squares
+    for (int r = 0; r < 8; r++) {
+        for (int c = 0; c < 8; c++) {
+            board[r][c] = '-';
+        }
+    }
+
     for (char c : fen)
     {
         if (isdigit(c))
         {
-            col += c - '0';
+            // For digits, we need to mark those squares as empty and advance the column
+            int emptySquares = c - '0';
+            for (int i = 0; i < emptySquares; i++) {
+                if (col < 8) {
+                    board[row][col] = '-';
+                    col++;
+                }
+            }
             continue;
         }
         if (c == '/')
@@ -355,6 +786,16 @@ std::vector<sf::Sprite> makePieces(const sf::Texture &texture, std::string fen)
         board[row][col] = c;
         col++;
     }
+    
+    // Debug: Print the board state
+    std::cout << "Board state after FEN parsing:" << std::endl;
+    for (int r = 0; r < 8; r++) {
+        for (int c = 0; c < 8; c++) {
+            std::cout << board[r][c];
+        }
+        std::cout << std::endl;
+    }
+    
     return result;
 }
 
@@ -383,18 +824,21 @@ void drawStatus(sf::RenderWindow &window, sf::Font &font, const std::string &sta
     window.draw(statusText);
 }
 
-#pragma endregion GUI
+#pragma endregion Drawing Functions
 
 #pragma region ROS2 Topic Subs and Services
 class ChessSubscriber : public rclcpp::Node
 {
 public:
-    ChessSubscriber() : Node("chess_visualizer")
+    ChessSubscriber() : Node("chessGUI")
     {
         subscription_ = this->create_subscription<std_msgs::msg::String>(
             "fen_string", 10, std::bind(&ChessSubscriber::moveCallback, this, std::placeholders::_1));
 
         publisher_ = this->create_publisher<std_msgs::msg::String>("chess_control", 10);
+        
+        // Publisher for chess moves (move strings)
+        chess_moves_publisher_ = this->create_publisher<std_msgs::msg::String>("/chess_moves", 10);
 
         reset_client_ = this->create_client<std_srvs::srv::Trigger>("/reset_chessboard");
 
@@ -403,27 +847,6 @@ public:
             {
                 buttonState = msg->data;
                 RCLCPP_INFO(this->get_logger(), "Button state: %s", buttonState ? "ON" : "OFF"); });
-                
-        // Add new subscribers for board_oor and player_turn_bool
-        // board_oor_sub_ = this->create_subscription<std_msgs::msg::Bool>(
-        //     "board_oor", 10, [this](std_msgs::msg::Bool::SharedPtr msg)
-        //     {
-        //         boardOutOfRange = msg->data;
-        //         RCLCPP_INFO(this->get_logger(), "Board out of range: %s", boardOutOfRange ? "YES" : "NO");
-        //     });
-            
-        // player_turn_sub_ = this->create_subscription<std_msgs::msg::Bool>(
-        //     "player_turn_bool", 10, [this](std_msgs::msg::Bool::SharedPtr msg)
-        //     {
-        //         playerTurn = msg->data;
-        //         RCLCPP_INFO(this->get_logger(), "Player turn: %s", playerTurn ? "YES" : "NO");
-        //     });
-        // estop_flag_sub_ = this->create_subscription<std_msgs::msg::Bool>(
-        //     "estop_flag", 10, [this](std_msgs::msg::Bool::SharedPtr msg)
-        //     {
-        //         estopFlag = msg->data;
-        //         RCLCPP_INFO(this->get_logger(), "Player turn: %s", estopFlag ? "YES" : "NO");
-        //     });
 
         status_sub_ = this->create_subscription<std_msgs::msg::String>(
             "/status", 10, [this](std_msgs::msg::String::SharedPtr msg)
@@ -481,6 +904,14 @@ public:
         RCLCPP_INFO(this->get_logger(), "Published control: %s", command.c_str());
     }
 
+    void publishChessMove(const std::string &moveString)
+    {
+        auto msg = std_msgs::msg::String();
+        msg.data = moveString;
+        chess_moves_publisher_->publish(msg);
+        RCLCPP_INFO(this->get_logger(), "Published move: %s", moveString.c_str());
+    }
+
     std::string getLastMove() const { return lastMove; }
     bool getButtonState() const { return buttonState; }
     bool getBoardOutOfRange() const { return boardOutOfRange; }
@@ -504,6 +935,7 @@ private:
 
     rclcpp::Subscription<std_msgs::msg::String>::SharedPtr subscription_;
     rclcpp::Publisher<std_msgs::msg::String>::SharedPtr publisher_;
+    rclcpp::Publisher<std_msgs::msg::String>::SharedPtr chess_moves_publisher_;
     rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr button_state_sub_;
     rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr board_oor_sub_;
     rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr player_turn_sub_;
@@ -517,8 +949,6 @@ private:
     bool estopFlag = false;
 };
 #pragma endregion ROS
-
-
 
 #pragma region Main Function
 // Main function
@@ -537,6 +967,9 @@ int main(int argc, char **argv)
     
     // Store selected difficulty
     std::string selectedDifficulty = "Easy";
+    
+    // Robot Only Mode state
+    bool robotOnlyMode = false;
 
     sf::RenderWindow window(sf::VideoMode(WINDOW_WIDTH, WINDOW_HEIGHT), "Chess Visualizer", sf::Style::Titlebar | sf::Style::Close);
     window.setVerticalSyncEnabled(true);
@@ -567,6 +1000,15 @@ int main(int argc, char **argv)
     Button startButton = createButton(font, "START GAME", startButtonX, startButtonY, 
                                      startButtonWidth, startButtonHeight, 
                                      startButtonGreen, startButtonHover);
+    
+    // Create Robot Only Mode button (next to start button)
+    int robotModeButtonWidth = 200;
+    int robotModeButtonHeight = 50;
+    int robotModeButtonX = startButtonX; // 20px gap
+    int robotModeButtonY = startButtonY+ 70;
+    Button robotModeButton = createButton(font, "ROBOT ONLY: OFF", robotModeButtonX, robotModeButtonY,
+                                         robotModeButtonWidth, robotModeButtonHeight,
+                                         sf::Color::Blue, startButtonHover); // Gray colors initially
     
     // Create game screen elements
     std::vector<Button> gameButtons = createGameButtons(font);
@@ -600,7 +1042,6 @@ int main(int argc, char **argv)
         sf::Color(0, 0, 0) // Blue color for player turn notification
     );
     
-
     FlashingText eStopEngaged = createFlashingText(
         font, 
         "Software E-Stop Engaged, Please press the button.", 
@@ -636,6 +1077,15 @@ int main(int argc, char **argv)
                     startButton.isHovered = startButton.shape.getGlobalBounds().contains(mousePos);
                     if (startButton.isHovered != wasStartHovered) {
                         startButton.shape.setFillColor(startButton.isHovered ? startButtonHover : startButtonGreen);
+                    }
+                    
+                    // Handle Robot Only Mode button hover effect
+                    bool wasRobotModeHovered = robotModeButton.isHovered;
+                    robotModeButton.isHovered = robotModeButton.shape.getGlobalBounds().contains(mousePos);
+                    if (robotModeButton.isHovered != wasRobotModeHovered) {
+                        sf::Color baseColor = robotOnlyMode ? startButtonGreen : sf::Color::Blue;
+                        sf::Color hoverColor = robotOnlyMode ? startButtonGreen : sf::Color::Blue;
+                        robotModeButton.shape.setFillColor(robotModeButton.isHovered ? hoverColor : baseColor);
                     }
                 } else if (currentState == GAME_SCREEN) {
                     // Handle game buttons hover effect
@@ -691,7 +1141,97 @@ int main(int argc, char **argv)
                         // Reset the board via ROS service
                         node->callResetService();
                     }
+                    
+                    // Check for Robot Only Mode button click
+                    if (robotModeButton.shape.getGlobalBounds().contains(mousePos)) {
+                        robotOnlyMode = !robotOnlyMode;
+                        std::cout << "Robot Only Mode: " << (robotOnlyMode ? "ON" : "OFF") << std::endl;
+                        
+                        // Update button text and colors
+                        robotModeButton.label.setString(robotOnlyMode ? "ROBOT ONLY: ON" : "ROBOT ONLY: OFF");
+                        sf::Color baseColor = robotOnlyMode ? startButtonGreen : startButtonHover;
+                        robotModeButton.shape.setFillColor(baseColor);
+                        
+                        // Re-center the text
+                        sf::FloatRect textBounds = robotModeButton.label.getLocalBounds();
+                        robotModeButton.label.setPosition(
+                            robotModeButtonX + (robotModeButtonWidth - textBounds.width) / 2.0f - textBounds.left,
+                            robotModeButtonY + (robotModeButtonHeight - textBounds.height) / 2.0f - textBounds.top);
+                    }
                 } else if (currentState == GAME_SCREEN) {
+                    // Check if click is within the chess board
+                    if (mousePos.x >= BOARD_OFFSET_X && mousePos.x < BOARD_OFFSET_X + BOARD_SIZE * SQUARE_SIZE &&
+                        mousePos.y >= BOARD_OFFSET_Y && mousePos.y < BOARD_OFFSET_Y + BOARD_SIZE * SQUARE_SIZE) {
+                        
+                        int col = (mousePos.x - BOARD_OFFSET_X) / SQUARE_SIZE;
+                        int row = (mousePos.y - BOARD_OFFSET_Y) / SQUARE_SIZE;
+                        
+                        std::cout << "\nBoard clicked!" << std::endl;
+                        
+                        // Check if we have a selected piece and if this click is on a legal move
+                        if (selectedPiece.x != -1 && selectedPiece.y != -1) {
+                            // Check if the clicked position is in possible moves
+                            bool isLegalMove = false;
+                            for (const auto& move : possibleMoves) {
+                                if (move[0] == row && move[1] == col) {
+                                    isLegalMove = true;
+                                    break;
+                                }
+                            }
+                            
+                            if (isLegalMove) {
+                                // Check if Robot Only Mode is enabled
+                                if (robotOnlyMode) {
+                                    // Get the piece before executing the move
+                                    char piece = board[selectedPiece.x][selectedPiece.y];
+                                    
+                                    // Execute the move
+                                    MoveInfo moveInfo = executeMove(selectedPiece.x, selectedPiece.y, row, col);
+                                    
+                                    // Create move string
+                                    std::string moveString = createMoveString(selectedPiece.x, selectedPiece.y, row, col, piece, moveInfo.isCapture, moveInfo.isCastling, moveInfo.isPromotion);
+                                    
+                                    // Output move information to terminal
+                                    std::cout << "=========================" << std::endl;
+                                    std::cout << "MOVE EXECUTED!" << std::endl;
+                                    std::cout << "From: " << coordsToChessNotation(selectedPiece.x, selectedPiece.y) << std::endl;
+                                    std::cout << "To: " << coordsToChessNotation(row, col) << std::endl;
+                                    std::cout << "Piece: " << piece << std::endl;
+                                    std::cout << "Move String: " << moveString << std::endl;
+                                    std::cout << "=========================" << std::endl;
+                                    
+                                    // Publish the move string
+                                    node->publishChessMove(moveString);
+                                    
+                                    // Clear selection
+                                    selectedPiece = sf::Vector2i(-1, -1);
+                                    moveIndicators.clear();
+                                    possibleMoves.clear();
+                                    
+                                    status = "Move executed! Check terminal for move string.";
+                                } else {
+                                    // Robot Only Mode is off, just show feedback
+                                    std::cout << "Move not executed - Robot Only Mode is OFF" << std::endl;
+                                    std::cout << "Legal move: row=" << selectedPiece.x << ", col=" << selectedPiece.y 
+                                              << " -> row=" << row << ", col=" << col << std::endl;
+                                    
+                                    // Clear selection but don't execute move
+                                    selectedPiece = sf::Vector2i(-1, -1);
+                                    moveIndicators.clear();
+                                    possibleMoves.clear();
+                                    
+                                    status = "Robot Only Mode OFF - Enable to execute moves";
+                                }
+                            } else {
+                                // Not a legal move, select new piece at this position
+                                updateMoveIndicators(row, col);
+                            }
+                        } else {
+                            // No piece selected, select piece at this position
+                            updateMoveIndicators(row, col);
+                        }
+                    }
+                    
                     // Check for game button clicks
                     for (const auto &button : gameButtons) {
                         if (button.shape.getGlobalBounds().contains(mousePos)) {
@@ -768,6 +1308,10 @@ int main(int argc, char **argv)
             window.draw(startButton.shape);
             window.draw(startButton.label);
             
+            // Draw Robot Only Mode button
+            window.draw(robotModeButton.shape);
+            window.draw(robotModeButton.label);
+            
         } else if (currentState == GAME_SCREEN) {
             // Draw game screen elements
             drawBoard(window);
@@ -783,15 +1327,21 @@ int main(int argc, char **argv)
             
             // Draw flashing texts if they're active and visible
             if (boardOutOfRangeText.isActive && boardOutOfRangeText.isVisible) {
-                window.draw(boardOutOfRangeText.text);
+                for (const auto& text : boardOutOfRangeText.textLines) {
+                    window.draw(text);
+                }
             }
             
             if (playerTurnText.isActive && playerTurnText.isVisible) {
-                window.draw(playerTurnText.text);
+                for (const auto& text : playerTurnText.textLines) {
+                    window.draw(text);
+                }
             }
             
             if (eStopEngaged.isActive && eStopEngaged.isVisible) {
-                window.draw(eStopEngaged.text);
+                for (const auto& text : eStopEngaged.textLines) {
+                    window.draw(text);
+                }
             }
             
             // Draw the dedicated reset/back button
@@ -828,8 +1378,17 @@ int main(int argc, char **argv)
             difficultyText.setString("Difficulty: " + selectedDifficulty);
             difficultyText.setCharacterSize(14);
             difficultyText.setFillColor(sf::Color(80, 80, 80));
-            difficultyText.setPosition(BOARD_OFFSET_X + BOARD_SIZE * SQUARE_SIZE + 260, BOARD_OFFSET_Y + 280);
+            difficultyText.setPosition(BOARD_OFFSET_X + BOARD_SIZE * SQUARE_SIZE + 260, BOARD_OFFSET_Y + 30);
             window.draw(difficultyText);
+            
+            // Display Robot Only Mode status
+            sf::Text robotModeText;
+            robotModeText.setFont(font);
+            robotModeText.setString("Robot Mode: " + std::string(robotOnlyMode ? "ON" : "OFF"));
+            robotModeText.setCharacterSize(14);
+            robotModeText.setFillColor(robotOnlyMode ? sf::Color(0, 150, 0) : sf::Color(150, 0, 0));
+            robotModeText.setPosition(BOARD_OFFSET_X + BOARD_SIZE * SQUARE_SIZE + 260, BOARD_OFFSET_Y + 300);
+            window.draw(robotModeText);
         }
         
         window.display();
@@ -839,10 +1398,118 @@ int main(int argc, char **argv)
     return 0;
 }
 
-
 #pragma endregion Main Function
 
-//TODO 
-// Assign GUI elemenst to the Error flags currently temp1, temp2, temp3, temp4
+#pragma region Utility Functions
 
-//
+// Add this function definition before main
+void updateMoveIndicators(int row, int col) {
+    moveIndicators.clear();
+    std::cout << "Clicked position: row=" << row << ", col=" << col << std::endl;
+    
+    // If no piece is selected or invalid position
+    if (row < 0 || col < 0 || row >= BOARD_SIZE || col >= BOARD_SIZE) {
+        selectedPiece = sf::Vector2i(-1, -1);
+        std::cout << "Invalid position" << std::endl;
+        return;
+    }
+    
+    // Check if it's a white piece
+    char piece = board[row][col];
+    std::cout << "Selected piece: " << piece << std::endl;
+    
+    if (!std::isupper(piece)) {
+        selectedPiece = sf::Vector2i(-1, -1);
+        std::cout << "Not a white piece" << std::endl;
+        return;
+    }
+    
+    selectedPiece = sf::Vector2i(row, col);
+    possibleMoves = getPossibleMoves(row, col);
+    std::cout << "Number of possible moves: " << possibleMoves.size() << std::endl;
+    
+    // Create visual indicators for possible moves
+    for (const auto& move : possibleMoves) {
+        sf::CircleShape indicator(SQUARE_SIZE / 3.0f); // Made indicators larger
+        indicator.setPosition(
+            BOARD_OFFSET_X + move[1] * SQUARE_SIZE + SQUARE_SIZE/2 - indicator.getRadius(),
+            BOARD_OFFSET_Y + move[0] * SQUARE_SIZE + SQUARE_SIZE/2 - indicator.getRadius()
+        );
+        indicator.setFillColor(sf::Color(0, 255, 0, 128)); // Changed to green with more opacity
+        moveIndicators.push_back(indicator);
+        std::cout << "Added move indicator at row=" << move[0] << ", col=" << move[1] << std::endl;
+    }
+}
+
+// Function to convert row/col to chess notation (e.g., row=0, col=4 -> "e8")
+std::string coordsToChessNotation(int row, int col) {
+    if (row < 0 || row > 7 || col < 0 || col > 7) return "";
+    
+    char file = 'a' + col;  // columns a-h
+    char rank = '8' - row;  // rows 8-1 (row 0 = rank 8, row 7 = rank 1)
+    
+    return std::string(1, file) + std::string(1, rank);
+}
+
+// Function to create move string in format: moveplayed + moveType + piecePlayed
+std::string createMoveString(int fromRow, int fromCol, int toRow, int toCol, char piece, bool isCapture, bool isCastling, bool isPromotion) {
+    std::string moveStr = "";
+    
+    // 1. Move played (from + to coordinates)
+    std::string fromSquare = coordsToChessNotation(fromRow, fromCol);
+    std::string toSquare = coordsToChessNotation(toRow, toCol);
+    moveStr += fromSquare + toSquare;
+    
+    // 2. Handle castling special case - include both king and rook moves
+    if (isCastling) {
+        // Determine rook movement based on king's destination
+        std::string rookFromSquare, rookToSquare;
+        
+        if (toCol == 6) { // Kingside castling (king goes to g-file)
+            rookFromSquare = coordsToChessNotation(fromRow, 7); // Rook from h-file
+            rookToSquare = coordsToChessNotation(fromRow, 5);   // Rook to f-file
+        } else if (toCol == 2) { // Queenside castling (king goes to c-file)
+            rookFromSquare = coordsToChessNotation(fromRow, 0); // Rook from a-file
+            rookToSquare = coordsToChessNotation(fromRow, 3);   // Rook to d-file
+        }
+        
+        // Add rook movement to the string
+        moveStr += rookFromSquare + rookToSquare;
+        
+        // Add move type and pieces (king + rook)
+        moveStr += "c";  // castling
+        moveStr += std::tolower(piece);  // king piece (k)
+        moveStr += "r";  // rook piece
+        
+        return moveStr;
+    }
+    
+    // 3. Move type (for non-castling moves)
+    if (isPromotion) {
+        moveStr += "p";  // promotion
+    } else if (isCapture) {
+        moveStr += "x";  // capture
+    } else {
+        moveStr += "m";  // normal move
+    }
+    
+    // 4. Piece played (convert to lowercase)
+    // For promotion, we use 'q' since we always promote to queen
+    if (isPromotion) {
+        moveStr += "q";  // Always promote to queen
+    } else {
+        char pieceLower = std::tolower(piece);
+        moveStr += pieceLower;
+    }
+    
+    return moveStr;
+}
+
+#pragma endregion Utility Functions
+
+#pragma region TODO Notes
+
+//TODO 
+// Assign GUI elements to the Error flags currently temp1, temp2, temp3, temp4
+
+#pragma endregion TODO Notes
