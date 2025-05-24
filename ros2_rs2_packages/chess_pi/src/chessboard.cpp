@@ -46,7 +46,7 @@ std::string chessPiecesPath = ament_index_cpp::get_package_share_directory("ches
 
 // Flashing text struct
 struct FlashingText {
-    std::vector<sf::Text> textLines;
+   std::vector<sf::Text> textLines;
     bool isActive = false;
     bool isVisible = true;
     float frequency = 2.0f; // Flashes per second
@@ -78,7 +78,6 @@ unsigned char board[8][8] = {{'-'}};
 // Function declarations (add before any function definitions)
 void updateMoveIndicators(int row, int col);
 std::string coordsToChessNotation(int row, int col);
-std::string createMoveString(int fromRow, int fromCol, int toRow, int toCol, char piece, bool isCapture, bool isCastling, bool isPromotion);
 
 #pragma endregion Function Declarations
 
@@ -840,6 +839,8 @@ public:
         // Publisher for chess moves (move strings)
         chess_moves_publisher_ = this->create_publisher<std_msgs::msg::String>("/chess_moves", 10);
 
+        chess_moves_pub_stockfish_ = this->create_publisher<std_msgs::msg::String>("/player_move", 10);
+
         reset_client_ = this->create_client<std_srvs::srv::Trigger>("/reset_chessboard");
 
         button_state_sub_ = this->create_subscription<std_msgs::msg::Bool>(
@@ -917,7 +918,7 @@ public:
     bool getBoardOutOfRange() const { return boardOutOfRange; }
     bool getPlayerTurn() const { return playerTurn; }
     bool getEstopFlag() const { return estopFlag; }
-
+    rclcpp::Publisher<std_msgs::msg::String>::SharedPtr chess_moves_pub_stockfish_;
 private:
     void moveCallback(const std_msgs::msg::String::SharedPtr msg)
     {
@@ -936,6 +937,7 @@ private:
     rclcpp::Subscription<std_msgs::msg::String>::SharedPtr subscription_;
     rclcpp::Publisher<std_msgs::msg::String>::SharedPtr publisher_;
     rclcpp::Publisher<std_msgs::msg::String>::SharedPtr chess_moves_publisher_;
+    
     rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr button_state_sub_;
     rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr board_oor_sub_;
     rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr player_turn_sub_;
@@ -949,6 +951,7 @@ private:
     bool estopFlag = false;
 };
 #pragma endregion ROS
+std::string createMoveString(int fromRow, int fromCol, int toRow, int toCol, char piece, bool isCapture, bool isCastling, bool isPromotion, std::shared_ptr<ChessSubscriber> ros2node);
 
 #pragma region Main Function
 // Main function
@@ -1192,7 +1195,7 @@ int main(int argc, char **argv)
                                     MoveInfo moveInfo = executeMove(selectedPiece.x, selectedPiece.y, row, col);
                                     
                                     // Create move string
-                                    std::string moveString = createMoveString(selectedPiece.x, selectedPiece.y, row, col, piece, moveInfo.isCapture, moveInfo.isCastling, moveInfo.isPromotion);
+                                    std::string moveString = createMoveString(selectedPiece.x, selectedPiece.y, row, col, piece, moveInfo.isCapture, moveInfo.isCastling, moveInfo.isPromotion, node);
                                     
                                     // Output move information to terminal
                                     std::cout << "=========================" << std::endl;
@@ -1455,14 +1458,18 @@ std::string coordsToChessNotation(int row, int col) {
 }
 
 // Function to create move string in format: moveplayed + moveType + piecePlayed
-std::string createMoveString(int fromRow, int fromCol, int toRow, int toCol, char piece, bool isCapture, bool isCastling, bool isPromotion) {
+std::string createMoveString(int fromRow, int fromCol, int toRow, int toCol, char piece, bool isCapture, bool isCastling, bool isPromotion, std::shared_ptr<ChessSubscriber> ros2node) {
     std::string moveStr = "";
     
     // 1. Move played (from + to coordinates)
     std::string fromSquare = coordsToChessNotation(fromRow, fromCol);
     std::string toSquare = coordsToChessNotation(toRow, toCol);
     moveStr += fromSquare + toSquare;
-    
+    std::string toStockFishNode = std::to_string(fromRow) + std::to_string(fromCol) + std::to_string(toRow) + std::to_string(toCol);
+    auto msg = std_msgs::msg::String();
+    msg.data = toStockFishNode;
+    ros2node->chess_moves_pub_stockfish_->publish(msg);
+    RCLCPP_INFO(ros2node->get_logger(), "Published move to stockfish node: %s", toStockFishNode.c_str());
     // 2. Handle castling special case - include both king and rook moves
     if (isCastling) {
         // Determine rook movement based on king's destination
@@ -1471,11 +1478,16 @@ std::string createMoveString(int fromRow, int fromCol, int toRow, int toCol, cha
         if (toCol == 6) { // Kingside castling (king goes to g-file)
             rookFromSquare = coordsToChessNotation(fromRow, 7); // Rook from h-file
             rookToSquare = coordsToChessNotation(fromRow, 5);   // Rook to f-file
+            toStockFishNode = std::to_string(fromRow) + "7" + std::to_string(fromRow) + "5";
         } else if (toCol == 2) { // Queenside castling (king goes to c-file)
             rookFromSquare = coordsToChessNotation(fromRow, 0); // Rook from a-file
             rookToSquare = coordsToChessNotation(fromRow, 3);   // Rook to d-file
+	    toStockFishNode = std::to_string(fromRow) + "0" + std::to_string(fromRow) + "3";
         }
-        
+
+         msg.data = toStockFishNode;
+         ros2node->chess_moves_pub_stockfish_->publish(msg);
+        RCLCPP_INFO(ros2node->get_logger(), "Published extra castling rook move to stockfish node: %s", toStockFishNode.c_str());
         // Add rook movement to the string
         moveStr += rookFromSquare + rookToSquare;
         
@@ -1493,7 +1505,7 @@ std::string createMoveString(int fromRow, int fromCol, int toRow, int toCol, cha
     } else if (isCapture) {
         moveStr += "x";  // capture
     } else {
-        moveStr += "m";  // normal move
+        moveStr += "n";  // normal move
     }
     
     // 4. Piece played (convert to lowercase)
