@@ -150,8 +150,12 @@ class CameraNode(Node):
                                 break
                         if stop:
                             break
+                        
+                if playerMove is None:
+                    print("Cannot find player move, trying again ...")
+                    return
 
-                    self.get_logger().info(f'Piece Start Position: {playerMove[0][0]}, {playerMove[0][1]}; Piece Destination: {playerMove[1][0]}, {playerMove[1][1]} ')
+                self.get_logger().info(f'Piece Start Position: {playerMove[0][0]}, {playerMove[0][1]}; Piece Destination: {playerMove[1][0]}, {playerMove[1][1]} ')
                 # # Publish the move to the chess node for stockfish
                 toChessNode = ''.join(str(num) for sublist in playerMove for num in sublist)
                 self.player_publish.publish(String(data=toChessNode))

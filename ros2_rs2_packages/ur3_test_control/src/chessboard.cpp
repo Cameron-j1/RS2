@@ -932,22 +932,24 @@ int main(int argc, char * argv[]) {
 
                     //logic for adding data for castling move
                     if (moveType == 'c') {
-                        msg.data = stockfishMove       // king LAN, e.g. "e8g8"
-                                 + stockfishMove2      // rook LAN, e.g. "h8f8"
-                                 + moveType            // 'c'
-                                 + piecePlayed         // 'k'
-                                 + piecePlayed2;       // 'r'
+                        // msg.data = stockfishMove       // king LAN, e.g. "e8g8"
+                        //          + stockfishMove2      // rook LAN, e.g. "h8f8"
+                        //          + moveType            // 'c'
+                        //          + piecePlayed         // 'k'
+                        //          + piecePlayed2;       // 'r'
+                        msg.data = stockfishMove2 + 'n' + 'r'; publisher->publish(msg); // Publish the move to control node
+                        std::this_thread::sleep_for(std::chrono::milliseconds(50));
+                        msg.data = stockfishMove + 'n' + 'k'; publisher->publish(msg); // Publish the move to control node
+                        
                     } else {
                         msg.data = stockfishMove + moveType + piecePlayed;
                         if (capture) msg.data += pieceCaptured;
+                        publisher->publish(msg); // Publish the move to control node
                     }
-                    if (capture) msg.data += pieceCaptured;
+                    // if (capture) msg.data += pieceCaptured;
                     break;
                 }
             }
-            
-            // Publish the move to control node
-            publisher->publish(msg);
             
             // Publish FEN after Stockfish move
             publishFEN(node, fen_pub, blackTurn, castlingAvail, halfmoveClock, fullmoveNumer);

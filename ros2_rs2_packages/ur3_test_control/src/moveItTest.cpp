@@ -39,6 +39,8 @@
 #include <stdexcept>
 #include <cmath>
 #include <unordered_map>
+#include <deque>
+#include <chrono>
  
 #define SQUARE_SIZE 35.0
  
@@ -50,7 +52,7 @@
 #define MAX_ACCEL_JOINT_TARGET 0.06
  
 // Initial joint pose: 0, -90, 90, -90, -90, 0
- 
+using namespace std::chrono_literals;
 class RobotKinematics : public rclcpp::Node {
     public:
         RobotKinematics() : Node("robot_kinematics") {
@@ -91,8 +93,9 @@ class RobotKinematics : public rclcpp::Node {
  
             takeImage = this->create_publisher<std_msgs::msg::Bool>("/take_image", 10);
 
-            chess_move_pub_ = this->create_publisher<std_msgs::msg::String>("/chess_moves", 10);
             status_pub = this->create_publisher<std_msgs::msg::String>("/status", 10);
+
+            moveQueueCheck_ = this->create_wall_timer(500ms, std::bind(&RobotKinematics::checkLastestMove, this));
 
             robot_stationary_ = false;
             pickup_dropoff_wait_ = 1.5; //seconds
@@ -156,40 +159,40 @@ class RobotKinematics : public rclcpp::Node {
         }
  
     private:
-        void moveToCameraViewJ(){
-            RCLCPP_INFO(this->get_logger(), "Attempting to move to camera view position...");
-            moveToJointAngles(camera_view_jangle.at(0), camera_view_jangle.at(1), camera_view_jangle.at(2), camera_view_jangle.at(3), camera_view_jangle.at(4), camera_view_jangle.at(5));
+
+        void checkLastestMove() {
+            if (executeMove && !moveQueue.empty()) {
+                executeMove = false; isTakeImage = false;
+                std::string msgData = moveQueue.front();
+                RCLCPP_INFO(this->get_logger(), "[chess_topic_callback] Executing Move: %s", msgData.c_str());
+
+                //check for promotion move first
+                if(msgData.find('=') != std::string::npos){
+                    RCLCPP_INFO(this->get_logger(), "[chess_topic_callback] promotion move");
+                    //promotion move
+                    maneuver(msgData[0], msgData[1], msgData[2], msgData[3], 'p', pieceHeight[msgData[5]], pieceHeight['p'], msgData);
+
+                } else {
+                    RCLCPP_INFO(this->get_logger(), "[chess_topic_callback] normal move");
+                    if (msgData.length() < 12) { // if greater than 9 means it's the fen string for the camera node
+                        RCLCPP_INFO(this->get_logger(), "Stockfish move: '%s'", msgData.c_str());
+                        if(msgData.length() == 6){ // normal move
+                            maneuver(msgData[0], msgData[1], msgData[2], msgData[3], msgData[4], pieceHeight[msgData[5]], 0, msgData);
+                        }
+                        if(msgData.length() == 7 || msgData.length() == 8){ // capture move
+                            RCLCPP_INFO(this->get_logger(), "[chess_topic_callback] capture move");
+                            maneuver(msgData[0], msgData[1], msgData[2], msgData[3], msgData[4], pieceHeight[msgData[5]], pieceHeight[msgData[6]], msgData);
+                        }
+                    }
+                }
+            }
+            return;
         }
  
         void chess_topic_callback(const std_msgs::msg::String::SharedPtr msg) {
-            std::string msgData = msg->data;
-
-            RCLCPP_INFO(this->get_logger(), "[chess_topic_callback] received message: %s", msgData.c_str());
-
-            //check for promotion move first
-            if(msgData.find('=') != std::string::npos){
-                RCLCPP_INFO(this->get_logger(), "[chess_topic_callback] promotion move");
-                //promotion move
-                maneuver(msgData[0], msgData[1], msgData[2], msgData[3], 'p', pieceHeight[msgData[5]], pieceHeight['p'], msgData);
-
-            }else{
-                RCLCPP_INFO(this->get_logger(), "[chess_topic_callback] normal move");
-                if (msgData.length() < 12) { // if greater than 9 means it's the fen string for the camera node
-                    RCLCPP_INFO(this->get_logger(), "Stockfish move: '%s'", msgData.c_str());
-                    if(msgData.length() == 6){ // normal move
-                        maneuver(msgData[0], msgData[1], msgData[2], msgData[3], msgData[4], pieceHeight[msgData[5]], 0, msgData);
-                    }
-                    if(msgData.length() == 7 || msgData.length() == 8){ // capture move
-                        RCLCPP_INFO(this->get_logger(), "[chess_topic_callback] capture move");
-                        maneuver(msgData[0], msgData[1], msgData[2], msgData[3], msgData[4], pieceHeight[msgData[5]], pieceHeight[msgData[6]], msgData);
-                    }
-                    if(msgData.length() == 11){ //castling
-                        RCLCPP_INFO(this->get_logger(), "[chess_topic_callback] castling move");
-                        //example castling string e8g8h8f8ckr. first move 'e8g8' second move 'h8f8' move type 'c' first move peice 'k' second move peice 'r'
-                        maneuver(msgData[0], msgData[1], msgData[2], msgData[3], msgData[8], pieceHeight[msgData[9]], 0, msgData);
-                        maneuver(msgData[4], msgData[5], msgData[6], msgData[7], msgData[8], pieceHeight[msgData[10]], 0, msgData);
-                    }
-                }
+            if (msg->data.length() < 12) {
+                moveQueue.push_back(msg->data);
+                RCLCPP_INFO(this->get_logger(), "[chess_topic_callback] Received message, Pushed to queue: %s", msg->data.c_str());
             }
         }
  
@@ -244,15 +247,13 @@ class RobotKinematics : public rclcpp::Node {
             bool maneuver_complete = false;
             bool first_try = true;
             while (rclcpp::ok()){
+
                 if(maneuver_complete){
                     return;
                 }
                 
                 if(!first_try){
-                    // Publish the original move to retry
-                    auto msg = std_msgs::msg::String();
-                    msg.data = original_move;
-                    chess_move_pub_->publish(msg);
+                    executeMove = true;
                     RCLCPP_INFO(this->get_logger(), "Retrying move: %s", original_move.c_str());
                     return;
                 }
@@ -266,7 +267,6 @@ class RobotKinematics : public rclcpp::Node {
                 tempPosition.orientation.w = 0.0;
 
                 // ─── Move to viewing position ─────────────────────────────────────────────
-                isTakeImage = false;
                 RCLCPP_INFO(this->get_logger(), "[maneuver] angle move to viewing position");
 
                 if(!moveToJointAngles(1.544, -2.060, 0.372, -0.108, -1.651, -6.233)) continue;
@@ -388,9 +388,12 @@ class RobotKinematics : public rclcpp::Node {
     
                 RCLCPP_INFO(this->get_logger(), "[maneuver] angle move to viewing position");
                 if(!moveToJointAngles(1.544, -2.060, 0.372, -0.108, -1.651, -6.233)) continue;
+                // everything should be beautiful by now
                 isTakeImage = true;
                 playerTurn = true;
                 publish_status();
+                executeMove = true;
+                moveQueue.pop_front();
 
                 maneuver_complete = true; //next loop will return
             }
@@ -684,42 +687,8 @@ class RobotKinematics : public rclcpp::Node {
 
             RCLCPP_INFO(this->get_logger(), "chessToGridCenter - Calculated positions: dx=%.6f, dy=%.6f, x_rotated=%.6f, y_rotated=%.6f, x_final=%.6f, y_final=%.6f",
                 dx, dy, x_rotated, y_rotated, x_final, y_final);
-
-
-            //yaw debug messages
-            // RCLCPP_INFO(this->get_logger(), "YAW!!!: %.5f", board_yaw);
-            // RCLCPP_INFO(this->get_logger(), "x_rotated: %.5f ", x_rotated);
-            // RCLCPP_INFO(this->get_logger(), "y_rotated: %.5f ", y_rotated);
-            // RCLCPP_INFO(this->get_logger(), "x_final: %.5f ", x_final);
-            // RCLCPP_INFO(this->get_logger(), "y_final: %.5f ", y_final);
-            // RCLCPP_INFO(this->get_logger(), "dx: %.5f ", dx);
-            // RCLCPP_INFO(this->get_logger(), "dy: %.5f ", dy);
- 
-            // std::this_thread::sleep_for(std::chrono::seconds(2));
  
             return robotReadToControlFrame({x_final, y_final}); //reordered here for transform
-        }
- 
- 
-        Eigen::Matrix4d multiplyMatrix4d(const Eigen::Matrix4d& A, const Eigen::Matrix4d& B) {
-            Eigen::Matrix4d result = Eigen::Matrix4d::Zero();
- 
-            for (int i = 0; i < 4; ++i) {           // row of A
-                for (int j = 0; j < 4; ++j) {       // column of B
-                    for (int k = 0; k < 4; ++k) {   // element index
-                        result(i, j) += A(i, k) * B(k, j);
-                    }
-                }
-            }
- 
-            return result;
-        }
- 
- 
-        void logMatrix(const std::string& name, const Eigen::Matrix4d& mat) {
-            std::ostringstream oss;
-            oss << "\n" << mat;
-            RCLCPP_INFO(this->get_logger(), "%s: %s", name.c_str(), oss.str().c_str());
         }
  
         std::pair<double, double> robotReadToControlFrame(std::pair<double, double> in){
@@ -764,11 +733,13 @@ class RobotKinematics : public rclcpp::Node {
         bool yawError = false;
         bool eStop = false;
         bool playerTurn = true;
- 
+        bool isTakeImage = true;
+        bool executeMove = true;
+
         // calculate the height of other pieces based on the height of the pawn
         double operation_height = 0.15 + 0.1;//, pickupHeight = 0.05 + 0.1+0.015;
         int markerNum = 50;
-        bool isTakeImage = true;
+        
         rclcpp::Publisher<std_msgs::msg::Bool>::SharedPtr servo_publisher_;
         std::vector<double> camera_view_jangle = {
             58.92*(M_PI/180),
@@ -791,6 +762,8 @@ class RobotKinematics : public rclcpp::Node {
         std::unique_ptr<tf2_ros::Buffer> tf_buffer_;
         std::shared_ptr<tf2_ros::TransformListener> tf_listener_;
         std::map<int, geometry_msgs::msg::TransformStamped> marker_transforms_;
+        rclcpp::TimerBase::SharedPtr moveQueueCheck_;
+
         double H1_X;
         double H1_Y;
         double x_Bin_Aruco;
@@ -801,20 +774,8 @@ class RobotKinematics : public rclcpp::Node {
         double aboveBinHeight = 0.1848+100/1000+0.125;
         double binDropHeight = aboveBinHeight - 50/1000;
         double board_yaw = 0;
- 
-        Eigen::Matrix4d quaternionToTransformMatrix(const Eigen::Quaterniond& q, const Eigen::Vector3d& translation){
-            Eigen::Matrix4d transform = Eigen::Matrix4d::Identity();
-        
-            // Convert quaternion to rotation matrix
-            Eigen::Matrix3d rotation = q.normalized().toRotationMatrix();
-        
-            // Insert rotation and translation into 4x4 matrix
-            transform.block<3,3>(0,0) = rotation;
-            transform.block<3,1>(0,3) = translation;
-        
-            return transform;
-        }
-        
+
+        std::deque<std::string> moveQueue;
  
         void marker_callback(const visualization_msgs::msg::MarkerArray::SharedPtr msg){
             // RCLCPP_INFO(this->get_logger(), "Received marker array with %zu markers", msg->markers.size());
@@ -879,12 +840,12 @@ class RobotKinematics : public rclcpp::Node {
                     publish_status();
                     // RCLCPP_INFO(this->get_logger(), "board yaw: %.4f", board_yaw);
 
-                    double dx = 3.5 * (SQUARE_SIZE / 1000.0);
-                    double dy = -3.5 * (SQUARE_SIZE / 1000.0);
+                    double dx = 3.5 * (SQUARE_SIZE / 1000.0) + 0.037143913668;
+                    double dy = -3.5 * (SQUARE_SIZE / 1000.0) - 0.068065853878;
  
                     if(board_yaw < 1.57){
-                        dx = -3.5 * (SQUARE_SIZE / 1000.0);
-                        dy =  3.5 * (SQUARE_SIZE / 1000.0);
+                        dx = -3.5 * (SQUARE_SIZE / 1000.0) - 0.037143913668;
+                        dy =  3.5 * (SQUARE_SIZE / 1000.0) + 0.068065853878;
                     }
  
                     // Apply 2D rotation to account for yaw
@@ -895,13 +856,9 @@ class RobotKinematics : public rclcpp::Node {
                     camPosition.orientation.y = 0.0;
                     camPosition.orientation.w = 0.0;
                     camPosition.orientation.z = 0.0;
-                    // camPosition.orientation.x = marker.pose.orientation.x;
-                    // camPosition.orientation.y = marker.pose.orientation.y;
-                    // camPosition.orientation.z = marker.pose.orientation.z;
-                    // camPosition.orientation.w = marker.pose.orientation.w;
                     
-                    camPosition.position.x = x_final + 0.037143913668;//matCamPos(0, 3);
-                    camPosition.position.y = y_final - 0.068065853878;//matCamPos(1, 3);
+                    camPosition.position.x = x_final;
+                    camPosition.position.y = y_final;
                     camPosition.position.z = 0.40406;
                 }
             }
@@ -961,7 +918,6 @@ class RobotKinematics : public rclcpp::Node {
         rclcpp::Subscription<sensor_msgs::msg::JointState>::SharedPtr joint_state_sub_;
         int pickup_dropoff_wait_;
 
-        rclcpp::Publisher<std_msgs::msg::String>::SharedPtr chess_move_pub_;
         rclcpp::Publisher<std_msgs::msg::String>::SharedPtr status_pub;
 
         //button state variables
@@ -1078,6 +1034,11 @@ class RobotKinematics : public rclcpp::Node {
             }
  
             moveStraightToPoint({camPositionReal}, 0.05, 0.05);
+            std::this_thread::sleep_for(std::chrono::milliseconds(50));
+            std::vector<double> joint_group_positions = move_group_ptr->getCurrentJointValues();
+            if (board_yaw > M_PI - M_PI_2) joint_group_positions[5] += (M_PI - board_yaw);
+            else joint_group_positions[5] -= board_yaw;
+            moveToJointAngles(joint_group_positions[0], joint_group_positions[1], joint_group_positions[2], joint_group_positions[3], joint_group_positions[4], joint_group_positions[5]);
             std::this_thread::sleep_for(std::chrono::milliseconds(50));
             RCLCPP_INFO(this->get_logger(), "[camera_maneuver] taking image");
             takeImage->publish(std_msgs::msg::Bool().set__data(true));

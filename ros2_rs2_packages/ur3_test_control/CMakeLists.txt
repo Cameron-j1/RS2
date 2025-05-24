@@ -67,9 +67,9 @@ install(DIRECTORY images
   DESTINATION share/${PROJECT_NAME}
 )
 
-install(DIRECTORY meshes
-  DESTINATION share/${PROJECT_NAME}
-)
+# install(DIRECTORY meshes
+#   DESTINATION share/${PROJECT_NAME}
+# )
 
 ament_python_install_package(${PROJECT_NAME})
 
