@@ -29,34 +29,32 @@ class CameraNode(Node):
         
         self.get_logger().info("Chess subscripber created")
     
-        self.player_publish = self.create_publisher(
-            String,
-            '/player_move',
-            10
-        )
+        self.player_publish = self.create_publisher(String, '/player_move', 10)
+        self.speaker_publish = self.create_publisher(String, '/TTS', 10)
         self.get_logger().info("Player move publisher created")
-
-        self.image_action_subscription = self.create_subscription(
-            Bool,
-            '/take_image',
-            self.img_action,
-            10)
-
+        self.image_action_subscription = self.create_subscription(Bool, '/take_image', self.img_action, 10)
 
         self.bridge = CvBridge()
         self.latest_image = None
         self.get_logger().info('Node started. Displaying image stream. Press Ctrl+C to stop.')
         self.board = [['-'] * 8 for _ in range(8)]
         self.castled = False
+        self.get_logger().info('Retrieving the classifier models.')
         self.model = get_model(model_id="reddotdetection/1")
+        self.get_logger().info('Got red dot detection.')
         self.BWmodel = get_model(model_id="blackwhite-fkduo/1")
+        self.get_logger().info('Got black white detection.')
         self.cell_images = np.empty((8, 8), dtype=object)
         self.takeImg = False
+        self.get_logger().info('Ready to play !!!!!!!!!.')
+
+        self.speaker_publish.publish(String(data='Successfully retrieved classifier'))
 
     def img_action(self, msg):
         self.takeImg = msg.data
 
     def chess_callback(self, msg):
+        self.get_logger().info(f'Camera node got new message: {len(msg.data)}')
         if len(msg.data) > 50:
             for i in range(8):
                 for j in range(8):
@@ -86,13 +84,14 @@ class CameraNode(Node):
                     and chessBoardW[7][2] == 0 and self.board[7][2] == '-' and chessBoardW[7][3] == 0 and self.board[7][3] == '-' and not self.castled:
 
                     self.get_logger().info("White Queen-Side Castle")
+                    self.speaker_publish.publish(String(data='White Queen Side Castle'))
                     playerMove = [[7, 4], [7, 2], [7, 0], [7, 3]]
                     castlingCheck = True
                     self.castled = True
 
                 if chessBoardW[7][7] == 1 and self.board[7][7] == 'R' and chessBoardW[7][4] == 1 and self.board[7][4] == 'K' \
                     and chessBoardW[7][5] == 0 and self.board[7][5] == '-' and chessBoardW[7][6] == 0 and self.board[7][6] == '-' and not self.castled:
-
+                    self.speaker_publish.publish(String(data='White King Side Castle'))
                     self.get_logger().info("White King-Side Castle")
                     playerMove = [[7, 4], [7, 6], [7, 7], [7, 5]]
                     castlingCheck = True
@@ -152,6 +151,7 @@ class CameraNode(Node):
                             break
                         
                 if playerMove is None:
+                    self.speaker_publish.publish(String(data='illegal move detected'))
                     print("Cannot find player move, trying again ...")
                     return
 
@@ -159,6 +159,8 @@ class CameraNode(Node):
                 # # Publish the move to the chess node for stockfish
                 toChessNode = ''.join(str(num) for sublist in playerMove for num in sublist)
                 self.player_publish.publish(String(data=toChessNode))
+                self.speaker_publish.publish(String(data='Move detected'))
+
                 # Display the image in a window
                 if self.latest_image is not None:
                     cv2.imshow('Camera Stream', self.latest_image)

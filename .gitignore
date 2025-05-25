@@ -4,3 +4,7 @@
 *.pngrosBags/
 *.dae
 /rosbags/
+*.cfg
+*.pyc
+voice/tts-venv/
+*.wav

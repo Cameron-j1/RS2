@@ -550,6 +550,47 @@ void configureStockfish() {
     }
 }
 
+bool restart_stockfish() {
+    try {
+        // Clean up previous process if it's running
+        if (stockfish.running()) {
+            stockfish_in << "quit" << std::endl;
+            stockfish.wait();
+        }
+
+        // Destroy old streams by recreating them
+        stockfish_in = bp::opstream{};
+        stockfish_out = bp::ipstream{};
+
+        // Restart Stockfish
+        stockfish = bp::child("stockfish", bp::std_out > stockfish_out, bp::std_in < stockfish_in);
+
+        // Send UCI handshake
+        stockfish_in << "uci" << std::endl;
+
+        std::string line;
+        while (std::getline(stockfish_out, line)) {
+            std::cout << "[Stockfish] " << line << std::endl;
+            if (line == "uciok") break;
+        }
+
+        // Check readiness
+        stockfish_in << "isready" << std::endl;
+        while (std::getline(stockfish_out, line)) {
+            std::cout << "[Stockfish] " << line << std::endl;
+            if (line == "readyok") break;
+        }
+
+        stockfish_in << "ucinewgame" << std::endl;
+        std::cout << "Stockfish restarted and ready.\n";
+        return true;
+
+    } catch (const std::exception& e) {
+        std::cerr << "Failed to restart Stockfish: " << e.what() << std::endl;
+        return false;
+    }
+}
+
 int main(int argc, char * argv[]) {
     rclcpp::init(argc, argv);
     std::string msgFromCamera;
@@ -757,6 +798,13 @@ int main(int argc, char * argv[]) {
                                 }
                                 else halfmoveClock++;
                                 
+                                // Remove castling availability if the king has moved
+                                if (!isCastling[i] && board[curRow][curCol] == 'K') {
+                                    castlingAvail.erase(std::remove(castlingAvail.begin(), castlingAvail.end(), 'K'), castlingAvail.end());
+                                    castlingAvail.erase(std::remove(castlingAvail.begin(), castlingAvail.end(), 'Q'), castlingAvail.end());
+                                    if (castlingAvail.length() == 0) castlingAvail = "-";
+                                }
+                                
                                 // Update the virtual chess board
                                 board[i/8][i%8] = board[curRow][curCol];
                                 board[curRow][curCol] = '-';
@@ -817,13 +865,23 @@ int main(int argc, char * argv[]) {
                             }
                             else {
                                 pieces[i].setPosition(physicalMove[3] * SQUARE_SIZE + 8, physicalMove[2] * SQUARE_SIZE + 8);
+
+                                if (board[physicalMove[0]][physicalMove[1]] == 'K') {
+                                    castlingAvail.erase(std::remove(castlingAvail.begin(), castlingAvail.end(), 'K'), castlingAvail.end());
+                                    castlingAvail.erase(std::remove(castlingAvail.begin(), castlingAvail.end(), 'Q'), castlingAvail.end());
+                                    if (castlingAvail.length() == 0) castlingAvail = "-";
+                                }
+
                                 board[physicalMove[2]][physicalMove[3]] = board[physicalMove[0]][physicalMove[1]];
                             }
                         board[physicalMove[0]][physicalMove[1]] = '-';
+                        // can potential add a break; here ???????
                     }
                 }
                 msgFromCamera.erase(0, 4);
             }
+                
+
             blackTurn = true;
             boardStateChanged = true; // Board state has changed, publish FEN
         }
@@ -852,7 +910,6 @@ int main(int argc, char * argv[]) {
             std::this_thread::sleep_for(std::chrono::milliseconds(500));
             fen = "position fen " + generateFullFEN('b', castlingAvail, halfmoveClock, fullmoveNumer) + '\n'; 
             std::cout << fen;
-            blackTurn = false;
             
             // Stockfish move logic...
             stockfish_in << fen << std::flush;
@@ -861,8 +918,10 @@ int main(int argc, char * argv[]) {
             char moveType = 'n';
             std::string stockfishMove; // Declare stockfishMove variable
             std::string stockfishMove2; // Declare 2nd stockfishMove variable
-            
+            std::this_thread::sleep_for(std::chrono::milliseconds(500));
+
             while (std::getline(stockfish_out, line)) {
+                // std::cout << "Stockfish: " << line << std::endl;
                 if (line.rfind("bestmove", 0) == 0) {
                     bool capture = false, pawn = false;
                     // Extract only the move part
@@ -890,6 +949,7 @@ int main(int argc, char * argv[]) {
                                     break;
                                 }
                             }
+
                             pieces[i].setPosition(fishMoves[1][1] * SQUARE_SIZE + 8, fishMoves[1][0] * SQUARE_SIZE + 8);
                             board[fishMoves[1][0]][fishMoves[1][1]] = board[row][col];
                             piecePlayed = board[row][col];
@@ -923,6 +983,14 @@ int main(int argc, char * argv[]) {
                                 }
                             }
 
+                            // Remove castling availability if the king has moved
+                            else if (board[row][col] == 'k' && abs(fishMoves[0][1] - fishMoves[1][1]) <= 1) {
+                                castlingAvail.erase(std::remove(castlingAvail.begin(), castlingAvail.end(), 'k'), castlingAvail.end());
+                                castlingAvail.erase(std::remove(castlingAvail.begin(), castlingAvail.end(), 'q'), castlingAvail.end());
+                                if (castlingAvail.length() == 0) castlingAvail = "-";
+                                
+                            }
+
                             board[row][col] = '-';
                             break;
                         }
@@ -951,9 +1019,14 @@ int main(int argc, char * argv[]) {
                 }
             }
             
+            if (!stockfish.running()) {
+                std::cout << "STOCKFISH DIED LOL \n";
+                restart_stockfish();
+                continue;
+            }
             // Publish FEN after Stockfish move
             publishFEN(node, fen_pub, blackTurn, castlingAvail, halfmoveClock, fullmoveNumer);
-            
+            blackTurn = false;
             // Publish board state to camera node
             std::string boardStr;
             for (int i = 0; i < 8; i++) {
