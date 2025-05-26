@@ -396,7 +396,8 @@ def calculate_transforms(img, publisher, T_base_to_ee):
     
                 #move the transform to the bin placement spot
                 T_bin_aruco_to_drop = np.eye(4)
-                T_bin_aruco_to_drop[1][3] = -0.045
+                # T_bin_aruco_to_drop[1][3] = -0.045
+                T_bin_aruco_to_drop[1][3] = -0.050
     
                 T_base_to_drop = T_base_to_marker @ T_bin_aruco_to_drop
                 print(f"T_base_to_drop X:{T_base_to_drop[0, 3]}, Y:{T_base_to_drop[1, 3]}, Z:{T_base_to_drop[2, 3]}")

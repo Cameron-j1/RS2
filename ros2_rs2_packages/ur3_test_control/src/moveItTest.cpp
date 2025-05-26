@@ -305,29 +305,46 @@ class RobotKinematics : public rclcpp::Node {
                     tempPosition.position.z = operation_height;
                     RCLCPP_INFO(this->get_logger(), "[maneuver] move straight up to pickup peice being captured");
                     if(!moveStraightToPoint({tempPosition}, 0.05, 0.05)) continue;
+                    
                     //bin stuff boi
+                    RCLCPP_INFO(this->get_logger(), "[maneuver] move to viewing position holding peice");
                     if(!moveToJointAngles(1.544, -2.060, 0.372, -0.108, -1.651, -6.233)) continue;
+
+                    RCLCPP_INFO(this->get_logger(), "[maneuver] move to bin viewing position");
                     if(!moveToJointAngles(1.544-M_PI/2, -2.060, 0.372, -0.108, -1.651, -6.233)) continue;
+
+                    //wait for robot to be stationary to get a good view of the aruco
                     while(!robot_stationary_){
                         std::this_thread::sleep_for(std::chrono::milliseconds(100));
                     }
-                    
-                    std::this_thread::sleep_for(std::chrono::seconds(3));
-                    if(!moveToJointAngles(0, -M_PI/2, M_PI/2, -M_PI/2, -M_PI/2, 0)) continue;
+                    std::this_thread::sleep_for(std::chrono::milliseconds(7500));
+
+                    RCLCPP_INFO(this->get_logger(), "[maneuver] move to bin waypoint position");
+                    if(!moveToJointAngles(0, -2.060, M_PI/2, -M_PI/2, -M_PI/2, 0)) continue;
 
                     tempPosition.position.x = x_Bin_Aruco;
                     tempPosition.position.y = y_Bin_Aruco;
                     tempPosition.position.z = aboveBinHeight;
+                    RCLCPP_INFO(this->get_logger(), "[maneuver] to above bin");
                     if(!moveStraightToPoint({tempPosition}, 0.05, 0.05)) continue;
-                    tempPosition.position.z = binDropHeight;
-                    if(!moveStraightToPoint({tempPosition}, 0.05, 0.05)) continue;
+
+                    RCLCPP_INFO(this->get_logger(), "[maneuver] to inside bin");
+                    tempPosition.position.z = aboveBinHeight-0.15;
+                    if(!moveStraightToPoint({tempPosition}, 0.001, 0.00025)) continue; //slowly
+
+                    RCLCPP_INFO(this->get_logger(), "[maneuver] dropping in bin");
                     publishServoState(false);
                     std::this_thread::sleep_for(std::chrono::seconds(pickup_dropoff_wait_));
                     tempPosition.position.z = aboveBinHeight;
+
+                    RCLCPP_INFO(this->get_logger(), "[maneuver] to back above bin");
                     if(!moveStraightToPoint({tempPosition}, 0.05, 0.05)) continue;
+
+                    RCLCPP_INFO(this->get_logger(), "[maneuver] move back to viewing position after bin drop");
+                    if(!moveToJointAngles(1.544, -2.060, 0.372, -0.108, -1.651, -6.233)) continue;
+
                     if(!moveToJointAngles(M_PI/2, -M_PI/2, M_PI/2, -M_PI/2, -M_PI/2, 0)) continue;
 
-                    
                     // tempPosition.position.x = -0.292;
                     // tempPosition.position.y = 0.290;
                     // RCLCPP_INFO(this->get_logger(), "[maneuver] move straight to drop off position");
@@ -354,6 +371,8 @@ class RobotKinematics : public rclcpp::Node {
                 if (moveType == 'n' || moveType == 'x' || moveType == 'c'){
                     tempPosition.position.x = cur.first;
                     tempPosition.position.y = cur.second;
+                    tempPosition.position.z = operation_height;
+
                     RCLCPP_INFO(this->get_logger(), "xStart: %.3f%% and yStart: %.3f%% and zPickUp: %.3f%%", cur.first, cur.second, pickupHeight);
                     publish_point(cur.first, cur.second, pickupHeight, 1.0, 0.0, 0.0);
                     publish_point(goal.first, goal.second, pickupHeight, 0.0, 1.0, 0.0);
@@ -538,8 +557,8 @@ class RobotKinematics : public rclcpp::Node {
  
                 {
                     move_group_ptr->setStartStateToCurrentState();
-                    move_group_ptr->setMaxVelocityScalingFactor(MAX_VEL_CARTESIAN);
-                    move_group_ptr->setMaxAccelerationScalingFactor(MAX_ACCEL_CARTESIAN);
+                    move_group_ptr->setMaxVelocityScalingFactor(std::min(MAX_VEL_CARTESIAN, vel));
+                    move_group_ptr->setMaxAccelerationScalingFactor(std::min(MAX_ACCEL_CARTESIAN, acc));
  
                     fraction = move_group_ptr->computeCartesianPath(tempPosition, 0.01, 0.0, trajectory, /*avoid_collisions =*/ true);
                     if (fraction < 0.95) {
@@ -771,7 +790,7 @@ class RobotKinematics : public rclcpp::Node {
         geometry_msgs::msg::Pose camPosition;
         Eigen::Matrix4d H1_transform_;
 
-        double aboveBinHeight = 0.1848+100/1000+0.125;
+        double aboveBinHeight = 0.1848+0.1+0.125;
         double binDropHeight = aboveBinHeight - 50/1000;
         double board_yaw = 0;
 
@@ -796,7 +815,7 @@ class RobotKinematics : public rclcpp::Node {
                     std::lock_guard<std::mutex> lock(bin_mutex);
                     x_Bin_Aruco = marker.pose.position.x;
                     y_Bin_Aruco = marker.pose.position.y;
-                    RCLCPP_INFO(this->get_logger(), "x_Bin_Aruco: %.3f, y_Bin_Aruco: %.3f", x_Bin_Aruco, y_Bin_Aruco);
+                    // RCLCPP_INFO(this->get_logger(), "x_Bin_Aruco: %.3f, y_Bin_Aruco: %.3f", x_Bin_Aruco, y_Bin_Aruco);
                 }
  
                 if (marker_id == 53 && robot_stationary_) { //only read the markers if the robot is currently stationary
@@ -805,7 +824,7 @@ class RobotKinematics : public rclcpp::Node {
                     auto time_since_stationary = std::chrono::duration_cast<std::chrono::seconds>(
                         current_time - robot_stationary_time_).count();
                     
-                    if (time_since_stationary >= 5) {
+                    if (time_since_stationary >= 7.5) {
                         H1_up_to_date_ = true;
                     }
 
