@@ -242,6 +242,8 @@ class RobotKinematics : public rclcpp::Node {
             }
             std::pair<double, double> cur = chessToGridCenter(curFile, curRank);
             std::pair<double, double> goal = chessToGridCenter(goalFile, goalRank);
+
+            
             
             //loop so that if a move fails, it will try again
             bool maneuver_complete = false;
@@ -314,10 +316,9 @@ class RobotKinematics : public rclcpp::Node {
                     if(!moveToJointAngles(1.544-M_PI/2, -2.060, 0.372, -0.108, -1.651, -6.233)) continue;
 
                     //wait for robot to be stationary to get a good view of the aruco
-                    while(!robot_stationary_){
+                    while(!bin_stable_){
                         std::this_thread::sleep_for(std::chrono::milliseconds(100));
                     }
-                    std::this_thread::sleep_for(std::chrono::milliseconds(7500));
 
                     RCLCPP_INFO(this->get_logger(), "[maneuver] move to bin waypoint position");
                     if(!moveToJointAngles(0, -2.060, M_PI/2, -M_PI/2, -M_PI/2, 0)) continue;
@@ -815,6 +816,26 @@ class RobotKinematics : public rclcpp::Node {
                     std::lock_guard<std::mutex> lock(bin_mutex);
                     x_Bin_Aruco = marker.pose.position.x;
                     y_Bin_Aruco = marker.pose.position.y;
+                    
+
+                    // Push new values
+                    last_10_x.push_back(x_Bin_Aruco);
+                    last_10_y.push_back(y_Bin_Aruco);
+
+                    // Maintain rolling size
+                    if (last_10_x.size() > max_size) last_10_x.pop_front();
+                    if (last_10_y.size() > max_size) last_10_y.pop_front();
+                    
+                    if (last_10_x.size() == max_size && last_10_y.size() == max_size) {
+                        double dx = std::abs(last_10_x.back() - last_10_x.front());
+                        double dy = std::abs(last_10_y.back() - last_10_y.front());
+
+                        if (dx < 0.006 && dy < 0.006) {
+                            bin_stable_ = true;
+                        } else {
+                            bin_stable_ = false;
+                        }
+                    }
                     // RCLCPP_INFO(this->get_logger(), "x_Bin_Aruco: %.3f, y_Bin_Aruco: %.3f", x_Bin_Aruco, y_Bin_Aruco);
                 }
  
@@ -824,10 +845,28 @@ class RobotKinematics : public rclcpp::Node {
                     auto time_since_stationary = std::chrono::duration_cast<std::chrono::seconds>(
                         current_time - robot_stationary_time_).count();
                     
-                    if (time_since_stationary >= 7.5) {
-                        H1_up_to_date_ = true;
-                    }
+                    double x = marker.pose.position.x;
+                    double y = marker.pose.position.y;  
 
+                    // Push new values
+                    last_10_x.push_back(x);
+                    last_10_y.push_back(y);
+
+                    // Maintain rolling size
+                    if (last_10_x.size() > max_size) last_10_x.pop_front();
+                    if (last_10_y.size() > max_size) last_10_y.pop_front();
+                    
+                    if (last_10_x.size() == max_size && last_10_y.size() == max_size) {
+                        double dx = std::abs(last_10_x.back() - last_10_x.front());
+                        double dy = std::abs(last_10_y.back() - last_10_y.front());
+
+                        if (dx < 0.006 && dy < 0.006) {
+                            H1_up_to_date_ = true;
+                        } else {
+                            H1_up_to_date_ = false;
+                        }
+                    }
+                           
                     // RCLCPP_INFO(this->get_logger(), "UPDATING board position");
                     std::lock_guard<std::mutex> lock(h1_mutex);
                     std::string frame_id = marker.header.frame_id;             
@@ -950,7 +989,11 @@ class RobotKinematics : public rclcpp::Node {
 
         // Add H1 position tracking variables
         std::atomic<bool> H1_up_to_date_;
+        std::atomic<bool> bin_stable_;
         std::chrono::steady_clock::time_point robot_stationary_time_;
+        std::deque<double> last_10_x;
+        std::deque<double> last_10_y;
+        const size_t max_size = 10;
 
         //promotion global variable
         std::atomic<bool> request_peice_attach_;
