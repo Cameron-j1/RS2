@@ -98,7 +98,7 @@ class RobotKinematics : public rclcpp::Node {
             moveQueueCheck_ = this->create_wall_timer(500ms, std::bind(&RobotKinematics::checkLastestMove, this));
 
             robot_stationary_ = false;
-            pickup_dropoff_wait_ = 1.5; //seconds
+            pickup_dropoff_wait_ = 1.2; //seconds
             H1_transform_ = Eigen::Matrix4d::Identity();
  
             //intialise to default values for operation without arucos
@@ -235,11 +235,11 @@ class RobotKinematics : public rclcpp::Node {
         }
  
         void maneuverInThread(char curFile, char curRank, char goalFile, char goalRank, char moveType, double pickupHeight, double pickupHeightCap, const std::string& original_move) {
-            moveToJointAngles(1.544, -2.060, 0.372, -0.108, -1.651, -6.233);
-            while(!H1_up_to_date_ && rclcpp::ok()) {
-                RCLCPP_INFO(this->get_logger(), "blocking till H1 correct");
-                std::this_thread::sleep_for(std::chrono::milliseconds(25));
-            }
+            // moveToJointAngles(1.544, -2.060, 0.372, -0.108, -1.651, -6.233);
+            // while(!H1_up_to_date_ && rclcpp::ok()) {
+            //     RCLCPP_INFO(this->get_logger(), "blocking till H1 correct");
+            //     std::this_thread::sleep_for(std::chrono::milliseconds(25));
+            // }
             std::pair<double, double> cur = chessToGridCenter(curFile, curRank);
             std::pair<double, double> goal = chessToGridCenter(goalFile, goalRank);
 
@@ -271,13 +271,13 @@ class RobotKinematics : public rclcpp::Node {
                 // ─── Move to viewing position ─────────────────────────────────────────────
                 RCLCPP_INFO(this->get_logger(), "[maneuver] angle move to viewing position");
 
-                if(!moveToJointAngles(1.544, -2.060, 0.372, -0.108, -1.651, -6.233)) continue;
+                // if(!moveToJointAngles(1.544, -2.060, 0.372, -0.108, -1.651, -6.233)) continue;
 
-                // Wait until H1 position is up to date
-                while(!H1_up_to_date_ && rclcpp::ok()) {
-                    RCLCPP_INFO(this->get_logger(), "blocking till H1 correct");
-                    std::this_thread::sleep_for(std::chrono::milliseconds(25));
-                }
+                // // Wait until H1 position is up to date
+                // while(!H1_up_to_date_ && rclcpp::ok()) {
+                //     RCLCPP_INFO(this->get_logger(), "blocking till H1 correct");
+                //     std::this_thread::sleep_for(std::chrono::milliseconds(25));
+                // }
 
                 // Log the positions for debugging
                 RCLCPP_INFO(this->get_logger(), "H1 position: (%.3f, %.3f)", H1_X, H1_Y);
@@ -377,13 +377,17 @@ class RobotKinematics : public rclcpp::Node {
                     RCLCPP_INFO(this->get_logger(), "xStart: %.3f%% and yStart: %.3f%% and zPickUp: %.3f%%", cur.first, cur.second, pickupHeight);
                     publish_point(cur.first, cur.second, pickupHeight, 1.0, 0.0, 0.0);
                     publish_point(goal.first, goal.second, pickupHeight, 0.0, 1.0, 0.0);
+
+
                     RCLCPP_INFO(this->get_logger(), "[maneuver] move straight to above target peice position");
                     if(!moveStraightToPoint({tempPosition}, 0.05, 0.05)) continue;
+                    publishServoState(true);
+
                     tempPosition.position.z = pickupHeight;
                     RCLCPP_INFO(this->get_logger(), "[maneuver] move straight to target peice height");
                     if(!moveStraightToPoint({tempPosition}, 0.05, 0.05)) continue;
-                    publishServoState(true);
-                    std::this_thread::sleep_for(std::chrono::seconds(pickup_dropoff_wait_));
+
+                    std::this_thread::sleep_for(std::chrono::milliseconds(100));
                     tempPosition.position.z = operation_height;
                     RCLCPP_INFO(this->get_logger(), "[maneuver] move straight to above target peice position");
                     if(!moveStraightToPoint({tempPosition}, 0.05, 0.05)) continue;
@@ -408,6 +412,13 @@ class RobotKinematics : public rclcpp::Node {
     
                 RCLCPP_INFO(this->get_logger(), "[maneuver] angle move to viewing position");
                 if(!moveToJointAngles(1.544, -2.060, 0.372, -0.108, -1.651, -6.233)) continue;
+                
+                //added this to ensure that the robot is in the correct position for the next move and H1 is validated before moving on
+                while(!H1_up_to_date_ && rclcpp::ok()) {
+                    RCLCPP_INFO(this->get_logger(), "blocking till H1 correct");
+                    std::this_thread::sleep_for(std::chrono::milliseconds(25));
+                }
+
                 // everything should be beautiful by now
                 isTakeImage = true;
                 playerTurn = true;

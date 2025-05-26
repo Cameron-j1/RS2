@@ -1,0 +1,15 @@
+sudo nice -n -20 ros2 launch realsense2_camera rs_launch.py \
+  rgb_camera.color_profile:=1280x720x30 \
+  enable_depth:=false \
+  enable_infra1:=false \
+  enable_infra2:=false \
+  enable_gyro:=false \
+  enable_accel:=false \
+  unite_imu_method:=0 \
+  enable_sync:=false \
+  timestamp_domain:=1 \
+  global_time_enable:=false \
+  color_qos:=SENSOR_DATA \
+  rgb_camera.color_format:=RGB8 \
+  log_level:=WARN
+  global_time_enable:=false
