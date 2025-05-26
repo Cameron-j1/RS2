@@ -8,6 +8,7 @@
 #include <ament_index_cpp/get_package_share_directory.hpp>
 #include <vector>
 #include <string>
+#include <sstream>
 #include <std_srvs/srv/trigger.hpp>
 #include <chrono>
 
@@ -636,18 +637,62 @@ FlashingText createFlashingText(sf::Font &font, const std::string &message, floa
 {
     FlashingText flashingText;
     
-    flashingText.textLines.push_back(sf::Text());
-    flashingText.textLines.back().setFont(font);
-    flashingText.textLines.back().setString(message);
-    flashingText.textLines.back().setCharacterSize(20);
-    flashingText.textLines.back().setFillColor(color);
-    flashingText.textLines.back().setStyle(sf::Text::Bold);
+    // Split long messages into multiple lines
+    std::vector<std::string> lines;
+    std::string currentLine = "";
+    std::stringstream ss(message);
+    std::string word;
     
-    // Center the text
-    sf::FloatRect textBounds = flashingText.textLines.back().getLocalBounds();
-    flashingText.textLines.back().setPosition(
-        x - textBounds.width / 2.0f - textBounds.left,
-        y - textBounds.height / 2.0f - textBounds.top);
+    const int maxCharsPerLine = 30; // Maximum characters per line
+    
+    while (ss >> word) {
+        // Check if adding this word would make the line too long
+        if (currentLine.length() + word.length() + 1 > maxCharsPerLine && !currentLine.empty()) {
+            lines.push_back(currentLine);
+            currentLine = word;
+            
+            // Limit to 3 lines maximum
+            if (lines.size() >= 3) {
+                break;
+            }
+        } else {
+            if (!currentLine.empty()) {
+                currentLine += " ";
+            }
+            currentLine += word;
+        }
+    }
+    
+    // Add the last line if it's not empty and we haven't reached the limit
+    if (!currentLine.empty() && lines.size() < 3) {
+        lines.push_back(currentLine);
+    }
+    
+    // If no lines were created (shouldn't happen), use the original message
+    if (lines.empty()) {
+        lines.push_back(message);
+    }
+    
+    // Create text objects for each line
+    for (size_t i = 0; i < lines.size(); i++) {
+        flashingText.textLines.push_back(sf::Text());
+        flashingText.textLines.back().setFont(font);
+        flashingText.textLines.back().setString(lines[i]);
+        flashingText.textLines.back().setCharacterSize(14);
+        flashingText.textLines.back().setFillColor(color);
+        flashingText.textLines.back().setStyle(sf::Text::Bold);
+        
+        // Calculate line spacing
+        float lineSpacing = 24.0f; // 20px font + 4px spacing
+        
+        // Center each line horizontally and position vertically
+        sf::FloatRect textBounds = flashingText.textLines.back().getLocalBounds();
+        float yOffset = (i * lineSpacing) - ((lines.size() - 1) * lineSpacing / 2.0f);
+        
+        flashingText.textLines.back().setPosition(
+            x - textBounds.width / 2.0f - textBounds.left,
+            y + yOffset - textBounds.height / 2.0f - textBounds.top);
+    }
     
     flashingText.frequency = frequency;
     flashingText.isActive = false;
@@ -799,7 +844,7 @@ std::vector<sf::Sprite> makePieces(const sf::Texture &texture, std::string fen)
     return result;
 }
 
-void drawTitle(sf::RenderWindow &window, sf::Font &font)
+void drawTitle(sf::RenderWindow &window, sf::Font &font, GUIState currentState)
 {
     sf::Text title;
     title.setFont(font);
@@ -808,7 +853,15 @@ void drawTitle(sf::RenderWindow &window, sf::Font &font)
     title.setFillColor(sf::Color(50, 50, 50));
     title.setStyle(sf::Text::Bold);
     sf::FloatRect textBounds = title.getLocalBounds();
-    title.setPosition((window.getSize().x - textBounds.width) / 2.0f - textBounds.left +80, 8);
+    
+    if (currentState == STARTUP_SCREEN) {
+        // Center top for startup screen
+        title.setPosition((window.getSize().x - textBounds.width) / 2.0f - textBounds.left, 20);
+    } else {
+        // Keep current position for game screen
+        title.setPosition(135, 390);
+    }
+    
     window.draw(title);
 }
 
@@ -1006,7 +1059,7 @@ int main(int argc, char **argv)
     int robotModeButtonHeight = 50;
     int robotModeButtonX = startButtonX; // 20px gap
     int robotModeButtonY = startButtonY+ 70;
-    Button robotModeButton = createButton(font, "ROBOT ONLY: OFF", robotModeButtonX, robotModeButtonY,
+    Button robotModeButton = createButton(font, "MANUAL ONLY: On", robotModeButtonX, robotModeButtonY,
                                          robotModeButtonWidth, robotModeButtonHeight,
                                          sf::Color::Blue, startButtonHover); // Gray colors initially
     
@@ -1028,7 +1081,7 @@ int main(int argc, char **argv)
         font, 
         "Board out of range, please reposition", 
         WINDOW_WIDTH / 2 + 30, 
-        WINDOW_HEIGHT/ 2 + 0, 
+        WINDOW_HEIGHT/ 2 + 80, 
         1.0f, // 2 flashes per second
         warningRed
     );
@@ -1050,6 +1103,16 @@ int main(int argc, char **argv)
         1.0f, // 1.5 flashes per second
         warningRed 
     );
+
+        FlashingText garbageCanRange = createFlashingText(
+        font, 
+        "Move the bin thanks", 
+        WINDOW_WIDTH / 2, 
+        BOARD_OFFSET_Y + BOARD_SIZE * SQUARE_SIZE + 80, 
+        1.0f, // 1.5 flashes per second
+        warningRed 
+    );
+    
     
     // Clock for delta time calculation
     sf::Clock clock;
@@ -1086,8 +1149,8 @@ int main(int argc, char **argv)
                     bool wasRobotModeHovered = robotModeButton.isHovered;
                     robotModeButton.isHovered = robotModeButton.shape.getGlobalBounds().contains(mousePos);
                     if (robotModeButton.isHovered != wasRobotModeHovered) {
-                        sf::Color baseColor = robotOnlyMode ? startButtonGreen : sf::Color::Blue;
-                        sf::Color hoverColor = robotOnlyMode ? startButtonGreen : sf::Color::Blue;
+                        sf::Color baseColor = robotOnlyMode ? startButtonGreen : buttonBlue;
+                        sf::Color hoverColor = robotOnlyMode ? startButtonHover : buttonHover;
                         robotModeButton.shape.setFillColor(robotModeButton.isHovered ? hoverColor : baseColor);
                     }
                 } else if (currentState == GAME_SCREEN) {
@@ -1139,7 +1202,7 @@ int main(int argc, char **argv)
                         std::cout << "Start button clicked!" << std::endl;
                         currentState = GAME_SCREEN;
                         // Send difficulty to the game system
-                        node->publishControl("DIFFICULTY_" + selectedDifficulty);
+                       // node->publishControl("DIFFICULTY_" + selectedDifficulty);
                         status = "Game started with " + selectedDifficulty + " difficulty";
                         // Reset the board via ROS service
                         node->callResetService();
@@ -1148,11 +1211,11 @@ int main(int argc, char **argv)
                     // Check for Robot Only Mode button click
                     if (robotModeButton.shape.getGlobalBounds().contains(mousePos)) {
                         robotOnlyMode = !robotOnlyMode;
-                        std::cout << "Robot Only Mode: " << (robotOnlyMode ? "ON" : "OFF") << std::endl;
+                        std::cout << "Manual Only Mode: " << (robotOnlyMode ? "Off" : "On") << std::endl;
                         
                         // Update button text and colors
-                        robotModeButton.label.setString(robotOnlyMode ? "ROBOT ONLY: ON" : "ROBOT ONLY: OFF");
-                        sf::Color baseColor = robotOnlyMode ? startButtonGreen : startButtonHover;
+                        robotModeButton.label.setString(robotOnlyMode ? "MANUAL ONLY: Off" : "MANUAL ONLY: On");
+                        sf::Color baseColor = robotOnlyMode ? startButtonGreen : buttonBlue;
                         robotModeButton.shape.setFillColor(baseColor);
                         
                         // Re-center the text
@@ -1239,7 +1302,7 @@ int main(int argc, char **argv)
                     for (const auto &button : gameButtons) {
                         if (button.shape.getGlobalBounds().contains(mousePos)) {
                             status = "Command: " + button.name;
-                            node->publishControl(button.name);
+                          //  node->publishControl(button.name);
                         }
                     }
                     
@@ -1280,7 +1343,7 @@ int main(int argc, char **argv)
         }
 
         window.clear(sf::Color(250, 250, 250));
-        drawTitle(window, font);
+        drawTitle(window, font, currentState);
         
         if (currentState == STARTUP_SCREEN) {
             // Draw startup screen elements
@@ -1326,7 +1389,7 @@ int main(int argc, char **argv)
                 window.draw(button.label);
             }
             
-            drawStatus(window, font, status);
+            //drawStatus(window, font, status);
             
             // Draw flashing texts if they're active and visible
             if (boardOutOfRangeText.isActive && boardOutOfRangeText.isVisible) {
@@ -1380,17 +1443,17 @@ int main(int argc, char **argv)
             difficultyText.setFont(font);
             difficultyText.setString("Difficulty: " + selectedDifficulty);
             difficultyText.setCharacterSize(14);
-            difficultyText.setFillColor(sf::Color(80, 80, 80));
-            difficultyText.setPosition(BOARD_OFFSET_X + BOARD_SIZE * SQUARE_SIZE + 260, BOARD_OFFSET_Y + 30);
+            difficultyText.setFillColor(sf::Color(50, 50, 50));
+            difficultyText.setPosition(BOARD_OFFSET_X + BOARD_SIZE * SQUARE_SIZE + 40, BOARD_OFFSET_Y + 30);
             window.draw(difficultyText);
             
             // Display Robot Only Mode status
             sf::Text robotModeText;
             robotModeText.setFont(font);
-            robotModeText.setString("Robot Mode: " + std::string(robotOnlyMode ? "ON" : "OFF"));
+            robotModeText.setString("Manual Only Mode: " + std::string(robotOnlyMode ? "Off" : "On"));
             robotModeText.setCharacterSize(14);
-            robotModeText.setFillColor(robotOnlyMode ? sf::Color(0, 150, 0) : sf::Color(150, 0, 0));
-            robotModeText.setPosition(BOARD_OFFSET_X + BOARD_SIZE * SQUARE_SIZE + 260, BOARD_OFFSET_Y + 300);
+            robotModeText.setFillColor(robotOnlyMode ? sf::Color(150, 0, 0) : sf::Color(0, 150, 0));
+            robotModeText.setPosition(BOARD_OFFSET_X + BOARD_SIZE * SQUARE_SIZE + 10, BOARD_OFFSET_Y );
             window.draw(robotModeText);
         }
         
