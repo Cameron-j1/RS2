@@ -907,12 +907,13 @@ public:
         status_sub_ = this->create_subscription<std_msgs::msg::String>(
             "/status", 10, [this](std_msgs::msg::String::SharedPtr msg)
             {
-                if (msg->data.size() >= 4) {
+                if (msg->data.size() >= 5) {
                     status1 = (msg->data[0] == '1');  // Board out of range
-                    status2 = (msg->data[1] == '1');  // Status 2
+                    status2 = (msg->data[1] == '1');  // Bin out of range
                     status3 = (msg->data[2] == '1');  // E-stop flag
                     status4 = (msg->data[3] == '1');  // Player turn
-                    RCLCPP_INFO(this->get_logger(), "Status received: %c %c %c %c", msg->data[0], msg->data[1], msg->data[2], msg->data[3]);
+                    status5 = (msg->data[4] == '1');  // Promote Flag
+                    RCLCPP_INFO(this->get_logger(), "Status received: %c %c %c %c %c", msg->data[0], msg->data[1], msg->data[2], msg->data[3], msg->data[4]);
                 } else {
                     RCLCPP_WARN(this->get_logger(), "Status string too short: '%s'", msg->data.c_str());
                 }
@@ -920,6 +921,9 @@ public:
 
         // Publisher for chess game status
         chess_game_status_publisher_ = this->create_publisher<std_msgs::msg::String>("chess_game_status", 10);
+        
+        // Publisher for status updates
+        status_publisher_ = this->create_publisher<std_msgs::msg::String>("/status", 10);
     }
 
     void callResetService()
@@ -979,12 +983,21 @@ public:
         RCLCPP_INFO(this->get_logger(), "Published game status: %s", status.c_str());
     }
 
+    void publishStatusUpdate(const std::string &status)
+    {
+        auto msg = std_msgs::msg::String();
+        msg.data = status;
+        status_publisher_->publish(msg);
+        RCLCPP_INFO(this->get_logger(), "Published status update: %s", status.c_str());
+    }
+
     std::string getLastMove() const { return lastMove; }
     bool getButtonState() const { return buttonState; }
     bool getStatus1() const { return status1; }
     bool getStatus2() const { return status2; }
     bool getStatus3() const { return status3; }
     bool getStatus4() const { return status4; }
+    bool getStatus5() const { return status5; }
     // Legacy getters for backward compatibility
     bool getBoardOutOfRange() const { return status1; }
     bool getPlayerTurn() const { return status4; }
@@ -992,6 +1005,7 @@ public:
     rclcpp::Publisher<std_msgs::msg::String>::SharedPtr chess_moves_pub_stockfish_;
     rclcpp::Publisher<std_msgs::msg::String>::SharedPtr chess_moves_publisher_;
     rclcpp::Publisher<std_msgs::msg::String>::SharedPtr chess_game_status_publisher_;
+    rclcpp::Publisher<std_msgs::msg::String>::SharedPtr status_publisher_;
 private:
     void moveCallback(const std_msgs::msg::String::SharedPtr msg)
     {
@@ -1014,13 +1028,14 @@ private:
     rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr player_turn_sub_;
     rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr estop_flag_sub_;
     rclcpp::Subscription<std_msgs::msg::String>::SharedPtr status_sub_;
-    char temp1, temp2, temp3, temp4;
+    char temp1, temp2, temp3, temp4, temp5;
     std::string lastMove;
     bool buttonState = false;
     bool status1 = false;
     bool status2 = false;
     bool status3 = false;
     bool status4 = false;
+    bool status5 = false;
 };
 #pragma endregion ROS
 std::string createMoveString(int fromRow, int fromCol, int toRow, int toCol, char piece, char pieceCap, bool isCapture, bool isCastling, bool isPromotion, std::shared_ptr<ChessSubscriber> ros2node);
@@ -1199,11 +1214,16 @@ int main(int argc, char **argv)
                         resetButton.shape.setFillColor(resetButton.isHovered ? sf::Color(255, 100, 100) : sf::Color(220, 60, 60));
                     }
                     
-                    // Handle piece attached button hover effect
-                    bool wasPieceAttachedHovered = pieceAttachedButton.isHovered;
-                    pieceAttachedButton.isHovered = pieceAttachedButton.shape.getGlobalBounds().contains(mousePos);
-                    if (pieceAttachedButton.isHovered != wasPieceAttachedHovered) {
-                        pieceAttachedButton.shape.setFillColor(pieceAttachedButton.isHovered ? sf::Color(100, 150, 255) : sf::Color(60, 120, 220));
+                    // Handle piece attached button hover effect (only when status5 is active)
+                    if (node->getStatus5()) {
+                        bool wasPieceAttachedHovered = pieceAttachedButton.isHovered;
+                        pieceAttachedButton.isHovered = pieceAttachedButton.shape.getGlobalBounds().contains(mousePos);
+                        if (pieceAttachedButton.isHovered != wasPieceAttachedHovered) {
+                            pieceAttachedButton.shape.setFillColor(pieceAttachedButton.isHovered ? sf::Color(100, 150, 255) : sf::Color(60, 120, 220));
+                        }
+                    } else {
+                        // Reset hover state when status5 is false
+                        pieceAttachedButton.isHovered = false;
                     }
                 }
             }
@@ -1350,9 +1370,10 @@ int main(int argc, char **argv)
                     }
                     
                     // Check for piece attached button click
-                    if (pieceAttachedButton.shape.getGlobalBounds().contains(mousePos)) {
+                    if (node->getStatus5() && pieceAttachedButton.shape.getGlobalBounds().contains(mousePos)) {
                         std::cout << "Piece attached button clicked!" << std::endl;
                         node->publishGameStatus("piece_attached");
+                        node->publishStatusUpdate("00000");
                         status = "Piece attached message sent";
                     }
                 }
@@ -1458,8 +1479,20 @@ int main(int argc, char **argv)
             window.draw(resetButton.label);
             
             // Draw piece attached button
-            window.draw(pieceAttachedButton.shape);
-            window.draw(pieceAttachedButton.label);
+            if (node->getStatus5()) {
+                window.draw(pieceAttachedButton.shape);
+                window.draw(pieceAttachedButton.label);
+                
+                // Draw instruction text for piece attachment
+                sf::Text attachmentText;
+                attachmentText.setFont(font);
+                attachmentText.setString("Please attach a Black Queen to the robot");
+                attachmentText.setCharacterSize(16);
+                attachmentText.setFillColor(sf::Color(50, 50, 50));
+                attachmentText.setStyle(sf::Text::Bold);
+                attachmentText.setPosition(BOARD_OFFSET_X + BOARD_SIZE * SQUARE_SIZE + 20, BOARD_OFFSET_Y + 280);
+                window.draw(attachmentText);
+            }
             
             // Indicator light
             sf::CircleShape indicator(20); // The parameter is the radius (half of the previous width/height of 40)
@@ -1485,8 +1518,8 @@ int main(int argc, char **argv)
 
             window.draw(indicatorLabel);
             
-            // Status indicators
-            std::vector<std::string> statusLabels = {" Board Range", "   Bin Range", ""};  // Empty string for Player Turn - will be set dynamically
+            // Status indicators`
+            std::vector<std::string> statusLabels = {" Board Range", "    Bin Range", ""};  // Empty string for Player Turn - will be set dynamically
             std::vector<std::string> errorMessages = {"Reposition the board", "Reposition the bin", "Make your move"};
             std::vector<bool> statusValues = {node->getStatus1(), node->getStatus2(), node->getStatus4()};
             
@@ -1551,7 +1584,7 @@ int main(int argc, char **argv)
             robotModeText.setFont(font);
             robotModeText.setString("Manual Only Mode: " + std::string(robotOnlyMode ? "Off" : "On"));
             robotModeText.setCharacterSize(14);
-            robotModeText.setFillColor(robotOnlyMode ? sf::Color((180, 0, 0)) : sf::Color(0, 180, 0));
+            robotModeText.setFillColor(robotOnlyMode ? sf::Color(180, 0, 0) : sf::Color(30, 100, 30));
             robotModeText.setPosition(BOARD_OFFSET_X + BOARD_SIZE * SQUARE_SIZE + 10, BOARD_OFFSET_Y + 4);
             window.draw(robotModeText);
         }
