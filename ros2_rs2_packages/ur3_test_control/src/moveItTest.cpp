@@ -129,9 +129,10 @@ class RobotKinematics : public rclcpp::Node {
         void publish_status(){
             std::string status_str;
             status_str += posError ? '1' : '0';
-            status_str += yawError ? '1' : '0';
+            status_str += binError  ? '1' : '0';
             status_str += eStop ? '1' : '0';
             status_str += playerTurn ? '1' : '0';
+            status_str += promoteState ? '1' : '0';
 
             auto msg = std_msgs::msg::String();
             msg.data = status_str;
@@ -244,9 +245,21 @@ class RobotKinematics : public rclcpp::Node {
             // }
             std::pair<double, double> cur = chessToGridCenter(curFile, curRank);
             std::pair<double, double> goal = chessToGridCenter(goalFile, goalRank);
+            playerTurn = false;
+            publish_status();
+            
+            double max_y_dim = 0.48;
+            double min_y_dim = 0.16;
+            double min_x_dim = -0.17;
+            double max_x_dim = 0.17;
 
-            
-            
+            if(cur.first > max_x_dim || cur.first < min_x_dim || cur.second > max_y_dim || cur.second < min_y_dim || goal.first > max_x_dim || goal.first < min_x_dim || goal.second > max_y_dim || goal.second < min_y_dim){
+                posError = true;
+                publish_status();
+            } else{
+                posError = false;
+                publish_status();
+            }
             //loop so that if a move fails, it will try again
             bool maneuver_complete = false;
             bool first_try = true;
@@ -430,6 +443,8 @@ class RobotKinematics : public rclcpp::Node {
                 moveQueue.pop_front();
 
                 maneuver_complete = true; //next loop will return
+                playerTurn = true;
+                publish_status();
             }
         }
 
@@ -769,6 +784,8 @@ class RobotKinematics : public rclcpp::Node {
         bool playerTurn = true;
         bool isTakeImage = true;
         bool executeMove = true;
+        bool promoteState = true;
+        bool binError = false;
 
         // calculate the height of other pieces based on the height of the pawn
         double operation_height = 0.15 + 0.1;//, pickupHeight = 0.05 + 0.1+0.015;
