@@ -356,6 +356,7 @@ class RobotKinematics : public rclcpp::Node {
 
                 if(moveType == 'p'){ // promotion logic
                     if(!moveToJointAngles(M_PI/2, -M_PI/2, M_PI/2, -M_PI/2, -M_PI/2, 0)) continue;
+                    publishServoState(true);
                     request_peice_attach_ = true;
                     publish_chess_status("back_promote"); //send to pi
                     //wait for response

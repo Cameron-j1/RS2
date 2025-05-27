@@ -109,6 +109,7 @@ class CameraNode(Node):
                             square_change = square_change + 1
                             change_list = change_list + [[i, y]]
                 
+                #En Passant Detection
                 if square_change == 3:
                     for i in range(3):
                         if self.board[change_list[i][0]][change_list[i][1]] == '-':
@@ -116,15 +117,17 @@ class CameraNode(Node):
                             capturedPieceEnPassant = [change_list[i][0] + 1, change_list[i][1]]
                             if self.board[change_list[i][0] + 1][change_list[i][1] + 1] == 'P' and chessBoardW[change_list[i][0] + 1][change_list[i][1] + 1] == 1:
                                 startEnPassant = [change_list[i][0] + 1, change_list[i][1] + 1]
+                                playerMove = [capturedPieceEnPassant, [9, 9], startEnPassant, goalEnPassant]
+                                print("White En Passant")
                                 break
                             elif self.board[change_list[i][0] + 1][change_list[i][1] - 1] == 'P' and chessBoardW[change_list[i][0] + 1][change_list[i][1] - 1] == 1:
                                 startEnPassant = [change_list[i][0] + 1, change_list[i][1] - 1]
+                                playerMove = [capturedPieceEnPassant, [9, 9], startEnPassant, goalEnPassant]
+                                print("White En Passant")
                                 break
-                    playerMove = [capturedPieceEnPassant, [9, 9], startEnPassant, goalEnPassant]
-                    print("White En Passant")
 
                 #Normal and Capture move
-                if not castlingCheck and square_change != 3:
+                if not castlingCheck and square_change < 3:
                     stop = False
                     for i in range(8):
                         for y in range(8):

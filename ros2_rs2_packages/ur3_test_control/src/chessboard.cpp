@@ -872,6 +872,12 @@ int main(int argc, char * argv[]) {
                                     if (castlingAvail.length() == 0) castlingAvail = "-";
                                 }
 
+                                // Player pawn promotion
+                                else if (board[physicalMove[0]][physicalMove[1]] == 'P' && physicalMove[2] == 0) {
+                                    pieces[i].setTextureRect(sf::IntRect(64, 64, 64, 64));
+                                    board[physicalMove[0]][physicalMove[1]] = 'Q';
+                                }
+
                                 board[physicalMove[2]][physicalMove[3]] = board[physicalMove[0]][physicalMove[1]];
                             }
                         board[physicalMove[0]][physicalMove[1]] = '-';
@@ -928,7 +934,13 @@ int main(int argc, char * argv[]) {
                     std::istringstream iss(line);
                     std::string bestmove;
                     iss >> bestmove >> stockfishMove; // Skip "bestmove", get the move
-                    
+                    char promotionPiece = '-';
+                    // promotion
+                    if (stockfishMove.size() == 5) {
+                        promotionPiece = stockfishMove.back();
+                        stockfishMove.pop_back();
+                    }
+
                     // Process Stockfish move...
                     std::vector<std::vector<int>> fishMoves = chessMoveToCoordinates(stockfishMove);
                     // Update the graphic to show stockfish's latest move
@@ -937,6 +949,7 @@ int main(int argc, char * argv[]) {
                         int col = (int(pieces[i].getPosition().x)-8)/SQUARE_SIZE;
                         // Find the piece that stockfish want to play
                         if (row == fishMoves[0][0] && col == fishMoves[0][1]) {
+                            // Detection whether a capture was made by stockfish
                             for (int y = 0; y < pieces.size(); y++) {
                                 int rowy = (int(pieces[y].getPosition().y)-8)/SQUARE_SIZE;
                                 int coly = (int(pieces[y].getPosition().x)-8)/SQUARE_SIZE; 
@@ -954,7 +967,13 @@ int main(int argc, char * argv[]) {
                             board[fishMoves[1][0]][fishMoves[1][1]] = board[row][col];
                             piecePlayed = board[row][col];
 
-                            if (board[row][col] == 'p') pawn = true;
+                            if (board[row][col] == 'p') {
+                                pawn = true;
+                                if (promotionPiece != '-') {
+                                    pieces[i].setTextureRect(sf::IntRect(64, 0, 64, 64));
+                                    board[fishMoves[1][0]][fishMoves[1][1]] = promotionPiece;
+                                }
+                            }
                             // Castling check and move the correct rooks
                             if (board[row][col] == 'k' && abs(fishMoves[0][1] - fishMoves[1][1]) > 1) {
                                 moveType = 'c';
@@ -1012,6 +1031,7 @@ int main(int argc, char * argv[]) {
                     } else {
                         msg.data = stockfishMove + moveType + piecePlayed;
                         if (capture) msg.data += pieceCaptured;
+                        if (promotionPiece != '-') msg.data = stockfishMove + "=q";
                         publisher->publish(msg); // Publish the move to control node
                     }
                     // if (capture) msg.data += pieceCaptured;
