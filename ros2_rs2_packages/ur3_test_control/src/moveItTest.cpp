@@ -129,7 +129,7 @@ class RobotKinematics : public rclcpp::Node {
         void publish_status(){
             std::string status_str;
             status_str += posError ? '1' : '0';
-            status_str += yawError ? '1' : '0';
+            status_str += binError ? '1' : '0';
             status_str += eStop ? '1' : '0';
             status_str += playerTurn ? '1' : '0';
             status_str += promoteQueen ? '1' : '0';
@@ -255,7 +255,7 @@ class RobotKinematics : public rclcpp::Node {
             //     posError = false;
             //     publish_status();
             // }
-            
+
             while (cur.first > max_x_dim || cur.first < min_x_dim || 
                     abs(cur.second) > max_y_dim || 
                     goal.first > max_x_dim || goal.first < min_x_dim || 
@@ -789,7 +789,7 @@ class RobotKinematics : public rclcpp::Node {
 
         // status variables
         bool posError = false;
-        bool yawError = false;
+        bool binError = false;
         bool eStop = false;
         bool playerTurn = true;
         bool promoteQueen = false;
@@ -834,6 +834,7 @@ class RobotKinematics : public rclcpp::Node {
         double aboveBinHeight = 0.1848+0.1+0.125;
         double binDropHeight = aboveBinHeight - 50/1000;
         double board_yaw = 0;
+        double binErrorInc = 0;
 
         std::deque<std::string> moveQueue;
  
@@ -872,10 +873,17 @@ class RobotKinematics : public rclcpp::Node {
 
                         if (dx < 0.006 && dy < 0.006) {
                             bin_stable_ = true;
+                            binError = false;
+                            publish_status();
                         } else {
                             bin_stable_ = false;
+                            binErrorInc += 1;
+                            if (binErrorInc > 100) {
+                                binError = true;
+                                publish_status();
+                                binErrorInc = 0;
+                            }
                         }
-                    }
                     // RCLCPP_INFO(this->get_logger(), "x_Bin_Aruco: %.3f, y_Bin_Aruco: %.3f", x_Bin_Aruco, y_Bin_Aruco);
                 }
  
@@ -904,6 +912,7 @@ class RobotKinematics : public rclcpp::Node {
                             H1_up_to_date_ = true;
                         } else {
                             H1_up_to_date_ = false;
+                            
                         }
                     }
                            
