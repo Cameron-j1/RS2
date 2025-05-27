@@ -132,6 +132,7 @@ class RobotKinematics : public rclcpp::Node {
             status_str += yawError ? '1' : '0';
             status_str += eStop ? '1' : '0';
             status_str += playerTurn ? '1' : '0';
+            status_str += promoteQueen ? '1' : '0';
 
             auto msg = std_msgs::msg::String();
             msg.data = status_str;
@@ -242,9 +243,35 @@ class RobotKinematics : public rclcpp::Node {
             // }
             std::pair<double, double> cur = chessToGridCenter(curFile, curRank);
             std::pair<double, double> goal = chessToGridCenter(goalFile, goalRank);
+            double max_x_dim = 0.48;
+            double min_x_dim = 0.16;
+            double min_y_dim = -0.17;
+            double max_y_dim = 0.17;
 
+            // if(cur.first > max_x_dim || cur.first < min_x_dim || abs(cur.second) > max_y_dim || goal.first > max_x_dim || goal.first < min_x_dim || abs(goal.second) > max_y_dim){
+            //     posError = true;
+            //     publish_status();
+            // } else{
+            //     posError = false;
+            //     publish_status();
+            // }
             
-            
+            while (cur.first > max_x_dim || cur.first < min_x_dim || 
+                    abs(cur.second) > max_y_dim || 
+                    goal.first > max_x_dim || goal.first < min_x_dim || 
+                    abs(goal.second) > max_y_dim) 
+            {
+                posError = true;
+                publish_status();
+
+                // Optionally add a small sleep to prevent busy-waiting
+                rclcpp::sleep_for(std::chrono::milliseconds(100));
+            }
+            posError = false;
+            publish_status();
+
+
+
             //loop so that if a move fails, it will try again
             bool maneuver_complete = false;
             bool first_try = true;
@@ -765,6 +792,7 @@ class RobotKinematics : public rclcpp::Node {
         bool yawError = false;
         bool eStop = false;
         bool playerTurn = true;
+        bool promoteQueen = false;
         bool isTakeImage = true;
         bool executeMove = true;
 
