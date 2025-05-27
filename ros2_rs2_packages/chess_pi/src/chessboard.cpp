@@ -917,6 +917,9 @@ public:
                     RCLCPP_WARN(this->get_logger(), "Status string too short: '%s'", msg->data.c_str());
                 }
             });  
+
+        // Publisher for chess game status
+        chess_game_status_publisher_ = this->create_publisher<std_msgs::msg::String>("chess_game_status", 10);
     }
 
     void callResetService()
@@ -960,6 +963,22 @@ public:
         RCLCPP_INFO(this->get_logger(), "Published control: %s", command.c_str());
     }
 
+    void publishChessMove(const std::string &moveString)
+    {
+        auto msg = std_msgs::msg::String();
+        msg.data = moveString;
+        chess_moves_publisher_->publish(msg);
+        RCLCPP_INFO(this->get_logger(), "Published move: %s", moveString.c_str());
+    }
+
+    void publishGameStatus(const std::string &status)
+    {
+        auto msg = std_msgs::msg::String();
+        msg.data = status;
+        chess_game_status_publisher_->publish(msg);
+        RCLCPP_INFO(this->get_logger(), "Published game status: %s", status.c_str());
+    }
+
     std::string getLastMove() const { return lastMove; }
     bool getButtonState() const { return buttonState; }
     bool getStatus1() const { return status1; }
@@ -972,6 +991,7 @@ public:
     bool getEstopFlag() const { return status3; }
     rclcpp::Publisher<std_msgs::msg::String>::SharedPtr chess_moves_pub_stockfish_;
     rclcpp::Publisher<std_msgs::msg::String>::SharedPtr chess_moves_publisher_;
+    rclcpp::Publisher<std_msgs::msg::String>::SharedPtr chess_game_status_publisher_;
 private:
     void moveCallback(const std_msgs::msg::String::SharedPtr msg)
     {
@@ -1078,6 +1098,13 @@ int main(int argc, char **argv)
                                     160, 50, 
                                     sf::Color(220, 60, 60), sf::Color(255, 100, 100));
                                     
+    // Create piece attached button
+    Button pieceAttachedButton = createButton(font, "PIECE ATTACHED", 
+                                            BOARD_OFFSET_X + BOARD_SIZE * SQUARE_SIZE + 120, 
+                                            BOARD_OFFSET_Y + 380, 
+                                            160, 50, 
+                                            sf::Color(60, 120, 220), sf::Color(100, 150, 255));
+    
     // Create flashing text notifications
     FlashingText boardOutOfRangeText = createFlashingText(
         font, 
@@ -1170,6 +1197,13 @@ int main(int argc, char **argv)
                     resetButton.isHovered = resetButton.shape.getGlobalBounds().contains(mousePos);
                     if (resetButton.isHovered != wasResetHovered) {
                         resetButton.shape.setFillColor(resetButton.isHovered ? sf::Color(255, 100, 100) : sf::Color(220, 60, 60));
+                    }
+                    
+                    // Handle piece attached button hover effect
+                    bool wasPieceAttachedHovered = pieceAttachedButton.isHovered;
+                    pieceAttachedButton.isHovered = pieceAttachedButton.shape.getGlobalBounds().contains(mousePos);
+                    if (pieceAttachedButton.isHovered != wasPieceAttachedHovered) {
+                        pieceAttachedButton.shape.setFillColor(pieceAttachedButton.isHovered ? sf::Color(100, 150, 255) : sf::Color(60, 120, 220));
                     }
                 }
             }
@@ -1269,7 +1303,7 @@ int main(int argc, char **argv)
                                     std::cout << "=========================" << std::endl;
                                     
                                     // Publish the move string
-//                                    node->publishChessMove(moveString);
+                                    node->publishChessMove(moveString);
                                     
                                     // Clear selection
                                     selectedPiece = sf::Vector2i(-1, -1);
@@ -1313,6 +1347,13 @@ int main(int argc, char **argv)
                         std::cout << "Back to menu button clicked!" << std::endl;
                         currentState = STARTUP_SCREEN;
                         status = "Ready to play";
+                    }
+                    
+                    // Check for piece attached button click
+                    if (pieceAttachedButton.shape.getGlobalBounds().contains(mousePos)) {
+                        std::cout << "Piece attached button clicked!" << std::endl;
+                        node->publishGameStatus("piece_attached");
+                        status = "Piece attached message sent";
                     }
                 }
             }
@@ -1416,6 +1457,10 @@ int main(int argc, char **argv)
             window.draw(resetButton.shape);
             window.draw(resetButton.label);
             
+            // Draw piece attached button
+            window.draw(pieceAttachedButton.shape);
+            window.draw(pieceAttachedButton.label);
+            
             // Indicator light
             sf::CircleShape indicator(20); // The parameter is the radius (half of the previous width/height of 40)
             indicator.setPosition(WINDOW_WIDTH - 50, 10);
@@ -1441,8 +1486,8 @@ int main(int argc, char **argv)
             window.draw(indicatorLabel);
             
             // Status indicators
-            std::vector<std::string> statusLabels = {" Board Range", "       Status 2", ""};  // Empty string for Player Turn - will be set dynamically
-            std::vector<std::string> errorMessages = {"Reposition the board", "Check system status", "Make your move"};
+            std::vector<std::string> statusLabels = {" Board Range", "   Bin Range", ""};  // Empty string for Player Turn - will be set dynamically
+            std::vector<std::string> errorMessages = {"Reposition the board", "Reposition the bin", "Make your move"};
             std::vector<bool> statusValues = {node->getStatus1(), node->getStatus2(), node->getStatus4()};
             
             for (int i = 0; i < 3; i++) {  // Changed from 4 to 3
