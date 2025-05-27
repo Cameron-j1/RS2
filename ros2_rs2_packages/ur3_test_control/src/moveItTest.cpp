@@ -129,13 +129,14 @@ class RobotKinematics : public rclcpp::Node {
         void publish_status(){
             std::string status_str;
             status_str += posError ? '1' : '0';
-            status_str += binError ? '1' : '0';
+            status_str += yawError ? '1' : '0';
             status_str += eStop ? '1' : '0';
             status_str += playerTurn ? '1' : '0';
-            status_str += promoteQueen ? '1' : '0';
 
             auto msg = std_msgs::msg::String();
             msg.data = status_str;
+
+            // msg.data = "00000"; //OVERRIDE TILL DEBUGGED AND OPERATIONAL
             status_pub->publish(msg);
             // RCLCPP_WARN(this->get_logger(), "publishing error string: %s", status_str.c_str());
         }
@@ -243,37 +244,9 @@ class RobotKinematics : public rclcpp::Node {
             // }
             std::pair<double, double> cur = chessToGridCenter(curFile, curRank);
             std::pair<double, double> goal = chessToGridCenter(goalFile, goalRank);
-            double max_x_dim = 0.48;
-            double min_x_dim = 0.16;
-            double min_y_dim = -0.17;
-            double max_y_dim = 0.17;
 
-            // if(cur.first > max_x_dim || cur.first < min_x_dim || abs(cur.second) > max_y_dim || goal.first > max_x_dim || goal.first < min_x_dim || abs(goal.second) > max_y_dim){
-            //     posError = true;
-            //     publish_status();
-            // } else{
-            //     posError = false;
-            //     publish_status();
-            // }
-
-            if (!camJustExecuted) {
-                while (cur.first > max_x_dim || cur.first < min_x_dim || 
-                        abs(cur.second) > max_y_dim || 
-                        goal.first > max_x_dim || goal.first < min_x_dim || 
-                        abs(goal.second) > max_y_dim) 
-                {
-                    posError = true;
-                    publish_status();
-
-                    // Optionally add a small sleep to prevent busy-waiting
-                    rclcpp::sleep_for(std::chrono::milliseconds(100));
-                }
-            }
-
-            camJustExecuted = false;
-            posError = false;
-            publish_status();
-
+            
+            
             //loop so that if a move fails, it will try again
             bool maneuver_complete = false;
             bool first_try = true;
@@ -359,7 +332,7 @@ class RobotKinematics : public rclcpp::Node {
                     if(!moveStraightToPoint({tempPosition}, 0.05, 0.05)) continue;
 
                     RCLCPP_INFO(this->get_logger(), "[maneuver] to inside bin");
-                    tempPosition.position.z = aboveBinHeight-0.15;
+                    tempPosition.position.z = aboveBinHeight-0.16;
                     if(!moveStraightToPoint({tempPosition}, 0.001, 0.00025)) continue; //slowly
 
                     RCLCPP_INFO(this->get_logger(), "[maneuver] dropping in bin");
@@ -790,11 +763,10 @@ class RobotKinematics : public rclcpp::Node {
         moveit::planning_interface::MoveGroupInterface* move_group_ptr;
 
         // status variables
-        bool posError = false, yawError = false;
-        bool binError = false;
+        bool posError = false;
+        bool yawError = false;
         bool eStop = false;
         bool playerTurn = true;
-        bool promoteQueen = false;
         bool isTakeImage = true;
         bool executeMove = true;
 
@@ -836,7 +808,6 @@ class RobotKinematics : public rclcpp::Node {
         double aboveBinHeight = 0.1848+0.1+0.125;
         double binDropHeight = aboveBinHeight - 50/1000;
         double board_yaw = 0;
-        double binErrorInc = 0;
 
         std::deque<std::string> moveQueue;
  
@@ -875,18 +846,16 @@ class RobotKinematics : public rclcpp::Node {
 
                         if (dx < 0.006 && dy < 0.006) {
                             bin_stable_ = true;
-                            binError = false;
-                            publish_status();
                         } else {
                             bin_stable_ = false;
-                            binErrorInc += 1;
-                            if (binErrorInc > 100) {
-                                binError = true;
-                                publish_status();
-                                binErrorInc = 0;
-                            }
                         }
+                    }
                     // RCLCPP_INFO(this->get_logger(), "x_Bin_Aruco: %.3f, y_Bin_Aruco: %.3f", x_Bin_Aruco, y_Bin_Aruco);
+                }
+
+                if(!robot_stationary_){
+                    last_10_x.clear();
+                    last_10_y.clear();
                 }
  
                 if (marker_id == 53 && robot_stationary_) { //only read the markers if the robot is currently stationary
@@ -914,8 +883,9 @@ class RobotKinematics : public rclcpp::Node {
                             H1_up_to_date_ = true;
                         } else {
                             H1_up_to_date_ = false;
-                            
                         }
+                    }else{
+                        H1_up_to_date_ = false;
                     }
                            
                     // RCLCPP_INFO(this->get_logger(), "UPDATING board position");
@@ -971,7 +941,7 @@ class RobotKinematics : public rclcpp::Node {
                     camPosition.position.z = 0.40406;
                 }
             }
-        }        }
+        }        
  
         //to detect the robot moving
         void jointStateCallback(const sensor_msgs::msg::JointState::SharedPtr msg) {
@@ -1044,7 +1014,7 @@ class RobotKinematics : public rclcpp::Node {
         std::chrono::steady_clock::time_point robot_stationary_time_;
         std::deque<double> last_10_x;
         std::deque<double> last_10_y;
-        const size_t max_size = 15;
+        const size_t max_size = 150;
 
         //promotion global variable
         std::atomic<bool> request_peice_attach_;
@@ -1057,7 +1027,6 @@ class RobotKinematics : public rclcpp::Node {
                 if(isTakeImage && !simulation_mode_){
                     RCLCPP_WARN(this->get_logger(), "[button_callback] starting takePictureInThread");
                     takePictureInThread();
-
                     isTakeImage = false;
                 }
                 if(isTakeImage && simulation_mode_){
@@ -1157,7 +1126,6 @@ class RobotKinematics : public rclcpp::Node {
             RCLCPP_INFO(this->get_logger(), "[camera_maneuver] taking image");
             takeImage->publish(std_msgs::msg::Bool().set__data(true));
             RCLCPP_INFO(this->get_logger(), "[camera_maneuver] published take image");
-            camJustExecuted = true;
         }
 
     struct ManeuverData {
@@ -1179,7 +1147,6 @@ class RobotKinematics : public rclcpp::Node {
 
     // Add simulation mode member variable
     bool simulation_mode_;
-    bool camJustExecuted = false;
 
     // Add thread tracking variables
     std::atomic<int> active_threads_;
