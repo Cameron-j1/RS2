@@ -256,21 +256,23 @@ class RobotKinematics : public rclcpp::Node {
             //     publish_status();
             // }
 
-            while (cur.first > max_x_dim || cur.first < min_x_dim || 
-                    abs(cur.second) > max_y_dim || 
-                    goal.first > max_x_dim || goal.first < min_x_dim || 
-                    abs(goal.second) > max_y_dim) 
-            {
-                posError = true;
-                publish_status();
+            if (!camJustExecuted) {
+                while (cur.first > max_x_dim || cur.first < min_x_dim || 
+                        abs(cur.second) > max_y_dim || 
+                        goal.first > max_x_dim || goal.first < min_x_dim || 
+                        abs(goal.second) > max_y_dim) 
+                {
+                    posError = true;
+                    publish_status();
 
-                // Optionally add a small sleep to prevent busy-waiting
-                rclcpp::sleep_for(std::chrono::milliseconds(100));
+                    // Optionally add a small sleep to prevent busy-waiting
+                    rclcpp::sleep_for(std::chrono::milliseconds(100));
+                }
             }
+
+            camJustExecuted = false;
             posError = false;
             publish_status();
-
-
 
             //loop so that if a move fails, it will try again
             bool maneuver_complete = false;
@@ -788,7 +790,7 @@ class RobotKinematics : public rclcpp::Node {
         moveit::planning_interface::MoveGroupInterface* move_group_ptr;
 
         // status variables
-        bool posError = false;
+        bool posError = false, yawError = false;
         bool binError = false;
         bool eStop = false;
         bool playerTurn = true;
@@ -969,7 +971,7 @@ class RobotKinematics : public rclcpp::Node {
                     camPosition.position.z = 0.40406;
                 }
             }
-        }        
+        }        }
  
         //to detect the robot moving
         void jointStateCallback(const sensor_msgs::msg::JointState::SharedPtr msg) {
@@ -1042,7 +1044,7 @@ class RobotKinematics : public rclcpp::Node {
         std::chrono::steady_clock::time_point robot_stationary_time_;
         std::deque<double> last_10_x;
         std::deque<double> last_10_y;
-        const size_t max_size = 10;
+        const size_t max_size = 15;
 
         //promotion global variable
         std::atomic<bool> request_peice_attach_;
@@ -1055,6 +1057,7 @@ class RobotKinematics : public rclcpp::Node {
                 if(isTakeImage && !simulation_mode_){
                     RCLCPP_WARN(this->get_logger(), "[button_callback] starting takePictureInThread");
                     takePictureInThread();
+
                     isTakeImage = false;
                 }
                 if(isTakeImage && simulation_mode_){
@@ -1154,6 +1157,7 @@ class RobotKinematics : public rclcpp::Node {
             RCLCPP_INFO(this->get_logger(), "[camera_maneuver] taking image");
             takeImage->publish(std_msgs::msg::Bool().set__data(true));
             RCLCPP_INFO(this->get_logger(), "[camera_maneuver] published take image");
+            camJustExecuted = true;
         }
 
     struct ManeuverData {
@@ -1175,6 +1179,7 @@ class RobotKinematics : public rclcpp::Node {
 
     // Add simulation mode member variable
     bool simulation_mode_;
+    bool camJustExecuted = false;
 
     // Add thread tracking variables
     std::atomic<int> active_threads_;
