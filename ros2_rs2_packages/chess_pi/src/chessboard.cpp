@@ -860,7 +860,7 @@ void drawTitle(sf::RenderWindow &window, sf::Font &font, GUIState currentState)
         title.setPosition((window.getSize().x - textBounds.width) / 2.0f - textBounds.left, 20);
     } else {
         // Keep current position for game screen
-        title.setPosition(135, 390);
+        title.setPosition(130, 390);
     }
     
     window.draw(title);
@@ -908,11 +908,11 @@ public:
             "/status", 10, [this](std_msgs::msg::String::SharedPtr msg)
             {
                 if (msg->data.size() >= 4) {
-                    boardOutOfRange = (msg->data[0] == '1');
-                    temp2 = msg->data[1];
-                    estopFlag = (msg->data[2] == '1');
-                    playerTurn = (msg->data[3] == '1');
-                    RCLCPP_INFO(this->get_logger(), "Status received: %c %c %c %c", temp1, temp2, temp3, temp4);
+                    status1 = (msg->data[0] == '1');  // Board out of range
+                    status2 = (msg->data[1] == '1');  // Status 2
+                    status3 = (msg->data[2] == '1');  // E-stop flag
+                    status4 = (msg->data[3] == '1');  // Player turn
+                    RCLCPP_INFO(this->get_logger(), "Status received: %c %c %c %c", msg->data[0], msg->data[1], msg->data[2], msg->data[3]);
                 } else {
                     RCLCPP_WARN(this->get_logger(), "Status string too short: '%s'", msg->data.c_str());
                 }
@@ -962,9 +962,14 @@ public:
 
     std::string getLastMove() const { return lastMove; }
     bool getButtonState() const { return buttonState; }
-    bool getBoardOutOfRange() const { return boardOutOfRange; }
-    bool getPlayerTurn() const { return playerTurn; }
-    bool getEstopFlag() const { return estopFlag; }
+    bool getStatus1() const { return status1; }
+    bool getStatus2() const { return status2; }
+    bool getStatus3() const { return status3; }
+    bool getStatus4() const { return status4; }
+    // Legacy getters for backward compatibility
+    bool getBoardOutOfRange() const { return status1; }
+    bool getPlayerTurn() const { return status4; }
+    bool getEstopFlag() const { return status3; }
     rclcpp::Publisher<std_msgs::msg::String>::SharedPtr chess_moves_pub_stockfish_;
     rclcpp::Publisher<std_msgs::msg::String>::SharedPtr chess_moves_publisher_;
 private:
@@ -992,9 +997,10 @@ private:
     char temp1, temp2, temp3, temp4;
     std::string lastMove;
     bool buttonState = false;
-    bool boardOutOfRange = false;
-    bool playerTurn = false;
-    bool estopFlag = false;
+    bool status1 = false;
+    bool status2 = false;
+    bool status3 = false;
+    bool status4 = false;
 };
 #pragma endregion ROS
 std::string createMoveString(int fromRow, int fromCol, int toRow, int toCol, char piece, char pieceCap, bool isCapture, bool isCastling, bool isPromotion, std::shared_ptr<ChessSubscriber> ros2node);
@@ -1057,7 +1063,7 @@ int main(int argc, char **argv)
     int robotModeButtonY = startButtonY+ 70;
     Button robotModeButton = createButton(font, "MANUAL ONLY: On", robotModeButtonX, robotModeButtonY,
                                          robotModeButtonWidth, robotModeButtonHeight,
-                                         sf::Color::Blue, startButtonHover); // Gray colors initially
+                                         buttonBlue, startButtonHover); // Gray colors initially
     
     // Create game screen elements
     std::vector<Button> gameButtons = createGameButtons(font);
@@ -1314,16 +1320,16 @@ int main(int argc, char **argv)
 
         // Update flashing text state based on ROS topic data
         if (currentState == GAME_SCREEN) {
-            // Update board out of range warning
-            boardOutOfRangeText.isActive = node->getBoardOutOfRange();
-            updateFlashingText(boardOutOfRangeText, deltaTime);
+            // // Update board out of range warning
+            // boardOutOfRangeText.isActive = node->getBoardOutOfRange();
+            // updateFlashingText(boardOutOfRangeText, deltaTime);
             
-            // Update player turn notification
-            playerTurnText.isActive = node->getPlayerTurn();
-            updateFlashingText(playerTurnText, deltaTime);
+            // // Update player turn notification
+            // playerTurnText.isActive = node->getPlayerTurn();
+            // updateFlashingText(playerTurnText, deltaTime);
 
-            eStopEngaged.isActive = node->getEstopFlag();
-            updateFlashingText(eStopEngaged, deltaTime);
+            // eStopEngaged.isActive = node->getEstopFlag();
+            // updateFlashingText(eStopEngaged, deltaTime);
 
         }
 
@@ -1338,7 +1344,7 @@ int main(int argc, char **argv)
             }
         }
 
-        window.clear(sf::Color(250, 250, 250));
+        window.clear(sf::Color(180, 180, 180));
         drawTitle(window, font, currentState);
         
         if (currentState == STARTUP_SCREEN) {
@@ -1425,14 +1431,66 @@ int main(int argc, char **argv)
 
             if (node->getButtonState()) {
                 // Robot is UNLOCKED
-                indicatorLabel.setString("Robot unlocked: ");
+                indicatorLabel.setString(" Robot unlocked: ");
                 indicatorLabel.setPosition(WINDOW_WIDTH - 220, 22);
             } else {
-                indicatorLabel.setString("Robot locked: ");
+                indicatorLabel.setString(" Robot locked: ");
                 indicatorLabel.setPosition(WINDOW_WIDTH - 200, 22);
             }
 
             window.draw(indicatorLabel);
+            
+            // Status indicators
+            std::vector<std::string> statusLabels = {" Board Range", "       Status 2", ""};  // Empty string for Player Turn - will be set dynamically
+            std::vector<std::string> errorMessages = {"Reposition the board", "Check system status", "Make your move"};
+            std::vector<bool> statusValues = {node->getStatus1(), node->getStatus2(), node->getStatus4()};
+            
+            for (int i = 0; i < 3; i++) {  // Changed from 4 to 3
+                // Status indicator circle - increased size to match robot indicator
+                sf::CircleShape statusIndicator(20);  // Increased from 15 to 20 to match robot button
+                statusIndicator.setPosition(WINDOW_WIDTH - 50, 70 + i * 60);  // Increased gap from 50 to 60, adjusted X position
+                
+                // Special handling for Player Turn indicator (index 2)
+                if (i == 2) {
+                    // Use black/white colors for player turn instead of red/green
+                    statusIndicator.setFillColor(statusValues[i] ? sf::Color::White : sf::Color::Black);
+                    statusIndicator.setOutlineColor(sf::Color::Black);
+                    statusIndicator.setOutlineThickness(2);  // Thicker outline for better visibility with white
+                } else {
+                    statusIndicator.setFillColor(statusValues[i] ? sf::Color::Red : sf::Color::Green);
+                    statusIndicator.setOutlineColor(sf::Color::Black);
+                    statusIndicator.setOutlineThickness(1);
+                }
+                window.draw(statusIndicator);
+                
+                // Status label
+                sf::Text statusLabel;
+                statusLabel.setFont(font);
+                
+                // Dynamic label for Player Turn
+                if (i == 2) {
+                    statusLabel.setString(statusValues[i] ? "    White Turn:" : "    Black Turn:");
+                } else {
+                    statusLabel.setString(statusLabels[i] + ":");
+                }
+                
+                statusLabel.setCharacterSize(16);  // Increased from 12 to 16 to match robot indicator
+                statusLabel.setFillColor(sf::Color(50, 50, 50));
+                statusLabel.setPosition(WINDOW_WIDTH - 195, 82 + i * 60);  // Moved further left from -160 to -220
+                window.draw(statusLabel);
+                
+                // Error message (only show when status is red/true)
+                if (statusValues[i]) {
+                    sf::Text errorText;
+                    errorText.setFont(font);
+                    errorText.setString(errorMessages[i]);
+                    errorText.setCharacterSize(12);  // Kept error text smaller for readability
+                    errorText.setFillColor(sf::Color::Red);
+                    errorText.setStyle(sf::Text::Italic);
+                    errorText.setPosition(WINDOW_WIDTH - 220, 100 + i * 60);  // Increased gap from 86 to 92 (6 more pixels)
+                    window.draw(errorText);
+                }
+            }
             
             // Display current difficulty in game screen
             sf::Text difficultyText;
@@ -1448,8 +1506,8 @@ int main(int argc, char **argv)
             robotModeText.setFont(font);
             robotModeText.setString("Manual Only Mode: " + std::string(robotOnlyMode ? "Off" : "On"));
             robotModeText.setCharacterSize(14);
-            robotModeText.setFillColor(robotOnlyMode ? sf::Color(150, 0, 0) : sf::Color(0, 150, 0));
-            robotModeText.setPosition(BOARD_OFFSET_X + BOARD_SIZE * SQUARE_SIZE + 10, BOARD_OFFSET_Y );
+            robotModeText.setFillColor(robotOnlyMode ? sf::Color((180, 0, 0)) : sf::Color(0, 180, 0));
+            robotModeText.setPosition(BOARD_OFFSET_X + BOARD_SIZE * SQUARE_SIZE + 10, BOARD_OFFSET_Y + 4);
             window.draw(robotModeText);
         }
         
