@@ -13,7 +13,7 @@
       <collision name="collision">
         <geometry>
           <mesh>
-            <uri>model://chess_bin/meshes/chess_binSTL.stl</uri>
+            <uri>model://chess_bin/meshes/chess_bin.dae</uri>
           </mesh>
         </geometry>
       </collision>

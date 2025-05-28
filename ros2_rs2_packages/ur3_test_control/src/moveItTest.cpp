@@ -59,6 +59,7 @@ class RobotKinematics : public rclcpp::Node {
             // Declare and get simulation mode parameter
             this->declare_parameter("simulation_mode", false);
             simulation_mode_ = this->get_parameter("simulation_mode").as_bool();
+
             RCLCPP_INFO(this->get_logger(), "Simulation mode: %s", simulation_mode_ ? "true" : "false");
 
             chess_sub = this->create_subscription<std_msgs::msg::String>(
@@ -96,6 +97,8 @@ class RobotKinematics : public rclcpp::Node {
             status_pub = this->create_publisher<std_msgs::msg::String>("/status", 10);
 
             moveQueueCheck_ = this->create_wall_timer(500ms, std::bind(&RobotKinematics::checkLastestMove, this));
+
+            if(simulation_mode_) button_state = true;
 
             robot_stationary_ = false;
             pickup_dropoff_wait_ = 1.2; //seconds
@@ -331,15 +334,22 @@ class RobotKinematics : public rclcpp::Node {
                     if(!moveToJointAngles(1.544-M_PI/2, -2.060, 0.372, -0.108, -1.651, -6.233)) continue;
 
                     //wait for robot to be stationary to get a good view of the aruco
-                    while(!bin_stable_){
+                    while(!bin_stable_ && !simulation_mode_){
                         std::this_thread::sleep_for(std::chrono::milliseconds(100));
                     }
 
                     RCLCPP_INFO(this->get_logger(), "[maneuver] move to bin waypoint position");
                     if(!moveToJointAngles(0, -2.060, M_PI/2, -M_PI/2, -M_PI/2, 0)) continue;
 
-                    tempPosition.position.x = x_Bin_Aruco;
-                    tempPosition.position.y = y_Bin_Aruco;
+                    //choose between modes positions based on simulation mode
+                    if(simulation_mode_){
+                        tempPosition.position.x = default_capture_bin_x;
+                        tempPosition.position.y = default_capture_bin_y;
+                    }else{
+                        tempPosition.position.x = x_Bin_Aruco;
+                        tempPosition.position.y = y_Bin_Aruco;
+                    }
+
                     tempPosition.position.z = aboveBinHeight;
                     RCLCPP_INFO(this->get_logger(), "[maneuver] to above bin");
                     if(!moveStraightToPoint({tempPosition}, 0.05, 0.05)) continue;
@@ -397,11 +407,12 @@ class RobotKinematics : public rclcpp::Node {
 
                     RCLCPP_INFO(this->get_logger(), "[maneuver] move straight to above target peice position");
                     if(!moveStraightToPoint({tempPosition}, 0.05, 0.05)) continue;
-                    publishServoState(true);
+                    if(!simulation_mode_) publishServoState(true);
 
                     tempPosition.position.z = pickupHeight;
                     RCLCPP_INFO(this->get_logger(), "[maneuver] move straight to target peice height");
                     if(!moveStraightToPoint({tempPosition}, 0.05, 0.05)) continue;
+                    if(simulation_mode_) publishServoState(true);
 
                     std::this_thread::sleep_for(std::chrono::milliseconds(100));
                     tempPosition.position.z = operation_height;
@@ -430,7 +441,7 @@ class RobotKinematics : public rclcpp::Node {
                 if(!moveToJointAngles(1.544, -2.060, 0.372, -0.108, -1.651, -6.233)) continue;
                 
                 //added this to ensure that the robot is in the correct position for the next move and H1 is validated before moving on
-                while(!H1_up_to_date_ && rclcpp::ok()) {
+                while(!H1_up_to_date_ && rclcpp::ok() && !simulation_mode_) {
                     RCLCPP_INFO(this->get_logger(), "blocking till H1 correct");
                     std::this_thread::sleep_for(std::chrono::milliseconds(25));
                 }
@@ -1032,6 +1043,10 @@ class RobotKinematics : public rclcpp::Node {
         std::deque<double> last_10_x;
         std::deque<double> last_10_y;
         const size_t max_size = 150;
+        
+        //simulation helpers
+        double default_capture_bin_x = 0.2869;
+        double default_capture_bin_y = -0.00724;
 
         //promotion global variable
         std::atomic<bool> request_peice_attach_;

@@ -13,6 +13,7 @@ from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import LaunchConfiguration
 import os
 from ament_index_python.packages import get_package_share_directory
+from launch.actions import SetEnvironmentVariable
 
 
 def get_robot_description():
@@ -90,6 +91,30 @@ def get_robot_description_semantic():
     return robot_description_semantic
 
 def generate_launch_description():
+    # Set required environment variables for Gazebo
+    # Get the directory where this launch file is located
+    launch_file_dir = os.path.dirname(os.path.realpath(__file__))
+    # Navigate from launch/ to the gazebo_models directory: ../../../gazebo_models
+    gazebo_models_path = os.path.join(launch_file_dir, '..', '..', '..', 'gazebo_models')
+    
+    gazebo_model_path = SetEnvironmentVariable(
+        'GAZEBO_MODEL_PATH',
+        [os.environ.get('GAZEBO_MODEL_PATH', ''), ':',
+         os.path.abspath(gazebo_models_path)]
+    )
+    
+    gazebo_model_database_uri = SetEnvironmentVariable(
+        'GAZEBO_MODEL_DATABASE_URI',
+        ''
+    )
+    
+    # Get the path to our custom world file
+    world_file_path = os.path.join(
+        get_package_share_directory('ur3_test_control'),
+        'world',
+        'full_complete_v3.world'
+    )
+    
     # Paths to configuration files
     kinematics_yaml = PathJoinSubstitution([
         FindPackageShare("ur_moveit_config"),
@@ -100,34 +125,80 @@ def generate_launch_description():
     robot_description = get_robot_description()
     robot_description_semantic = get_robot_description_semantic()
     
-    main_node = Node(
-        package="ur3_test_control",
-        executable="moveIt_test_node",
-        name="moveIt_test",
-        output="screen",
-        parameters=[
-            robot_description,
-            robot_description_semantic,
-        ],
+    # Include the UR simulation launch file with our custom world
+    ur_simulation_launch = IncludeLaunchDescription(
+        PythonLaunchDescriptionSource(
+            os.path.join(
+                get_package_share_directory('ur_simulation_gazebo'),
+                'launch',
+                'ur_sim_moveit.launch.py'
+            )
+        ),
+        launch_arguments={
+            'ur_type': 'ur3e',
+            'start_joint_controller': 'true',
+            'launch_rviz': 'false',
+            'gazebo_gui': 'true',
+            'world': world_file_path
+        }.items()
+    )
+    
+    # Add longer delay and simulation time parameter for MoveIt node
+    main_node = TimerAction(
+        period=10.0,  # Increased delay to ensure Gazebo is fully started
+        actions=[
+            Node(
+                package="ur3_test_control",
+                executable="moveIt_test_node",
+                name="moveIt_test",
+                output="screen",
+                parameters=[
+                    robot_description,
+                    robot_description_semantic,
+                    {"simulation_mode": True},
+                    {"use_sim_time": True}  # Important: use simulation time
+                ],
+            )
+        ]
     )
 
     chess_node = TimerAction(
-        period=6.0,
+        period=12.0,  # Start after MoveIt node
         actions=[
             Node(
                 package="ur3_test_control",
                 executable="chess_node",
                 name="Chess_Board",
                 output="screen",
+                parameters=[{"use_sim_time": True}]
             )
         ]
     )
 
-    cam_node = Node(
-        package="ur3_test_control",
-        executable="image_processing_exe",
-        name="image_processing",
-        output="screen",
+    cam_node = TimerAction(
+        period=8.0,  # Start after simulation is stable
+        actions=[
+            Node(
+                package="ur3_test_control",
+                executable="image_processing_exe",
+                name="image_processing",
+                output="screen",
+                parameters=[{"use_sim_time": True}]
+            )
+        ]
+    )
+
+    gazebo_manager_node = TimerAction(
+        period=8.0,  # Start after simulation is stable
+        actions=[
+            Node(
+                package="ur3_test_control",
+                executable="gazebo_manager.py",
+                name="gazebo_manager",
+                output="screen",
+                parameters=[{"use_sim_time": True}]
+            )
+        ]
     )
 
     ur_moveit_launch = IncludeLaunchDescription(
@@ -141,8 +212,11 @@ def generate_launch_description():
     )
     
     return launch.LaunchDescription([
-        # ur_moveit_launch,
+        gazebo_model_path,
+        gazebo_model_database_uri,
+        ur_simulation_launch,
         main_node,
         chess_node,
-        cam_node
+        cam_node,
+        gazebo_manager_node
     ])

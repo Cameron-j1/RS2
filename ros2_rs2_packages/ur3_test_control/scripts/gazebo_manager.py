@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 import rclpy
 from rclpy.node import Node
 from objectpose_msgs.msg import ObjectPose
@@ -8,7 +10,7 @@ from std_msgs.msg import Bool
 from linkattacher_msgs.srv import AttachLink
 from rclpy.task import Future
 from linkattacher_msgs.srv import DetachLink
-
+import time
 
 class ChessBoardTracker(Node):
     def __init__(self):
@@ -135,6 +137,7 @@ class ChessBoardTracker(Node):
 
 
 def main(args=None):
+    time.sleep(5)
     rclpy.init(args=args)
     node = ChessBoardTracker()
     rclpy.spin(node)
