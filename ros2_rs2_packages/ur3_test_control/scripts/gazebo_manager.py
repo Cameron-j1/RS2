@@ -128,7 +128,12 @@ class ChessBoardTracker(Node):
         except Exception as e:
             print(f"Could not transform base_link -> tool0: {str(e)}")
 
-        self.closest_piece = self.calculate_distances(self.robotX, self.robotY)
+        try:
+            self.closest_piece = self.calculate_distances(self.robotX, self.robotY)
+        except Exception as e:
+            self.get_logger().error(f"Could not calculate distances: {str(e)}")
+            self.closest_piece = None
+
         # print(self.closest_piece)
 
         # for piece, (x, y) in self.positions.items():
