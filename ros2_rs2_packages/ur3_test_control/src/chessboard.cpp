@@ -971,7 +971,7 @@ int main(int argc, char * argv[]) {
                                 pawn = true;
                                 if (promotionPiece != '-') {
                                     pieces[i].setTextureRect(sf::IntRect(64, 0, 64, 64));
-                                    board[fishMoves[1][0]][fishMoves[1][1]] = promotionPiece;
+                                    board[fishMoves[1][0]][fishMoves[1][1]] = 'q';
                                 }
                             }
                             // Castling check and move the correct rooks
