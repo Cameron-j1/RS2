@@ -77,6 +77,7 @@ install(PROGRAMS
   scripts/camera_node.py
   scripts/img_pub.py
   scripts/gazebo_manager.py
+  scripts/arucoChecker.py
   DESTINATION lib/${PROJECT_NAME}
 )
 

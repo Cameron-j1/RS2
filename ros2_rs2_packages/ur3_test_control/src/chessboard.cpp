@@ -9,18 +9,11 @@
 #include <sstream>
 #include <thread>
 #include <chrono>
-#include <boost/process.hpp>
 #include <SFML/Graphics.hpp>
 #include <rclcpp/rclcpp.hpp>
 #include <std_msgs/msg/string.hpp>
 #include <ament_index_cpp/get_package_share_directory.hpp>
 #include "std_srvs/srv/trigger.hpp"
-
-namespace bp = boost::process;
-
-bp::ipstream stockfish_out; // Capture Stockfish output
-bp::opstream stockfish_in;  // Send commands to Stockfish
-bp::child stockfish("stockfish", bp::std_out > stockfish_out, bp::std_in < stockfish_in);
 
 const int BOARD_SIZE = 8;
 const int SQUARE_SIZE = 80;  // Adjust as needed
@@ -30,28 +23,15 @@ std::string chessPiecesPath = ament_index_cpp::get_package_share_directory("ur3_
 sf::Color cream(240, 217, 181);
 sf::Color brown(181, 136, 99);
 
-// Difficulty settings for Stockfish
+// Difficulty settings
 enum class Difficulty {
     EASY,
     MEDIUM,
     HARD
 };
 
-// Default difficulty
+// Define currentDifficulty as a global variable
 Difficulty currentDifficulty = Difficulty::MEDIUM;
-
-// Stockfish parameters for each difficulty level
-struct StockfishParams {
-    int searchDepth;
-    int skill;  // Stockfish skill level (0-20)
-    int moveTime; // Max time in milliseconds
-};
-
-std::unordered_map<Difficulty, StockfishParams> difficultyParams = {
-    {Difficulty::EASY, {5, 5, 500}},      // Shallow depth, low skill, quick moves
-    {Difficulty::MEDIUM, {10, 10, 1000}}, // Medium depth and skill
-    {Difficulty::HARD, {15, 20, 2000}}    // Deep search, max skill, longer think time
-};
 
 unsigned char board[8][8] = {
     {'-', '-', '-', '-', '-', '-', '-', '-'},
@@ -67,10 +47,6 @@ unsigned char board[8][8] = {
 std::vector<sf::RectangleShape> potentialMove;
 std::vector<bool> isPotentialMove;
 std::unordered_map<int, bool> isCastling;
-
-int halfmoveClock = 0, fullmoveNumer = 1;
-
-std::string castlingAvail = "KQkq";
 
 // Dropdown UI for difficulty selection
 class DropdownMenu {
@@ -532,74 +508,23 @@ void publishFEN(
     RCLCPP_INFO(node->get_logger(), "Published FEN: %s", msg.data.c_str());
 }
 
-void configureStockfish() {
-    // Get parameters for current difficulty level
-    StockfishParams params = difficultyParams[currentDifficulty];
-    
-    // Configure Stockfish with the appropriate parameters
-    stockfish_in << "setoption name Skill Level value " << params.skill << "\n" << std::flush;
-    
-    // Additional options can be set here based on difficulty
-    if (currentDifficulty == Difficulty::EASY) {
-        // For easy mode, we can limit Stockfish's abilities
-        stockfish_in << "setoption name Contempt value -50\n" << std::flush; // Makes Stockfish play more conservatively
-    } else if (currentDifficulty == Difficulty::MEDIUM) {
-        stockfish_in << "setoption name Contempt value 0\n" << std::flush;   // Neutral play
-    } else if (currentDifficulty == Difficulty::HARD) {
-        stockfish_in << "setoption name Contempt value 15\n" << std::flush;  // More aggressive play
-    }
-}
-
-bool restart_stockfish() {
-    try {
-        // Clean up previous process if it's running
-        if (stockfish.running()) {
-            stockfish_in << "quit" << std::endl;
-            stockfish.wait();
-        }
-
-        // Destroy old streams by recreating them
-        stockfish_in = bp::opstream{};
-        stockfish_out = bp::ipstream{};
-
-        // Restart Stockfish
-        stockfish = bp::child("stockfish", bp::std_out > stockfish_out, bp::std_in < stockfish_in);
-
-        // Send UCI handshake
-        stockfish_in << "uci" << std::endl;
-
-        std::string line;
-        while (std::getline(stockfish_out, line)) {
-            std::cout << "[Stockfish] " << line << std::endl;
-            if (line == "uciok") break;
-        }
-
-        // Check readiness
-        stockfish_in << "isready" << std::endl;
-        while (std::getline(stockfish_out, line)) {
-            std::cout << "[Stockfish] " << line << std::endl;
-            if (line == "readyok") break;
-        }
-
-        stockfish_in << "ucinewgame" << std::endl;
-        std::cout << "Stockfish restarted and ready.\n";
-        return true;
-
-    } catch (const std::exception& e) {
-        std::cerr << "Failed to restart Stockfish: " << e.what() << std::endl;
-        return false;
-    }
-}
-
 int main(int argc, char * argv[]) {
     rclcpp::init(argc, argv);
     std::string msgFromCamera;
     bool newMove = false;
+    
+    // Move these variables from global scope to main
+    int halfmoveClock = 0, fullmoveNumer = 1;
+    std::string castlingAvail = "KQkq";
+    std::string receivedUCIMove;
+    bool moveReceived = false;
+
     auto node = rclcpp::Node::make_shared("chessGUI",
         rclcpp::NodeOptions().automatically_declare_parameters_from_overrides(true));
 
     RCLCPP_INFO(node->get_logger(), "Starting chess GUI node...");
     auto publisher = node->create_publisher<std_msgs::msg::String>("/chess_moves", 10);
+    auto model_fen_publisher = node->create_publisher<std_msgs::msg::String>("/model_fen_string", 10);
 
     auto subscriber = node->create_subscription<std_msgs::msg::String>(
         "/player_move", 10,
@@ -611,10 +536,19 @@ int main(int argc, char * argv[]) {
             }
         });
 
+    // Subscribe to UCI moves from the model
+    auto uci_subscriber = node->create_subscription<std_msgs::msg::String>(
+        "/UCI_moves", 10,
+        [node, &receivedUCIMove, &moveReceived](const std_msgs::msg::String::SharedPtr msg) {
+            receivedUCIMove = msg->data;
+            moveReceived = true;
+            RCLCPP_INFO(node->get_logger(), "Received UCI move: %s", receivedUCIMove.c_str());
+        });
+
     // Subscribe to difficulty change requests
     auto difficultySubscriber = node->create_subscription<std_msgs::msg::String>(
         "/chess_difficulty", 10,
-        [node](const std_msgs::msg::String::SharedPtr msg) {
+        [node, &currentDifficulty](const std_msgs::msg::String::SharedPtr msg) {
             std::string difficultyStr = msg->data;
             if (difficultyStr == "DIFFICULTY_EASY") {
                 currentDifficulty = Difficulty::EASY;
@@ -626,23 +560,10 @@ int main(int argc, char * argv[]) {
                 currentDifficulty = Difficulty::HARD;
                 RCLCPP_INFO(node->get_logger(), "Difficulty set to HARD");
             }
-            configureStockfish();
         });
 
     auto msg = std_msgs::msg::String();
-
-    // Initialising stockfish communication via boost
-    stockfish_in << "uci\n" << std::flush;
-    std::string line;
-    while (std::getline(stockfish_out, line)) {
-        if (line == "uciok") {
-            RCLCPP_INFO(node->get_logger(), "Stockfish initialized successfully!");
-            break; // UCI initialization completed
-        }
-    }
-    
-    // Initial configuration of Stockfish based on default difficulty
-    configureStockfish();
+    auto fen_pub = node->create_publisher<std_msgs::msg::String>("/fen_string", 10);
 
     sf::RenderWindow window(sf::VideoMode(BOARD_SIZE * SQUARE_SIZE, BOARD_SIZE * SQUARE_SIZE + 50), "Chess Game", sf::Style::Titlebar | sf::Style::Close);
     sf::Texture texture;
@@ -681,8 +602,6 @@ int main(int argc, char * argv[]) {
 
     publisher->publish(msg);
 
-    auto fen_pub = node->create_publisher<std_msgs::msg::String>("/fen_string", 10);
-
     int lastClickedPiece = -1;
     int curRow = 0, curCol = 0;
     bool whiteCaptured = false, blackTurn = false;
@@ -691,7 +610,9 @@ int main(int argc, char * argv[]) {
     // Service: Reset Chessboard
     auto reset_service = node->create_service<std_srvs::srv::Trigger>(
         "/reset_chessboard",
-        [&pieces, &texture, &fen, &publisher, &msgFromCamera, &newMove, &blackTurn, &lastClickedPiece, &fen_pub, &status, node]
+        [&pieces, &texture, &fen, &publisher, &msgFromCamera, &newMove, &blackTurn, 
+         &lastClickedPiece, &fen_pub, &status, &halfmoveClock, &fullmoveNumer, 
+         &castlingAvail, node]
         (const std::shared_ptr<std_srvs::srv::Trigger::Request> request,
         std::shared_ptr<std_srvs::srv::Trigger::Response> response) {
             
@@ -911,142 +832,139 @@ int main(int argc, char * argv[]) {
         }
         window.display();
         
-        // Stockfish's turn
+        // Model's turn (replacing Stockfish)
         if (blackTurn) {
             std::this_thread::sleep_for(std::chrono::milliseconds(500));
-            fen = "position fen " + generateFullFEN('b', castlingAvail, halfmoveClock, fullmoveNumer) + '\n'; 
-            std::cout << fen;
             
-            // Stockfish move logic...
-            stockfish_in << fen << std::flush;
-            stockfish_in << "go depth 10\n" << std::flush;
-            char piecePlayed = ' ', piecePlayed2 = ' ', pieceCaptured = ' '; //peice played 2 exclusively for castling
-            char moveType = 'n';
-            std::string stockfishMove; // Declare stockfishMove variable
-            std::string stockfishMove2; // Declare 2nd stockfishMove variable
-            std::this_thread::sleep_for(std::chrono::milliseconds(500));
+            // Generate and publish current FEN string
+            std::string current_fen = generateFullFEN('b', castlingAvail, halfmoveClock, fullmoveNumer);
+            std_msgs::msg::String fen_msg;
+            fen_msg.data = current_fen;
+            model_fen_publisher->publish(fen_msg);
+            RCLCPP_INFO(node->get_logger(), "Published FEN to model: %s", current_fen.c_str());
 
-            while (std::getline(stockfish_out, line)) {
-                // std::cout << "Stockfish: " << line << std::endl;
-                if (line.rfind("bestmove", 0) == 0) {
-                    bool capture = false, pawn = false;
-                    // Extract only the move part
-                    std::istringstream iss(line);
-                    std::string bestmove;
-                    iss >> bestmove >> stockfishMove; // Skip "bestmove", get the move
-                    char promotionPiece = '-';
-                    // promotion
-                    if (stockfishMove.size() == 5) {
-                        promotionPiece = stockfishMove.back();
-                        stockfishMove.pop_back();
-                    }
+            // Wait for move from model
+            moveReceived = false;
+            while (!moveReceived && rclcpp::ok()) {
+                rclcpp::spin_some(node);
+                std::this_thread::sleep_for(std::chrono::milliseconds(100));
+            }
 
-                    // Process Stockfish move...
-                    std::vector<std::vector<int>> fishMoves = chessMoveToCoordinates(stockfishMove);
-                    // Update the graphic to show stockfish's latest move
-                    for (int i = 0; i < pieces.size(); i++) {
-                        int row = (int(pieces[i].getPosition().y)-8)/SQUARE_SIZE;
-                        int col = (int(pieces[i].getPosition().x)-8)/SQUARE_SIZE;
-                        // Find the piece that stockfish want to play
-                        if (row == fishMoves[0][0] && col == fishMoves[0][1]) {
-                            // Detection whether a capture was made by stockfish
+            if (moveReceived) {
+                std::string stockfishMove = receivedUCIMove;
+                char piecePlayed = ' ', piecePlayed2 = ' ', pieceCaptured = ' ';
+                char moveType = 'n';
+                std::string stockfishMove2;
+
+                // Process the received move
+                bool capture = false, pawn = false;
+                char promotionPiece = '-';
+                
+                // Handle promotion moves
+                if (stockfishMove.size() == 5) {
+                    promotionPiece = stockfishMove.back();
+                    stockfishMove.pop_back();
+                }
+
+                // Process move coordinates
+                std::vector<std::vector<int>> fishMoves = chessMoveToCoordinates(stockfishMove);
+                
+                // Update the graphic to show model's latest move
+                for (int i = 0; i < pieces.size(); i++) {
+                    int row = (int(pieces[i].getPosition().y)-8)/SQUARE_SIZE;
+                    int col = (int(pieces[i].getPosition().x)-8)/SQUARE_SIZE;
+                    // Find the piece that model wants to play
+                    if (row == fishMoves[0][0] && col == fishMoves[0][1]) {
+                        // Detection whether a capture was made
+                        for (int y = 0; y < pieces.size(); y++) {
+                            int rowy = (int(pieces[y].getPosition().y)-8)/SQUARE_SIZE;
+                            int coly = (int(pieces[y].getPosition().x)-8)/SQUARE_SIZE; 
+                            // Remove the captured piece from the chessboard
+                            if (rowy == fishMoves[1][0] && coly == fishMoves[1][1]) {
+                                pieces[y].setPosition(5000.0f, 5000.0f);
+                                pieceCaptured = board[fishMoves[1][0]][fishMoves[1][1]];
+                                moveType = 'x';
+                                capture = true;
+                                break;
+                            }
+                        }
+
+                        pieces[i].setPosition(fishMoves[1][1] * SQUARE_SIZE + 8, fishMoves[1][0] * SQUARE_SIZE + 8);
+                        board[fishMoves[1][0]][fishMoves[1][1]] = board[row][col];
+                        piecePlayed = board[row][col];
+
+                        if (board[row][col] == 'p') {
+                            pawn = true;
+                            if (promotionPiece != '-') {
+                                pieces[i].setTextureRect(sf::IntRect(64, 0, 64, 64));
+                                board[fishMoves[1][0]][fishMoves[1][1]] = 'q';
+                            }
+                        }
+                        // Castling check and move the correct rooks
+                        if (board[row][col] == 'k' && abs(fishMoves[0][1] - fishMoves[1][1]) > 1) {
+                            moveType = 'c';
+                            // Convert rook's move to algebraic notation
+                            // For black castling:
+                            // Kingside: rook moves from 'h8' (0,7) to 'f8' (0,5)
+                            // Queenside: rook moves from 'a8' (0,0) to 'd8' (0,3)
+                            int rookNextCol = fishMoves[1][1] == 2 ? 3 : 5, rookCurCol = fishMoves[1][1] == 2 ? 0 : 7;
+                            char start_file = rookCurCol == 0 ? 'a' : 'h';  // 'a' for queenside, 'h' for kingside
+                            char end_file = rookCurCol == 0 ? 'd' : 'f';    // 'd' for queenside, 'f' for kingside
+                            
+                            // For black pieces, the rank is '8'
+                            stockfishMove2 = start_file + std::string("8") + end_file + std::string("8");
+                            piecePlayed2 = 'r';  // The rook
+                            // Move rooks and update the board
                             for (int y = 0; y < pieces.size(); y++) {
-                                int rowy = (int(pieces[y].getPosition().y)-8)/SQUARE_SIZE;
-                                int coly = (int(pieces[y].getPosition().x)-8)/SQUARE_SIZE; 
-                                // Remove the captured piece from the chessboard by setting its position somewhere far far away
-                                if (rowy == fishMoves[1][0] && coly == fishMoves[1][1]) {
-                                    pieces[y].setPosition(5000.0f, 5000.0f);
-                                    pieceCaptured = board[fishMoves[1][0]][fishMoves[1][1]];
-                                    moveType = 'x';
-                                    capture = true;
+                                if ((int(pieces[y].getPosition().y)-8)/SQUARE_SIZE == row && 
+                                    (int(pieces[y].getPosition().x)-8)/SQUARE_SIZE == rookCurCol) {
+                                    pieces[y].setPosition(rookNextCol * SQUARE_SIZE + 8, row * SQUARE_SIZE + 8);
+                                    castlingAvail.erase(std::remove(castlingAvail.begin(), castlingAvail.end(), 'k'), castlingAvail.end());
+                                    castlingAvail.erase(std::remove(castlingAvail.begin(), castlingAvail.end(), 'q'), castlingAvail.end());
+                                    if (castlingAvail.length() == 0) castlingAvail = "-";
+                                    board[row][rookNextCol] = board[row][rookCurCol];
+                                    board[row][rookCurCol] = '-';
                                     break;
                                 }
                             }
-
-                            pieces[i].setPosition(fishMoves[1][1] * SQUARE_SIZE + 8, fishMoves[1][0] * SQUARE_SIZE + 8);
-                            board[fishMoves[1][0]][fishMoves[1][1]] = board[row][col];
-                            piecePlayed = board[row][col];
-
-                            if (board[row][col] == 'p') {
-                                pawn = true;
-                                if (promotionPiece != '-') {
-                                    pieces[i].setTextureRect(sf::IntRect(64, 0, 64, 64));
-                                    board[fishMoves[1][0]][fishMoves[1][1]] = 'q';
-                                }
-                            }
-                            // Castling check and move the correct rooks
-                            if (board[row][col] == 'k' && abs(fishMoves[0][1] - fishMoves[1][1]) > 1) {
-                                moveType = 'c';
-                                // Convert rook's move to algebraic notation (same format as stockfishMove)
-                                // For black castling:
-                                // Kingside: rook moves from 'h8' (0,7) to 'f8' (0,5)
-                                // Queenside: rook moves from 'a8' (0,0) to 'd8' (0,3)
-                                int rookNextCol = fishMoves[1][1] == 2 ? 3 : 5, rookCurCol = fishMoves[1][1] == 2 ? 0 : 7;
-                                char start_file = rookCurCol == 0 ? 'a' : 'h';  // 'a' for queenside, 'h' for kingside
-                                char end_file = rookCurCol == 0 ? 'd' : 'f';    // 'd' for queenside, 'f' for kingside
-                                
-                                // For black pieces, the rank is '8'
-                                stockfishMove2 = start_file + std::string("8") + end_file + std::string("8");
-                                piecePlayed2 = 'r';  // The rook
-                                // Move rooks and update the board
-                                for (int y = 0; y < pieces.size(); y++) {
-                                    if ((int(pieces[y].getPosition().y)-8)/SQUARE_SIZE == row && (int(pieces[y].getPosition().x)-8)/SQUARE_SIZE == rookCurCol) {
-                                        pieces[y].setPosition(rookNextCol * SQUARE_SIZE + 8, row * SQUARE_SIZE + 8);
-                                        castlingAvail.erase(std::remove(castlingAvail.begin(), castlingAvail.end(), 'k'), castlingAvail.end());
-                                        castlingAvail.erase(std::remove(castlingAvail.begin(), castlingAvail.end(), 'q'), castlingAvail.end());
-                                        if (castlingAvail.length() == 0) castlingAvail = "-";
-                                        board[row][rookNextCol] = board[row][rookCurCol];
-                                        board[row][rookCurCol] = '-';
-                                        break;
-                                    }
-                                }
-                            }
-
-                            // Remove castling availability if the king has moved
-                            else if (board[row][col] == 'k' && abs(fishMoves[0][1] - fishMoves[1][1]) <= 1) {
-                                castlingAvail.erase(std::remove(castlingAvail.begin(), castlingAvail.end(), 'k'), castlingAvail.end());
-                                castlingAvail.erase(std::remove(castlingAvail.begin(), castlingAvail.end(), 'q'), castlingAvail.end());
-                                if (castlingAvail.length() == 0) castlingAvail = "-";
-                                
-                            }
-
-                            board[row][col] = '-';
-                            break;
                         }
-                    }
-                    if (capture || pawn) halfmoveClock = 0; else halfmoveClock++; 
-                    fullmoveNumer++;
+                        // Remove castling availability if the king has moved
+                        else if (board[row][col] == 'k' && abs(fishMoves[0][1] - fishMoves[1][1]) <= 1) {
+                            castlingAvail.erase(std::remove(castlingAvail.begin(), castlingAvail.end(), 'k'), castlingAvail.end());
+                            castlingAvail.erase(std::remove(castlingAvail.begin(), castlingAvail.end(), 'q'), castlingAvail.end());
+                            if (castlingAvail.length() == 0) castlingAvail = "-";
+                        }
 
-                    //logic for adding data for castling move
-                    if (moveType == 'c') {
-                        // msg.data = stockfishMove       // king LAN, e.g. "e8g8"
-                        //          + stockfishMove2      // rook LAN, e.g. "h8f8"
-                        //          + moveType            // 'c'
-                        //          + piecePlayed         // 'k'
-                        //          + piecePlayed2;       // 'r'
-                        msg.data = stockfishMove2 + 'n' + 'r'; publisher->publish(msg); // Publish the move to control node
-                        std::this_thread::sleep_for(std::chrono::milliseconds(50));
-                        msg.data = stockfishMove + 'n' + 'k'; publisher->publish(msg); // Publish the move to control node
-                        
-                    } else {
-                        msg.data = stockfishMove + moveType + piecePlayed;
-                        if (capture) msg.data += pieceCaptured;
-                        if (promotionPiece != '-') msg.data = stockfishMove + "=q";
-                        publisher->publish(msg); // Publish the move to control node
+                        board[row][col] = '-';
+                        break;
                     }
-                    // if (capture) msg.data += pieceCaptured;
-                    break;
                 }
+                if (capture || pawn) halfmoveClock = 0; else halfmoveClock++; 
+                fullmoveNumer++;
+
+                //logic for adding data for castling move
+                if (moveType == 'c') {
+                    msg.data = stockfishMove2 + 'n' + 'r'; 
+                    publisher->publish(msg); // Publish the move to control node
+                    std::this_thread::sleep_for(std::chrono::milliseconds(50));
+                    msg.data = stockfishMove + 'n' + 'k'; 
+                    publisher->publish(msg); // Publish the move to control node
+                } else {
+                    msg.data = stockfishMove + moveType + piecePlayed;
+                    if (capture) msg.data += pieceCaptured;
+                    if (promotionPiece != '-') msg.data = stockfishMove + "=q";
+                    publisher->publish(msg); // Publish the move to control node
+                }
+                // ... rest of the move processing code ...
+                
+                // Reset move received flag
+                moveReceived = false;
             }
-            
-            if (!stockfish.running()) {
-                std::cout << "STOCKFISH DIED LOL \n";
-                restart_stockfish();
-                continue;
-            }
-            // Publish FEN after Stockfish move
+
+            // Publish FEN after model's move
             publishFEN(node, fen_pub, blackTurn, castlingAvail, halfmoveClock, fullmoveNumer);
             blackTurn = false;
+            
             // Publish board state to camera node
             std::string boardStr;
             for (int i = 0; i < 8; i++) {
@@ -1060,8 +978,6 @@ int main(int argc, char * argv[]) {
         }
     }
     
-    stockfish_in << "quit\n" << std::flush;
-    stockfish.wait(); // Wait for the process to finish
     rclcpp::shutdown();
     return 0;
 }

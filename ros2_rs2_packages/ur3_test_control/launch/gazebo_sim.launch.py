@@ -145,7 +145,7 @@ def generate_launch_description():
     
     # Add longer delay and simulation time parameter for MoveIt node
     main_node = TimerAction(
-        period=10.0,  # Increased delay to ensure Gazebo is fully started
+        period=15.0,  # Increased delay to ensure Gazebo is fully started
         actions=[
             Node(
                 package="ur3_test_control",
@@ -163,14 +163,13 @@ def generate_launch_description():
     )
 
     chess_node = TimerAction(
-        period=12.0,  # Start after MoveIt node
+        period=17.0,  # Start after MoveIt node
         actions=[
             Node(
                 package="ur3_test_control",
-                executable="chess_node",
-                name="Chess_Board",
+                executable="chessboard_gui.py",
+                name="chess_gui",
                 output="screen",
-                parameters=[{"use_sim_time": True}]
             )
         ]
     )

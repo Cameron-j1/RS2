@@ -4,14 +4,7 @@ from launch_ros.actions import Node
 from launch.actions import TimerAction
 from launch.substitutions import PathJoinSubstitution, Command, FindExecutable
 from launch_ros.substitutions import FindPackageShare
-from launch.actions import ExecuteProcess
-
-#for launch file
 from launch import LaunchDescription
-from launch.actions import IncludeLaunchDescription
-from launch.launch_description_sources import PythonLaunchDescriptionSource
-from launch.substitutions import LaunchConfiguration
-import os
 from ament_index_python.packages import get_package_share_directory
 
 # Add environment variable to control logging
@@ -21,15 +14,6 @@ os.environ['RCUTILS_LOGGING_USE_STDOUT'] = '1'
 
 # Set global logging level to ERROR
 os.environ['RCUTILS_LOGGING_MIN_SEVERITY'] = 'ERROR'
-
-# Specifically suppress MoveGroup and related loggers
-os.environ['RCUTILS_LOGGING_MIN_SEVERITY_MOVEIT'] = 'ERROR'
-os.environ['RCUTILS_LOGGING_MIN_SEVERITY_UR_MOVEIT'] = 'ERROR'
-os.environ['RCUTILS_LOGGING_MIN_SEVERITY_MOVEIT_MOVE_GROUP'] = 'ERROR'
-os.environ['RCUTILS_LOGGING_MIN_SEVERITY_MOVEIT_ROS'] = 'ERROR'
-os.environ['RCUTILS_LOGGING_MIN_SEVERITY_MOVEIT_PLUGINS'] = 'ERROR'
-os.environ['RCUTILS_LOGGING_MIN_SEVERITY_MOVEIT_SIMPLE_CONTROLLER_MANAGER'] = 'ERROR'
-os.environ['RCUTILS_LOGGING_MIN_SEVERITY_MOVEIT_TRAJECTORY_EXECUTION_MANAGER'] = 'ERROR'
 
 def get_robot_description():
     joint_limit_params = PathJoinSubstitution(
@@ -49,7 +33,7 @@ def get_robot_description():
         " ",
         PathJoinSubstitution([FindPackageShare("ur_description"), "urdf", "ur.urdf.xacro"]),
         " ",
-        "robot_ip:=192.168.0.250",  # Match your robot_ip from ur_control.launch.py
+        "robot_ip:=192.168.0.250",
         " ",
         "joint_limit_params:=",
         joint_limit_params,
@@ -86,7 +70,6 @@ def get_robot_description():
     return robot_description
 
 def get_robot_description_semantic():
-    # MoveIt Configuration
     robot_description_semantic_content = Command([
         PathJoinSubstitution([FindExecutable(name="xacro")]),
         " ",
@@ -105,15 +88,11 @@ def get_robot_description_semantic():
     return robot_description_semantic
 
 def generate_launch_description():
-    # Paths to configuration files
-    kinematics_yaml = PathJoinSubstitution([
-        FindPackageShare("ur_moveit_config"),
-        "config",
-        "kinematics.yaml"
-    ])
-    
     robot_description = get_robot_description()
     robot_description_semantic = get_robot_description_semantic()
+    
+    # Get the package share directory
+    pkg_share = get_package_share_directory('ur3_test_control')
     
     main_node = Node(
         package="ur3_test_control",
@@ -125,7 +104,6 @@ def generate_launch_description():
             robot_description_semantic,
             {"simulation_mode": False},
         ],
-        # Override the global logging level for this specific node
         arguments=['--ros-args', '--log-level', 'moveIt_test:=INFO']
     )
 
@@ -141,26 +119,23 @@ def generate_launch_description():
         ]
     )
 
-    cam_node = Node(
+    aruco_node = Node(
         package="ur3_test_control",
-        executable="image_processing_exe",
-        name="image_processing",
+        executable=os.path.join(pkg_share, '..', '..', 'src', 'ur3_test_control', 'scripts', 'arucoChecker.py'),
+        name="aruco_checker",
         output="screen",
     )
 
-    ur_moveit_launch = IncludeLaunchDescription(
-        PythonLaunchDescriptionSource(
-            os.path.join(get_package_share_directory('ur_moveit_config'), 'launch', 'ur_moveit.launch.py')
-        ),
-        launch_arguments={
-            'ur_type': 'ur3e',
-            # 'launch_rviz': 'false'
-        }.items()
+    camera_node = Node(
+        package="ur3_test_control",
+        executable="camera_node.py",
+        name="camera_node",
+        output="screen",
     )
     
     return launch.LaunchDescription([
-        ur_moveit_launch,
         main_node,
         chess_node,
-        #cam_node
-    ])
+        aruco_node,
+        camera_node,
+    ]) 
